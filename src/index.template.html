@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Calendario HVAC SI&S</title>
+  <style>
+/*__APP_CSS__*/
+  </style>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="Calendario HVAC SI&S">
+        <span class="brand-mark" aria-hidden="true">HV</span>
+        <span>
+          <strong>Calendario HVAC</strong>
+          <small>Programación SI&amp;S</small>
+        </span>
+      </div>
+
+      <div class="top-actions" aria-label="Acciones principales">
+        <button class="button primary" id="newActivityButton" type="button" data-testid="new-activity">
+          <span aria-hidden="true">＋</span> Nueva actividad
+        </button>
+        <button class="button" id="importBaseButton" type="button" data-testid="import-base">
+          Importar Base Operativa
+        </button>
+        <button class="icon-button" id="backupButton" type="button" title="Descargar respaldo JSON" aria-label="Descargar respaldo JSON">⇩</button>
+        <button class="icon-button" id="restoreButton" type="button" title="Restaurar respaldo JSON" aria-label="Restaurar respaldo JSON">⇧</button>
+        <button class="icon-button" id="exportCsvButton" type="button" title="Exportar mes a CSV" aria-label="Exportar mes a CSV">CSV</button>
+        <button class="icon-button" id="holidayButton" type="button" title="Festivos y ajustes" aria-label="Festivos y ajustes">◉</button>
+        <button class="icon-button" id="helpButton" type="button" title="Ayuda y privacidad" aria-label="Ayuda y privacidad">?</button>
+      </div>
+
+      <div class="save-indicator" id="saveIndicator" role="status" aria-live="polite">
+        <span class="save-dot"></span>
+        <span id="saveIndicatorText">Iniciando…</span>
+      </div>
+    </header>
+
+    <section class="backup-banner" id="backupBanner" hidden>
+      <div>
+        <strong>Conviene crear un respaldo.</strong>
+        <span id="backupBannerText">Tus datos viven en este navegador.</span>
+      </div>
+      <button class="button small" id="backupBannerButton" type="button">Respaldar ahora</button>
+      <button class="icon-button small" id="dismissBackupBanner" type="button" aria-label="Ocultar recordatorio">×</button>
+    </section>
+
+    <section class="calendar-toolbar" aria-label="Navegación y filtros">
+      <div class="month-navigation">
+        <button class="icon-button" id="previousMonthButton" type="button" aria-label="Mes anterior">‹</button>
+        <button class="button small" id="todayButton" type="button">Hoy</button>
+        <button class="icon-button" id="nextMonthButton" type="button" aria-label="Mes siguiente">›</button>
+        <h1 id="monthTitle" data-testid="month-title">Mes</h1>
+      </div>
+      <div class="filters">
+        <label class="search-box">
+          <span class="visually-hidden">Buscar</span>
+          <span aria-hidden="true">⌕</span>
+          <input id="globalSearch" type="search" placeholder="Buscar cliente, sede, ciudad…" autocomplete="off">
+        </label>
+        <label>
+          <span class="visually-hidden">Filtrar por estado</span>
+          <select id="statusFilter" aria-label="Filtrar por estado">
+            <option value="all">Todos los estados</option>
+          </select>
+        </label>
+        <label>
+          <span class="visually-hidden">Filtrar por servicio</span>
+          <select id="serviceFilter" aria-label="Filtrar por servicio">
+            <option value="all">Todos los servicios</option>
+          </select>
+        </label>
+        <label>
+          <span class="visually-hidden">Filtrar por responsable</span>
+          <select id="responsibleFilter" aria-label="Filtrar por responsable">
+            <option value="all">Todos los responsables</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <main class="workspace">
+      <aside class="catalog-panel" aria-label="Catálogo operativo">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Banco de tarjetas</p>
+            <h2>Catálogo</h2>
+          </div>
+          <button class="icon-button" id="newCatalogButton" type="button" aria-label="Agregar registro al catálogo">＋</button>
+        </div>
+        <div class="segmented" role="tablist" aria-label="Tipo de catálogo">
+          <button class="segment active" id="sitesTab" type="button" role="tab" aria-selected="true" data-tab="sites">Clientes y sedes</button>
+          <button class="segment" id="responsiblesTab" type="button" role="tab" aria-selected="false" data-tab="responsibles">Responsables</button>
+        </div>
+        <label class="catalog-search">
+          <span class="visually-hidden">Buscar en el catálogo</span>
+          <input id="catalogSearch" type="search" placeholder="Filtrar catálogo…" autocomplete="off">
+        </label>
+        <p class="drag-hint" id="dragHint">Arrastra un cliente o una sede hasta un día.</p>
+        <div class="catalog-list" id="catalogList" data-testid="catalog-list"></div>
+        <div class="empty-catalog" id="emptyCatalog">
+          <span class="empty-icon" aria-hidden="true">▦</span>
+          <strong>Aún no hay catálogo</strong>
+          <p>Importa la Base Operativa o crea tus primeros registros manualmente.</p>
+          <button class="button small" id="emptyImportButton" type="button">Importar Base Operativa</button>
+        </div>
+      </aside>
+
+      <section class="calendar-panel" role="region" aria-label="Calendario mensual">
+        <div class="weekday-row" id="weekdayRow" aria-hidden="true">
+          <div>Lunes</div>
+          <div>Martes</div>
+          <div>Miércoles</div>
+          <div>Jueves</div>
+          <div>Viernes</div>
+          <div>Sábado</div>
+          <div>Domingo</div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid" data-testid="calendar-grid"></div>
+      </section>
+
+      <aside class="detail-drawer" id="detailDrawer" aria-labelledby="drawerTitle" aria-hidden="true" inert>
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow" id="drawerEyebrow">Detalle</p>
+            <h2 id="drawerTitle">Actividad</h2>
+          </div>
+          <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Cerrar detalle">×</button>
+        </div>
+        <div class="drawer-body" id="drawerBody"></div>
+      </aside>
+    </main>
+
+    <div class="selection-bar" id="selectionBar" hidden>
+      <strong><span id="selectionCount">0</span> seleccionadas</strong>
+      <button class="button small" id="bulkMoveButton" type="button">Mover</button>
+      <button class="button small" id="bulkStatusButton" type="button">Cambiar estado</button>
+      <button class="button small ghost" id="clearSelectionButton" type="button">Limpiar selección</button>
+    </div>
+  </div>
+
+  <dialog class="modal activity-modal" id="activityDialog" data-testid="activity-dialog" aria-labelledby="activityDialogTitle">
+    <form id="activityForm" method="dialog" novalidate>
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow" id="activityDialogEyebrow">Programación</p>
+          <h2 id="activityDialogTitle">Nueva actividad</h2>
+        </div>
+        <button class="icon-button dialog-close" type="button" data-close-dialog="activityDialog" aria-label="Cerrar">×</button>
+      </header>
+
+      <div class="form-errors" id="activityFormErrors" role="alert" hidden></div>
+      <input id="activityId" name="activityId" type="hidden">
+
+      <div class="form-section">
+        <h3>Cuándo</h3>
+        <div class="form-grid two-columns">
+          <label>
+            <span>Fecha inicial</span>
+            <input id="activityDate" name="date" type="date" required data-testid="activity-date">
+          </label>
+          <label id="endDateLabel">
+            <span>Fecha final <small>(opcional)</small></span>
+            <input id="activityEndDate" name="endDate" type="date" data-testid="activity-end-date">
+          </label>
+        </div>
+        <label class="check-row" id="includeNonWorkingLabel">
+          <input id="includeNonWorking" name="includeNonWorking" type="checkbox">
+          <span>Incluir domingos y festivos del rango</span>
+        </label>
+        <div class="range-preview" id="rangePreview" hidden></div>
+      </div>
+
+      <div class="form-section">
+        <h3>Servicio</h3>
+        <div class="form-grid two-columns">
+          <label>
+            <span>Tipo de servicio</span>
+            <select id="activityServiceType" name="serviceType" required data-testid="service-type"></select>
+          </label>
+          <label>
+            <span>Estado</span>
+            <select id="activityStatus" name="status" required data-testid="activity-status"></select>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Ubicación</h3>
+        <p class="field-note" id="administrativeNote" hidden>Para actividades administrativas, cliente, sede y ciudad son opcionales.</p>
+        <div class="form-grid two-columns">
+          <label>
+            <span>Cliente</span>
+            <select id="activityClient" name="clientId" data-testid="activity-client">
+              <option value="">Selecciona un cliente</option>
+            </select>
+          </label>
+          <label>
+            <span>Sede</span>
+            <select id="activitySite" name="siteId" data-testid="activity-site">
+              <option value="">Selecciona una sede</option>
+            </select>
+          </label>
+          <label>
+            <span>Ciudad</span>
+            <input id="activityCity" name="city" type="text" maxlength="120" list="citySuggestions" data-testid="activity-city">
+            <datalist id="citySuggestions"></datalist>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="section-heading-inline">
+          <h3>Responsables</h3>
+          <button class="text-button" id="quickAddResponsibleButton" type="button">＋ Crear responsable</button>
+        </div>
+        <div class="responsible-picker" id="responsiblePicker" data-testid="responsible-picker"></div>
+      </div>
+
+      <div class="form-section">
+        <label>
+          <span>Observaciones</span>
+          <textarea id="activityObservations" name="observations" rows="4" maxlength="5000" placeholder="Permisos, equipos, herramientas, novedades o instrucciones…"></textarea>
+        </label>
+      </div>
+
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="activityDialog">Cancelar</button>
+        <button class="button primary" id="saveActivityButton" type="submit" value="default" data-testid="save-activity">Guardar actividad</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal catalog-modal" id="catalogDialog" aria-labelledby="catalogDialogTitle">
+    <form id="catalogForm" method="dialog" novalidate>
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Catálogo local</p>
+          <h2 id="catalogDialogTitle">Nuevo registro</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="catalogDialog" aria-label="Cerrar">×</button>
+      </header>
+      <div class="form-errors" id="catalogFormErrors" role="alert" hidden></div>
+      <input id="catalogItemId" name="itemId" type="hidden">
+      <label>
+        <span>Tipo de registro</span>
+        <select id="catalogType" name="catalogType">
+          <option value="client">Cliente</option>
+          <option value="site">Sede</option>
+          <option value="responsible">Responsable</option>
+        </select>
+      </label>
+
+      <div class="catalog-fields" id="clientFields">
+        <label><span>Nombre del cliente</span><input id="catalogClientName" name="clientName" type="text" maxlength="160"></label>
+      </div>
+
+      <div class="catalog-fields" id="siteFields" hidden>
+        <div class="form-grid two-columns">
+          <label><span>Cliente</span><select id="catalogSiteClient" name="siteClientId"></select></label>
+          <label><span>Nombre de la sede</span><input id="catalogSiteName" name="siteName" type="text" maxlength="160"></label>
+          <label><span>Ciudad</span><input id="catalogSiteCity" name="siteCity" type="text" maxlength="120"></label>
+          <label><span>Zona</span><input id="catalogSiteZone" name="siteZone" type="text" maxlength="120"></label>
+          <label><span>Centro comercial</span><input id="catalogSiteCenter" name="siteCenter" type="text" maxlength="160"></label>
+          <label><span>Dirección</span><input id="catalogSiteAddress" name="siteAddress" type="text" maxlength="240"></label>
+        </div>
+        <label><span>Condiciones de ingreso</span><textarea id="catalogSiteEntry" name="siteEntry" rows="3" maxlength="1000"></textarea></label>
+        <label class="check-row"><input id="catalogSiteApp" name="siteRequiresApp" type="checkbox"><span>Requiere App SI&amp;S</span></label>
+      </div>
+
+      <div class="catalog-fields" id="responsibleFields" hidden>
+        <div class="form-grid two-columns">
+          <label><span>Nombre</span><input id="catalogResponsibleName" name="responsibleName" type="text" maxlength="160"></label>
+          <label><span>Tipo</span>
+            <select id="catalogResponsibleType" name="responsibleType">
+              <option value="payroll">Personal de nómina</option>
+              <option value="contractor">Contratista</option>
+            </select>
+          </label>
+          <label><span>Empresa <small>(si aplica)</small></span><input id="catalogResponsibleCompany" name="responsibleCompany" type="text" maxlength="160"></label>
+          <label><span>Ciudad base</span><input id="catalogResponsibleCity" name="responsibleCity" type="text" maxlength="120"></label>
+          <label><span>Grupo</span><input id="catalogResponsibleGroup" name="responsibleGroup" type="text" maxlength="120"></label>
+          <label><span>Iniciales</span><input id="catalogResponsibleInitials" name="responsibleInitials" type="text" maxlength="5"></label>
+        </div>
+        <label><span>Cobertura manual <small>(ciudades separadas por coma)</small></span><input id="catalogResponsibleCoverage" name="responsibleCoverage" type="text" maxlength="500"></label>
+        <label class="check-row"><input id="catalogResponsibleFavorite" name="responsibleFavorite" type="checkbox"><span>Mostrar entre los favoritos</span></label>
+      </div>
+
+      <label class="check-row"><input id="catalogActive" name="active" type="checkbox" checked><span>Registro activo</span></label>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="catalogDialog">Cancelar</button>
+        <button class="button primary" type="submit">Guardar registro</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal import-modal" id="importDialog" data-testid="import-dialog" aria-labelledby="importDialogTitle">
+    <form id="importForm" method="dialog">
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Vista previa segura</p>
+          <h2 id="importDialogTitle">Importar Base Operativa</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="importDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="modal-intro">La herramienta sólo lee clientes, sedes, ciudades y responsables. No importa cédulas, NIT, teléfonos, correos ni contactos.</p>
+      <div class="file-summary" id="importFileSummary"></div>
+      <div class="import-stat-grid" id="importStatGrid"></div>
+      <div class="warning-list" id="importWarnings" hidden></div>
+      <details>
+        <summary>Qué se actualizará</summary>
+        <div id="importDetails"></div>
+      </details>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="importDialog">Cancelar</button>
+        <button class="button primary" id="applyImportButton" type="submit" data-testid="apply-import">Aplicar importación</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal holiday-modal" id="holidayDialog" aria-labelledby="holidayDialogTitle">
+    <form id="holidayForm" method="dialog" novalidate>
+      <header class="modal-header">
+        <div>
+          <p class="eyebrow">Calendario Colombia</p>
+          <h2 id="holidayDialogTitle">Festivos y excepciones</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-dialog="holidayDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="modal-intro">Los festivos nacionales se calculan con la Ley 51 de 1983 y, desde 2026, la Ley 2578. Las excepciones no borran la identificación legal del día.</p>
+      <div class="holiday-layout">
+        <section>
+          <h3 id="holidayYearTitle">Festivos calculados</h3>
+          <div class="holiday-list" id="holidayList"></div>
+        </section>
+        <section class="override-editor">
+          <h3>Nueva excepción</h3>
+          <div class="form-errors" id="holidayFormErrors" role="alert" hidden></div>
+          <label><span>Fecha</span><input id="overrideDate" name="date" type="date" required></label>
+          <label><span>Comportamiento</span>
+            <select id="overrideType" name="type">
+              <option value="manual-closure">Cierre adicional</option>
+              <option value="allow-scheduling">Permitir programación por defecto</option>
+            </select>
+          </label>
+          <label><span>Nombre</span><input id="overrideName" name="name" type="text" maxlength="120" required></label>
+          <label><span>Motivo</span><textarea id="overrideReason" name="reason" rows="3" maxlength="500" required></textarea></label>
+          <button class="button" type="submit">Agregar excepción</button>
+          <div class="override-list" id="overrideList"></div>
+        </section>
+      </div>
+      <footer class="modal-footer">
+        <a class="text-link" href="https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=4954" target="_blank" rel="noreferrer">Ley 51 de 1983</a>
+        <a class="text-link" href="https://www.suin-juriscol.gov.co/viewDocument.asp?id=30056513" target="_blank" rel="noreferrer">Ley 2578 de 2026</a>
+        <button class="button ghost" type="button" data-close-dialog="holidayDialog">Cerrar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="bulkMoveDialog" aria-labelledby="bulkMoveDialogTitle">
+    <form id="bulkMoveForm" method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Edición múltiple</p><h2 id="bulkMoveDialogTitle">Mover tarjetas</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="bulkMoveDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p id="bulkMoveSummary"></p>
+      <label><span>Fecha de destino</span><input id="bulkMoveDate" name="targetDate" type="date" required></label>
+      <fieldset>
+        <legend>Cómo moverlas</legend>
+        <label class="radio-row"><input name="moveMode" type="radio" value="preserve" checked><span>Conservar la distancia entre fechas</span></label>
+        <label class="radio-row"><input name="moveMode" type="radio" value="same"><span>Reunir todas en la misma fecha</span></label>
+      </fieldset>
+      <div class="warning-list" id="bulkMoveWarning" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="bulkMoveDialog">Cancelar</button>
+        <button class="button primary" type="submit">Mover selección</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="bulkStatusDialog" aria-labelledby="bulkStatusDialogTitle">
+    <form id="bulkStatusForm" method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Edición múltiple</p><h2 id="bulkStatusDialogTitle">Cambiar estado</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="bulkStatusDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p id="bulkStatusSummary"></p>
+      <label><span>Nuevo estado</span><select id="bulkStatusValue"></select></label>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="bulkStatusDialog">Cancelar</button>
+        <button class="button primary" type="submit">Aplicar estado</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="restoreDialog" aria-labelledby="restoreDialogTitle">
+    <form id="restoreForm" method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Respaldo portable</p><h2 id="restoreDialogTitle">Restaurar datos</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="restoreDialog" aria-label="Cerrar">×</button>
+      </header>
+      <div id="restoreSummary"></div>
+      <p class="warning-box">La restauración reemplazará el estado actual. Se conservará una copia recuperable en este navegador.</p>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="restoreDialog">Cancelar</button>
+        <button class="button primary" type="submit">Restaurar respaldo</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="helpDialog" aria-labelledby="helpDialogTitle">
+    <header class="modal-header">
+      <div><p class="eyebrow">Guía rápida</p><h2 id="helpDialogTitle">Cómo usar el calendario</h2></div>
+      <button class="icon-button" type="button" data-close-dialog="helpDialog" aria-label="Cerrar">×</button>
+    </header>
+    <div class="help-content">
+      <ol>
+        <li>Importa la Base Operativa o crea registros manuales.</li>
+        <li>Arrastra un cliente o sede a una fecha, o usa <strong>Nueva actividad</strong>.</li>
+        <li>Haz clic en una tarjeta para ver todos sus datos y cambiar su estado.</li>
+        <li>Usa la casilla de cada tarjeta para seleccionar y mover varias a la vez.</li>
+        <li>Descarga un respaldo JSON con regularidad.</li>
+      </ol>
+      <div class="privacy-note">
+        <strong>Privacidad y persistencia</strong>
+        <p>La aplicación funciona sin conexión. Sus datos se guardan en IndexedDB dentro de este navegador y no se envían a ningún servidor. La importación de Excel excluye campos personales y de contacto.</p>
+      </div>
+      <div class="legend">
+        <span><i class="legend-color payroll"></i>Nómina</span>
+        <span><i class="legend-color contractor"></i>Contratista</span>
+        <span><i class="legend-color mixed"></i>Equipo mixto</span>
+        <span><i class="legend-color holiday"></i>Festivo</span>
+      </div>
+    </div>
+    <footer class="modal-footer">
+      <span class="version-label" id="versionLabel"></span>
+      <button class="button ghost" type="button" data-close-dialog="helpDialog">Cerrar</button>
+    </footer>
+  </dialog>
+
+  <input id="baseFileInput" type="file" accept=".xlsx,.xls" hidden>
+  <input id="restoreFileInput" type="file" accept=".json,application/json" hidden>
+
+  <div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>
+
+  <!--__LICENSE__-->
+  <script>
+/*__SHEETJS__*/
+  </script>
+  <script type="module">
+/*__APP_JS__*/
+  </script>
+</body>
+</html>
