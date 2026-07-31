@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="SIYS Sync">
+  <defs>
+    <linearGradient id="sync" x1="12" y1="112" x2="116" y2="16" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1455bf"/>
+      <stop offset=".48" stop-color="#0879b6"/>
+      <stop offset="1" stop-color="#2fc9ae"/>
+    </linearGradient>
+    <linearGradient id="head" x1="36" y1="38" x2="92" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#235aa9"/>
+      <stop offset="1" stop-color="#0a285f"/>
+    </linearGradient>
+  </defs>
+  <path d="M20 54a47 47 0 0 1 80-25" fill="none" stroke="url(#sync)" stroke-width="8" stroke-linecap="round"/>
+  <path d="m102 18 3 22 17-14z" fill="#2fc9ae"/>
+  <path d="M108 73a47 47 0 0 1-81 27" fill="none" stroke="url(#sync)" stroke-width="8" stroke-linecap="round"/>
+  <path d="m25 111-3-22L5 103z" fill="#1455bf"/>
+  <rect x="31" y="31" width="66" height="66" rx="14" fill="#fff" stroke="#dce2e8" stroke-width="3"/>
+  <path d="M31 50a19 19 0 0 1 19-19h28a19 19 0 0 1 19 19v12H31z" fill="url(#head)"/>
+  <path d="M48 25v17M80 25v17" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M48 25v17M80 25v17" fill="none" stroke="#235aa9" stroke-width="6" stroke-linecap="round"/>
+  <g fill="#c8cdd4">
+    <rect x="43" y="70" width="10" height="10" rx="2"/>
+    <rect x="59" y="70" width="10" height="10" rx="2"/>
+    <rect x="75" y="70" width="10" height="10" rx="2"/>
+    <rect x="43" y="84" width="10" height="10" rx="2"/>
+    <rect x="59" y="84" width="10" height="10" rx="2"/>
+  </g>
+  <rect x="75" y="84" width="10" height="10" rx="2" fill="#1455bf"/>
+</svg>

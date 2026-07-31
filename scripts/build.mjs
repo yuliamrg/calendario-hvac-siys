@@ -11,12 +11,13 @@ const paths = {
   vendor: resolve(root, "vendor", "xlsx.full.min.js"),
   license: resolve(root, "vendor", "LICENSE.txt"),
   notice: resolve(root, "vendor", "NOTICE.txt"),
+  brandIcon: resolve(root, "src", "assets", "siys-sync-icon.svg"),
   outputDir: resolve(root, "dist"),
   output: resolve(root, "dist", "calendario-hvac-siys.html"),
   pagesOutput: resolve(root, "dist", "index.html")
 };
 
-const [template, css, core, importer, app, vendor, license, notice] = await Promise.all([
+const [template, css, core, importer, app, vendor, license, notice, brandIcon] = await Promise.all([
   readFile(paths.template, "utf8"),
   readFile(paths.css, "utf8"),
   readFile(paths.core, "utf8"),
@@ -24,10 +25,17 @@ const [template, css, core, importer, app, vendor, license, notice] = await Prom
   readFile(paths.app, "utf8"),
   readFile(paths.vendor, "utf8"),
   readFile(paths.license, "utf8"),
-  readFile(paths.notice, "utf8")
+  readFile(paths.notice, "utf8"),
+  readFile(paths.brandIcon)
 ]);
 
-const requiredTokens = ["/*__APP_CSS__*/", "/*__SHEETJS__*/", "/*__APP_JS__*/", "<!--__LICENSE__-->"];
+const requiredTokens = [
+  "/*__APP_CSS__*/",
+  "/*__SHEETJS__*/",
+  "/*__APP_JS__*/",
+  "<!--__LICENSE__-->",
+  "__SIYS_SYNC_ICON__"
+];
 for (const token of requiredTokens) {
   if (!template.includes(token)) {
     throw new Error(`Falta el marcador de compilación ${token}`);
@@ -69,7 +77,8 @@ const html = slottedTemplate
   .replace(slots.css, () => escapeInlineStyle(css))
   .replace(slots.vendor, () => escapeInlineScript(vendor))
   .replace(slots.app, () => escapeInlineScript(appBundle))
-  .replace(slots.license, () => licenseComment);
+  .replace(slots.license, () => licenseComment)
+  .replaceAll("__SIYS_SYNC_ICON__", `data:image/svg+xml;base64,${brandIcon.toString("base64")}`);
 
 const remainingMarkers = [
   ...requiredTokens.filter((token) => html.includes(token)),

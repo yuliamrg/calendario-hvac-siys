@@ -14,7 +14,9 @@ import {
   createBackupEnvelope,
   createDefaultDocument,
   deleteActivities,
+  duplicateActivities,
   easterSunday,
+  extendActivity,
   generateSeriesDates,
   holidayMapForYears,
   holidayMapForRange,
@@ -232,6 +234,60 @@ test("mover varias tarjetas conserva el espaciado relativo o las reúne", () => 
   assert.deepEqual(doc.activities.map((item) => item.date), ["2026-07-10", "2026-07-12"]);
   moveActivities(doc, ["a1", "a2"], "2026-07-15", { anchorId: "a1", mode: "same" });
   assert.deepEqual(doc.activities.map((item) => item.date), ["2026-07-15", "2026-07-15"]);
+});
+
+test("mover a la misma fecha es una operación nula sin historial", () => {
+  const doc = createDefaultDocument("2026-07-01");
+  doc.activities = [{ id: "a1", date: "2026-07-01", updatedAt: "antes", history: [] }];
+  const result = moveActivities(doc, ["a1"], "2026-07-01", { anchorId: "a1", mode: "preserve" });
+  assert.deepEqual(result, []);
+  assert.equal(doc.activities[0].updatedAt, "antes");
+  assert.deepEqual(doc.activities[0].history, []);
+});
+
+test("duplicar crea tarjetas independientes programadas y conserva distancias", () => {
+  const doc = createDefaultDocument("2026-07-01");
+  doc.activities = [
+    {
+      id: "a1", seriesId: "serie-original", date: "2026-07-01", responsibleIds: [],
+      serviceType: "administrative", status: "completed", observations: "Uno",
+      completedAt: "2026-07-01T12:00:00.000Z", history: []
+    },
+    {
+      id: "a2", seriesId: "serie-original", date: "2026-07-03", responsibleIds: [],
+      serviceType: "administrative", status: "scheduled", observations: "Dos", history: []
+    }
+  ];
+  let sequence = 0;
+  const copies = duplicateActivities(doc, ["a1", "a2"], "2026-07-10", {
+    anchorId: "a1",
+    idFactory: () => `copy-${++sequence}`,
+    now: "2026-07-05T00:00:00.000Z"
+  });
+  assert.deepEqual(copies.map((item) => item.date), ["2026-07-10", "2026-07-12"]);
+  assert.ok(copies.every((item) => item.seriesId === null && item.status === "scheduled"));
+  assert.ok(copies.every((item) => item.completedAt === null));
+  assert.equal(new Set(doc.activities.map((item) => item.id)).size, 4);
+});
+
+test("ampliar enlaza días mediante seriesId con IDs independientes", () => {
+  const doc = createDefaultDocument("2026-07-01");
+  doc.activities = [{
+    id: "a1", seriesId: null, date: "2026-07-01", responsibleIds: [],
+    serviceType: "administrative", status: "completed", observations: "Visita",
+    completedAt: "2026-07-01T12:00:00.000Z", history: []
+  }];
+  let sequence = 0;
+  const extended = extendActivity(doc, "a1", "2026-07-02", {
+    idFactory: () => `new-${++sequence}`,
+    now: "2026-07-01T13:00:00.000Z"
+  });
+  assert.notEqual(extended.id, "a1");
+  assert.equal(extended.seriesId, doc.activities[0].seriesId);
+  assert.equal(extended.status, "scheduled");
+  assert.equal(extended.completedAt, null);
+  assert.equal(doc.series.length, 1);
+  assert.throws(() => extendActivity(doc, "a1", "2026-07-02"), /ya tiene una tarjeta/);
 });
 
 test("el respaldo saneado elimina campos no autorizados y valida confirmados", () => {

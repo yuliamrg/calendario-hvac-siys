@@ -34,6 +34,13 @@ def wait_saved(page) -> None:
     expect(page.locator("#saveIndicatorText")).to_have_text("Guardado", timeout=15_000)
 
 
+def click_menu_action(page, button_id: str) -> None:
+    menu = page.locator(f".action-menu:has(#{button_id})")
+    if menu.get_attribute("open") is None:
+        menu.locator("summary").click()
+    page.locator(f"#{button_id}").click()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
@@ -95,7 +102,7 @@ def main() -> None:
         second_page.close()
 
         with page.expect_download() as download_info:
-            page.locator("#backupButton").click()
+            click_menu_action(page, "backupButton")
         backup_path = artifact_dir / "respaldo-pages.json"
         download_info.value.save_as(str(backup_path))
         backup = json.loads(backup_path.read_text(encoding="utf-8"))
