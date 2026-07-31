@@ -20,7 +20,10 @@ def get_state(page) -> dict:
     return page.evaluate(
         """
         async () => new Promise((resolve, reject) => {
-          const request = indexedDB.open("calendario-hvac-siys", 1);
+          const databaseName = location.pathname.includes("/beta/")
+            ? "calendario-hvac-siys-beta"
+            : "calendario-hvac-siys";
+          const request = indexedDB.open(databaseName, 1);
           request.onerror = () => reject(request.error);
           request.onsuccess = () => {
             const db = request.result;
@@ -38,7 +41,10 @@ def wait_activity_count(page, count: int) -> None:
     page.wait_for_function(
         """
         async (expected) => new Promise((resolve) => {
-          const request = indexedDB.open("calendario-hvac-siys", 1);
+          const databaseName = location.pathname.includes("/beta/")
+            ? "calendario-hvac-siys-beta"
+            : "calendario-hvac-siys";
+          const request = indexedDB.open(databaseName, 1);
           request.onerror = () => resolve(false);
           request.onsuccess = () => {
             const db = request.result;
@@ -204,12 +210,14 @@ def check_viewport(browser, uri: str, width: int, height: int, compact: bool, ar
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--html", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--html", type=Path)
+    source.add_argument("--url")
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
     artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="siys-responsive-"))
     artifacts.mkdir(parents=True, exist_ok=True)
-    uri = args.html.resolve().as_uri()
+    uri = args.url or args.html.resolve().as_uri()
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel="chrome", headless=True)
