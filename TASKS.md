@@ -77,7 +77,7 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 - [x] Persistir el tema fuera del documento operativo.
 - [x] Adaptar calendario, tarjetas, formularios, exportación e impresión.
 - [x] Verificar contraste, accesibilidad y regresiones.
-- [ ] Etiquetar y promover `v0.7.0`.
+- [x] Etiquetar y promover `v0.7.0`.
 
 ### Versión 0.8.0 — responsive
 
