@@ -140,14 +140,16 @@ function applyCatalogPreference() {
   if (compactLayoutQuery?.matches) {
     const open = document.body.classList.contains("catalog-mobile-open");
     dom.toggleCatalogButton.setAttribute("aria-expanded", String(open));
-    dom.toggleCatalogButton.textContent = open ? "Cerrar banco" : "Banco";
+    dom.toggleCatalogButton.title = open ? "Cerrar banco de tarjetas" : "Abrir banco de tarjetas";
+    dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
     return;
   }
   const collapsed = readUiPreferences().catalogCollapsed === true;
   document.body.classList.remove("catalog-mobile-open");
   document.body.classList.toggle("catalog-collapsed", collapsed);
   dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
-  dom.toggleCatalogButton.textContent = collapsed ? "Mostrar banco" : "Ocultar banco";
+  dom.toggleCatalogButton.title = collapsed ? "Mostrar banco de tarjetas" : "Ocultar banco de tarjetas";
+  dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
 }
 
 function toggleCatalog() {
@@ -163,7 +165,7 @@ function toggleCatalog() {
 
 function themePreference() {
   const value = readUiPreferences().theme;
-  return ["light", "dark", "system"].includes(value) ? value : "system";
+  return ["light", "dark", "system"].includes(value) ? value : "light";
 }
 
 function applyThemePreference() {
@@ -174,7 +176,11 @@ function applyThemePreference() {
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
   const labels = { light: "Claro", dark: "Oscuro", system: "Sistema" };
-  if (dom.themeButton) dom.themeButton.textContent = `Tema: ${labels[preference]}`;
+  if (dom.themeButton) {
+    const label = dom.themeButton.querySelector("strong");
+    if (label) label.textContent = `Tema: ${labels[preference]}`;
+    else dom.themeButton.textContent = `Tema: ${labels[preference]}`;
+  }
 }
 
 function openThemeDialog() {
@@ -598,6 +604,21 @@ function downloadBlob(content, mimeType, fileName) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function timestampForFile(value = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(value);
+  const part = (type) => parts.find((item) => item.type === type)?.value ?? "00";
+  return `${part("year")}-${part("month")}-${part("day")}_${part("hour")}-${part("minute")}-${part("second")}`;
+}
+
 async function sha256Hex(arrayBuffer) {
   if (!crypto?.subtle) return null;
   const digest = await crypto.subtle.digest("SHA-256", arrayBuffer);
@@ -643,7 +664,7 @@ function closeDrawer({ restoreFocus = true } = {}) {
   }
   dom.detailDrawer.classList.remove("open");
   dom.detailDrawer.setAttribute("aria-hidden", "true");
-  dom.detailDrawer.inert = true;
+  if (dom.detailDrawer.open) dom.detailDrawer.close();
   activeDrawer = null;
   drawerReturnFocus = null;
   if (focusTarget && document.activeElement !== focusTarget) {
@@ -654,12 +675,45 @@ function closeDrawer({ restoreFocus = true } = {}) {
 function openDrawer() {
   const wasOpen = dom.detailDrawer.classList.contains("open");
   if (!wasOpen) drawerReturnFocus = focusReferenceFor(document.activeElement);
-  dom.detailDrawer.inert = false;
+  if (!dom.detailDrawer.open) dom.detailDrawer.showModal();
   dom.detailDrawer.classList.add("open");
   dom.detailDrawer.setAttribute("aria-hidden", "false");
   if (!wasOpen) {
     window.requestAnimationFrame(() => dom.closeDrawerButton.focus());
   }
+}
+
+function closeAllActionMenus(except = null) {
+  for (const menu of document.querySelectorAll(".action-menu[open]")) {
+    if (menu !== except) menu.removeAttribute("open");
+  }
+}
+
+function closeMobileMore() {
+  document.body.classList.remove("mobile-more-open");
+  dom.mobileMoreButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleMobileMore() {
+  const open = !document.body.classList.contains("mobile-more-open");
+  document.body.classList.toggle("mobile-more-open", open);
+  dom.mobileMoreButton.setAttribute("aria-expanded", String(open));
+  if (!open) closeAllActionMenus();
+}
+
+function openMobileMonthPicker() {
+  closeMobileMore();
+  dom.mobileMonthGridHost.append(dom.monthGridWrap);
+  dom.mobileMonthTitle.textContent = dom.monthTitle.textContent;
+  if (!dom.mobileMonthDialog.open) dom.mobileMonthDialog.showModal();
+}
+
+function closeMobileMonthPicker({ restoreFocus = true } = {}) {
+  if (dom.monthGridWrap.parentElement === dom.mobileMonthGridHost) {
+    dom.calendarPanel.insertBefore(dom.monthGridWrap, dom.mobileAgenda);
+  }
+  if (dom.mobileMonthDialog.open) dom.mobileMonthDialog.close();
+  if (restoreFocus) dom.mobileMonthButton.focus();
 }
 
 function activitySearchText(activity, maps = lookupMaps()) {
@@ -832,10 +886,9 @@ function renderBackupReminder() {
 }
 
 async function renderStorageStatus() {
-  const mode = runtimeMode();
   dom.storageStatusTitle.textContent = "Datos guardados solamente en este navegador";
   if (!navigator.storage) {
-    dom.storageStatusText.textContent = `Modo ${mode}. El navegador no informa el estado de protección. Mantén respaldos JSON frecuentes.`;
+    dom.storageStatusText.textContent = "Guardado en este navegador · Descarga copias periódicas para proteger tus datos.";
     dom.requestPersistenceButton.hidden = true;
     return;
   }
@@ -850,11 +903,11 @@ async function renderStorageStatus() {
       ? ` Uso aproximado: ${(used / 1024 / 1024).toFixed(1)} MB de ${(quota / 1024 / 1024).toFixed(0)} MB.`
       : "";
     dom.storageStatusText.textContent = persisted
-      ? `Modo ${mode}. El navegador concedió persistencia para este origen.${usageLabel}`
-      : `Modo ${mode}. El navegador puede liberar estos datos bajo presión de espacio.${usageLabel} El respaldo JSON sigue siendo la copia portable.`;
+      ? `Guardado en este navegador · Protección activa.${usageLabel}`
+      : `Guardado en este navegador · Puede borrarse al limpiar datos o por falta de espacio.${usageLabel}`;
     dom.requestPersistenceButton.hidden = Boolean(persisted) || typeof navigator.storage.persist !== "function";
   } catch {
-    dom.storageStatusText.textContent = `Modo ${mode}. No fue posible comprobar la protección. El respaldo JSON sigue siendo la copia portable.`;
+    dom.storageStatusText.textContent = "Guardado en este navegador · No fue posible comprobar la protección.";
     dom.requestPersistenceButton.hidden = true;
   }
 }
@@ -1149,8 +1202,16 @@ function buildActivityCard(activity, maps) {
 function selectMobileAgendaDate(date) {
   mobileAgendaDate = date;
   appDocument.settings.currentDate = date;
+  if (dom.mobileMonthDialog.open) closeMobileMonthPicker({ restoreFocus: false });
   renderCalendar();
   scheduleSave();
+}
+
+function changeMobileAgendaDay(delta) {
+  selectMobileAgendaDate(addDaysISO(
+    mobileAgendaDate || appDocument.settings.currentDate || todayInBogota(),
+    delta
+  ));
 }
 
 function renderMobileAgenda(date, items, maps, holiday) {
@@ -1181,6 +1242,7 @@ function renderMobileAgenda(date, items, maps, holiday) {
 function renderCalendar() {
   const { year, month } = currentMonthParts();
   dom.monthTitle.textContent = formatMonthTitle(year, month);
+  dom.mobileMonthTitle.textContent = dom.monthTitle.textContent;
   const gridDates = monthGridDates(year, month);
   const years = [...new Set(gridDates.map((date) => Number(date.slice(0, 4))))];
   const holidays = holidayMapForYears(years, appDocument.holidayOverrides);
@@ -1230,13 +1292,17 @@ function renderCalendar() {
     const header = createElement("div", "day-header");
     const number = createElement("button", "day-number", String(day));
     number.type = "button";
-    number.title = `Crear actividad el ${formatDisplayDate(date)}`;
-    number.setAttribute("aria-label", `Crear actividad el ${formatDisplayDate(date)}`);
+    const compact = compactLayoutQuery?.matches;
+    number.title = `${compact ? "Ver agenda del" : "Crear actividad el"} ${formatDisplayDate(date)}`;
+    number.setAttribute("aria-label", number.title);
     number.tabIndex = date === preferredFocusDate ? 0 : -1;
     number.addEventListener("focus", () => {
       calendarFocusDate = date;
     });
-    number.addEventListener("click", () => openActivityDialog({ date }));
+    number.addEventListener("click", () => {
+      if (compactLayoutQuery?.matches) selectMobileAgendaDate(date);
+      else openActivityDialog({ date });
+    });
     number.addEventListener("keydown", (event) => {
       const weekdayOffset = (dayOfWeek(date) + 6) % 7;
       const offsets = {
@@ -2409,7 +2475,6 @@ async function createBackup() {
   appendAudit("backup_created", "Respaldo JSON descargado");
   renderBackupReminder();
   await scheduleSave({ immediate: true });
-  const date = todayInBogota();
   const fileIdentity = normalizeKey(appDocument.calendarMeta.coordinator || appDocument.calendarMeta.name) || "cronograma";
   const envelope = createBackupEnvelope(appDocument, {
     exportedAt: appDocument.settings.lastBackupAt,
@@ -2419,9 +2484,9 @@ async function createBackup() {
   downloadBlob(
     JSON.stringify(envelope, null, 2),
     "application/json;charset=utf-8",
-    `calendario-hvac-${fileIdentity}-r${appDocument.calendarMeta.revision}-${date}.json`
+    `${timestampForFile()}_respaldo-cronograma_${fileIdentity}.json`
   );
-  showToast("Respaldo JSON descargado.");
+  showToast("Copia del cronograma descargada.");
 }
 
 function openResetDataDialog() {
@@ -2466,10 +2531,11 @@ function exportCurrentMonthCsv() {
   const { year, month } = currentMonthParts();
   const csv = buildMonthlyCsv(appDocument, year, month);
   const fileMonth = `${year}-${String(month).padStart(2, "0")}`;
-  downloadBlob(csv, "text/csv;charset=utf-8", `programacion-hvac-${fileMonth}.csv`);
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  downloadBlob(csv, "text/csv;charset=utf-8", `${fileMonth}_programacion_${identity}.csv`);
   appendAudit("csv_exported", `Mes exportado: ${fileMonth}`);
   scheduleSave();
-  showToast(`CSV de ${formatMonthTitle(year, month)} descargado.`);
+  showToast(`Listado de ${formatMonthTitle(year, month)} descargado.`);
 }
 
 function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
@@ -2590,7 +2656,8 @@ async function exportCurrentMonthImage() {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
   );
   const fileMonth = `${year}-${String(month).padStart(2, "0")}`;
-  downloadBlob(blob, "image/png", `cronograma-hvac-${normalizeKey(appDocument.calendarMeta.name)}-${fileMonth}.png`);
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  downloadBlob(blob, "image/png", `${fileMonth}_cronograma_${identity}.png`);
   appendAudit("png_exported", `Vista filtrada exportada: ${fileMonth}`);
   scheduleSave();
   showToast(`Imagen de ${formatMonthTitle(year, month)} descargada.`);
@@ -2632,7 +2699,7 @@ function downloadProgrammingTemplate() {
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(catalogRows), "Catalogos");
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(instructions), "Instrucciones");
   const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-  downloadBlob(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla-programacion-hvac.xlsx");
+  downloadBlob(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla_programacion_SIYS-Sync.xlsx");
   showToast("Plantilla Excel descargada.");
 }
 
@@ -2986,6 +3053,14 @@ function bindEvents() {
   }));
   dom.importBaseButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.toggleCatalogButton.addEventListener("click", toggleCatalog);
+  dom.mobileMoreButton.addEventListener("click", toggleMobileMore);
+  dom.mobileMonthButton.addEventListener("click", openMobileMonthPicker);
+  dom.closeMobileMonthButton.addEventListener("click", () => closeMobileMonthPicker());
+  dom.mobilePreviousMonthButton.addEventListener("click", () => changeVisibleMonth(-1));
+  dom.mobileNextMonthButton.addEventListener("click", () => changeVisibleMonth(1));
+  dom.mobilePreviousDayButton.addEventListener("click", () => changeMobileAgendaDay(-1));
+  dom.mobileNextDayButton.addEventListener("click", () => changeMobileAgendaDay(1));
+  dom.mobileTodayButton.addEventListener("click", () => selectMobileAgendaDate(todayInBogota()));
   dom.closeCatalogMobileButton.addEventListener("click", () => {
     document.body.classList.remove("catalog-mobile-open");
     applyCatalogPreference();
@@ -3064,6 +3139,17 @@ function bindEvents() {
   });
   dom.newCatalogButton.addEventListener("click", () => openCatalogDialog(catalogTab === "responsibles" ? "responsible" : "client"));
   dom.closeDrawerButton.addEventListener("click", closeDrawer);
+  dom.detailDrawer.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeDrawer();
+  });
+  dom.detailDrawer.addEventListener("close", () => {
+    if (activeDrawer) closeDrawer();
+  });
+  dom.mobileMonthDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeMobileMonthPicker();
+  });
   dom.clearSelectionButton.addEventListener("click", () => {
     selectedActivityIds.clear();
     renderCalendar();
@@ -3132,8 +3218,20 @@ function bindEvents() {
   for (const button of document.querySelectorAll(".action-menu .menu-action")) {
     button.addEventListener("click", () => {
       button.closest("details")?.removeAttribute("open");
+      closeMobileMore();
     });
   }
+  for (const menu of document.querySelectorAll(".action-menu")) {
+    menu.addEventListener("toggle", () => {
+      if (menu.open) closeAllActionMenus(menu);
+    });
+  }
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".action-menu, #mobileMoreButton, #advancedActions")) {
+      closeAllActionMenus();
+      closeMobileMore();
+    }
+  });
   for (const dialog of document.querySelectorAll("dialog")) {
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) {
@@ -3149,7 +3247,10 @@ function bindEvents() {
     });
   }
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && dom.detailDrawer.classList.contains("open")) closeDrawer();
+    if (event.key === "Escape") {
+      closeAllActionMenus();
+      closeMobileMore();
+    }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n" && !document.querySelector("dialog[open]")) {
       event.preventDefault();
       openActivityDialog({ date: appDocument.settings.currentDate });
@@ -3159,7 +3260,11 @@ function bindEvents() {
     if (themePreference() === "system") applyThemePreference();
   });
   compactLayoutQuery?.addEventListener("change", () => {
+    if (!compactLayoutQuery.matches && dom.mobileMonthDialog.open) {
+      closeMobileMonthPicker({ restoreFocus: false });
+    }
     document.body.classList.remove("catalog-mobile-open");
+    closeMobileMore();
     applyCatalogPreference();
     renderCalendar();
   });

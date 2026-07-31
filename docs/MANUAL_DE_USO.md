@@ -3,7 +3,7 @@
 ## 1. Abrir y reconocer el cronograma
 
 Abra `dist/calendario-hvac-siys.html` en Chrome o Microsoft Edge. La aplicación
-funciona sin servidor y sin conexión. En **Identificación** registre el nombre
+funciona sin servidor y sin conexión. En **Configuración > Nombre del cronograma** registre el nombre
 del cronograma y el coordinador; estos datos aparecerán en los respaldos y en
 las imágenes exportadas.
 
@@ -12,7 +12,7 @@ no cambia la revisión.
 
 ## 2. Cargar la base operativa
 
-1. Pulse **Importar Base Operativa**.
+1. Abra **Gestionar > Actualizar base operativa**.
 2. Seleccione `Base_operativa_HVAC_SIYS.xlsx`.
 3. Revise nuevos, actualizados, ausentes y advertencias.
 4. Confirme la importación.
@@ -83,14 +83,16 @@ Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
 - **CSV:** exporta las actividades del mes y separa nómina de contratistas.
 - **PNG:** crea una imagen horizontal a escala 2 con nombre, coordinador, mes,
   filtros, festivos y todas las tarjetas visibles, incluso en días densos.
-- **JSON:** crea el respaldo portable completo.
+- **Descargar copia del cronograma:** crea la copia portable completa
+  (internamente es un archivo JSON).
 
 ## 6. Importar programación con plantilla
 
-1. Pulse **Plantilla** y abra `plantilla-programacion-hvac.xlsx`.
+1. Pulse **Descargar plantilla de programación** y abra
+   `plantilla_programacion_SIYS-Sync.xlsx`.
 2. Conserve las hojas `Programacion`, `Catalogos` e `Instrucciones`.
 3. Reemplace la fila de ejemplo y guarde el archivo.
-4. Pulse **Importar programación** y revise la vista previa.
+4. Pulse **Cargar programación desde Excel** y revise la vista previa.
 5. Corrija las filas con error. Las filas válidas se pueden importar en una
    sola operación con opción de deshacer.
 
@@ -113,7 +115,7 @@ La importación no crea clientes, sedes ni responsables faltantes. Reporta
 ambigüedades, duplicados y fechas no laborables omitidas. Los duplicados se
 omiten por defecto y se pueden incluir expresamente.
 
-## 7. Persistencia, pestañas y respaldos
+## 7. Persistencia, pestañas y copias de seguridad
 
 IndexedDB guarda el documento dentro del perfil del navegador y del origen:
 
@@ -124,7 +126,8 @@ IndexedDB guarda el documento dentro del perfil del navegador y del origen:
 
 **Proteger almacenamiento** solicita persistencia al navegador. La concesión
 reduce la posibilidad de liberación automática, pero no garantiza una copia de
-seguridad. Descargue JSON regularmente y guárdelo fuera de la carpeta temporal.
+seguridad. Use **Descargar copia del cronograma** regularmente y guárdela fuera
+de la carpeta temporal.
 
 Sólo una pestaña edita. Las demás quedan en lectura y pueden filtrar, imprimir
 y exportar. **Tomar control** transfiere la edición. Si la pestaña editora se
@@ -136,7 +139,7 @@ de recuperación local. Se aceptan respaldos heredados de `v0.1.0`.
 
 ### Añadir sin reemplazar
 
-**Datos > Añadir desde JSON** prepara una combinación y muestra nuevos,
+**Gestionar > Combinar otra copia** prepara una combinación y muestra nuevos,
 actualizados, registros idénticos y conflictos antes de guardar. La operación:
 
 - conserva el nombre, coordinador, filtros y mes del cronograma actual;
@@ -157,8 +160,8 @@ Nunca se copian datos automáticamente entre ellos.
 
 ### Reiniciar el navegador
 
-En **Datos > Reiniciar datos**, escriba `REINICIAR`. SIYS Sync descarga un
-respaldo JSON y después elimina el documento activo y su recuperación en ese
+En **Gestionar > Borrar y empezar de cero**, escriba `REINICIAR`. SIYS Sync
+descarga una copia y después elimina el documento activo y su recuperación en ese
 origen. La opción adicional restablece preferencias visuales como el estado del
 banco. Las demás pestañas reciben una notificación y recargan el documento
 vacío para no reintroducir información anterior.
@@ -166,7 +169,8 @@ vacío para no reintroducir información anterior.
 ## 8. Apariencia
 
 En **Configuración > Tema** puede elegir **Claro**, **Oscuro** o **Sistema**.
-Sistema sigue la preferencia de Chrome, Edge o Windows y reacciona si esta
+La primera apertura usa Claro. Después se recuerda la elección. Sistema sigue
+la preferencia de Chrome, Edge o Windows y reacciona si esta
 cambia mientras la aplicación está abierta. La elección se guarda únicamente
 como preferencia visual del canal actual: no aumenta la revisión, no entra en
 respaldos JSON y no se mezcla entre local, estable y beta.
@@ -177,13 +181,14 @@ interfaz esté en modo oscuro.
 
 ## 9. Teléfonos y tabletas
 
-En pantallas de hasta 899 px de ancho, SIYS Sync muestra un mes compacto y una
-agenda desplazable para la fecha seleccionada. Toque el fondo de un día para
-consultar su agenda; toque el número o **Agregar** para crear una actividad con
-la fecha diligenciada. Los indicadores numéricos muestran cuántas tarjetas
-visibles tiene cada día y respetan los filtros activos.
+En pantallas de hasta 899 px de ancho, SIYS Sync usa una agenda diaria como
+vista principal. Use **Anterior**, **Hoy** y **Siguiente** para cambiar de fecha
+y **Nueva actividad** para crear en el día mostrado. **Ver mes** abre un
+selector mensual superpuesto; tocar una fecha cierra el selector y muestra su
+agenda sin abrir el formulario. **Más** agrupa Banco, Gestionar, Compartir y
+Configuración.
 
-**Banco** abre el catálogo como panel lateral. Como alternativas táctiles, las
+El Banco abre el catálogo como panel lateral. Como alternativas táctiles, las
 tarjetas de la agenda abren el detalle, donde están **Editar tarjeta**,
 **Mover · Duplicar · Ampliar**,
 **Actualizar estado** y **Eliminar**. Al organizar una actividad se elige la
@@ -196,6 +201,13 @@ propio. La exportación CSV, PNG, JSON y la impresión no cambian por el tamaño
 de pantalla.
 
 ## 10. Solución de problemas
+
+Los nombres descargados permiten reconocer el contenido sin conocer su formato:
+
+- `YYYY-MM-DD_HH-mm-ss_respaldo-cronograma_<nombre>.json`;
+- `YYYY-MM_programacion_<nombre>.csv`;
+- `YYYY-MM_cronograma_<nombre>.png`;
+- `plantilla_programacion_SIYS-Sync.xlsx`.
 
 - **No guarda:** descargue JSON inmediatamente, compruebe que IndexedDB esté
   habilitado y que el navegador tenga espacio.

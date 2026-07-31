@@ -61,6 +61,10 @@ def wait_activity_count(page, count: int) -> None:
 
 
 def click_menu_action(page, button_id: str) -> None:
+    if page.locator("#mobileMoreButton").is_visible() and not page.locator("body").evaluate(
+        "element => element.classList.contains('mobile-more-open')"
+    ):
+        page.locator("#mobileMoreButton").click()
     menu = page.locator(f".action-menu:has(#{button_id})")
     if menu.get_attribute("open") is None:
         menu.locator("summary").click()
@@ -98,11 +102,16 @@ def run_phone_flow(browser, uri: str, artifacts: Path) -> dict:
     wait_ready(page)
     expect(page.locator("#mobileAgenda")).to_be_visible()
     expect(page.locator("#weekdayRow div")).to_have_count(7)
+    expect(page.locator("#monthGridWrap")).not_to_be_visible()
     assert_no_document_overflow(page)
 
-    page.locator('#calendarGrid [data-date="2026-07-30"]').dispatch_event("click")
+    page.locator("#mobileMonthButton").click()
+    expect(page.locator("#mobileMonthDialog")).to_be_visible()
+    page.locator('#calendarGrid [data-date="2026-07-30"] .day-number').click()
+    expect(page.locator("#mobileMonthDialog")).not_to_be_visible()
+    expect(page.locator("#activityDialog")).not_to_be_visible()
     expect(page.locator("#mobileAgendaTitle")).to_contain_text("30")
-    page.locator("#mobileAgendaAddButton").click()
+    page.locator("#newActivityButton").click()
     expect(page.locator("#activityDate")).to_have_value("2026-07-30")
     page.select_option("#activityServiceType", "administrative")
     page.fill("#activityObservations", "Flujo táctil responsive")
@@ -156,8 +165,11 @@ def run_phone_flow(browser, uri: str, artifacts: Path) -> dict:
     assert moved["date"] == "2026-08-02"
     assert any(item["action"] == "rescheduled" for item in moved["history"])
 
-    page.locator('#calendarGrid [data-date="2026-08-02"]').dispatch_event("click")
+    page.locator("#closeDrawerButton").click()
+    page.locator("#mobileMonthButton").click()
+    page.locator('#calendarGrid [data-date="2026-08-02"] .day-number').click()
     expect(page.locator(f'#mobileAgendaList [data-activity-id="{original_id}"]')).to_be_visible()
+    page.locator("#mobileMoreButton").click()
     page.locator("#toggleCatalogButton").click()
     expect(page.locator("#catalogPanel")).to_be_visible()
     expect(page.locator("#closeCatalogMobileButton")).to_be_visible()
@@ -197,7 +209,10 @@ def check_viewport(browser, uri: str, width: int, height: int, compact: bool, ar
     if compact:
         expect(page.locator("#mobileAgenda")).to_be_visible()
         page.locator("#mobileAgenda").scroll_into_view_if_needed()
-        expect(page.locator("#mobileAgendaAddButton")).to_be_visible()
+        expect(page.locator("#newActivityButton")).to_be_visible()
+        expect(page.locator("#mobileMonthButton")).to_be_visible()
+        expect(page.locator("#mobileMoreButton")).to_be_visible()
+        expect(page.locator("#monthGridWrap")).not_to_be_visible()
     else:
         expect(page.locator("#mobileAgenda")).not_to_be_visible()
         expect(page.locator("#calendarGrid")).to_be_visible()

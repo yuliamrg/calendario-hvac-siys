@@ -85,6 +85,7 @@ def launch_and_check(
     page.goto(html_path.as_uri(), wait_until="load")
     page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
     expect(page).to_have_title("SIYS Sync")
+    expect(page.locator("html")).to_have_attribute("data-theme", "light")
     expect(page.get_by_test_id("month-title")).to_have_text("Julio de 2026")
     weekdays = page.locator("#weekdayRow > div").all_inner_texts()
     assert weekdays == [
@@ -123,7 +124,7 @@ def launch_and_check(
     ):
         labelled_by = page.locator(f"#{dialog_id}").get_attribute("aria-labelledby")
         assert labelled_by and page.locator(f"#{labelled_by}").count() == 1
-    assert page.locator("#detailDrawer").evaluate("element => element.inert") is True
+    expect(page.locator("#detailDrawer")).not_to_be_visible()
     expect(page.locator('[data-date="2026-07-13"]')).to_have_class(
         re.compile(r"\bholiday\b")
     )
@@ -156,6 +157,16 @@ def launch_and_check(
     second_page.close()
     expect(page.locator("#storageBanner")).to_be_visible()
 
+    manage_menu = page.locator(".action-menu", has_text="Gestionar")
+    share_menu = page.locator(".action-menu", has_text="Compartir")
+    manage_menu.locator("summary").click()
+    expect(manage_menu).to_have_attribute("open", "")
+    share_menu.locator("summary").click()
+    expect(manage_menu).not_to_have_attribute("open", "")
+    expect(share_menu).to_have_attribute("open", "")
+    page.keyboard.press("Escape")
+    expect(share_menu).not_to_have_attribute("open", "")
+
     click_menu_action(page, "calendarSettingsButton")
     page.fill("#calendarName", "Cronograma automatizado")
     page.fill("#calendarCoordinator", "Coordinación QA")
@@ -179,8 +190,50 @@ def launch_and_check(
     assert get_state(theme_page)["calendarMeta"]["revision"] == 1
     theme_page.close()
     page.screenshot(path=str(artifact_dir / f"{channel}-dark-theme.png"), full_page=True)
+    click_menu_action(page, "themeButton")
+    page.locator('[data-close-dialog="themeDialog"]').first.click()
+    page.locator(".action-menu", has_text="Gestionar").locator("summary").click()
+    contrast_failures = page.evaluate(
+        """
+        () => {
+          const parse = value => (value.match(/[\\d.]+/g) || []).map(Number);
+          const luminance = rgb => {
+            const values = rgb.slice(0, 3).map(value => {
+              const channel = value / 255;
+              return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+            });
+            return 0.2126 * values[0] + 0.7152 * values[1] + 0.0722 * values[2];
+          };
+          const opaqueBackground = element => {
+            let node = element;
+            while (node) {
+              const color = getComputedStyle(node).backgroundColor;
+              const parsed = parse(color);
+              if ((parsed[3] ?? 1) >= 0.95) return parsed;
+              node = node.parentElement;
+            }
+            return [16, 23, 19, 1];
+          };
+          return [...document.querySelectorAll(".button, .menu-action, .segment, .day-number, input")]
+            .filter(element => element.getClientRects().length && !element.disabled)
+            .map(element => {
+              const foreground = parse(getComputedStyle(element).color);
+              const background = opaqueBackground(element);
+              const light = Math.max(luminance(foreground), luminance(background));
+              const dark = Math.min(luminance(foreground), luminance(background));
+              return { label: element.textContent?.trim() || element.placeholder || element.id, ratio: (light + 0.05) / (dark + 0.05) };
+            })
+            .filter(item => item.ratio < 3);
+        }
+        """
+    )
+    assert not contrast_failures, contrast_failures
+    page.keyboard.press("Escape")
 
     system_context = browser.new_context(locale="es-CO", color_scheme="dark")
+    system_context.add_init_script(
+        """localStorage.setItem("siys-sync-ui:local", JSON.stringify({theme: "system"}));"""
+    )
     system_page = system_context.new_page()
     system_page.goto(html_path.as_uri(), wait_until="load")
     system_page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
@@ -329,7 +382,10 @@ def launch_and_check(
 
     page.locator(f'[data-activity-id="{activity_id}"]').click()
     expect(page.locator("#detailDrawer")).to_have_class(re.compile(r"\bopen\b"))
-    assert page.locator("#detailDrawer").evaluate("element => element.inert") is False
+    expect(page.locator("#detailDrawer")).to_be_visible()
+    drawer_box = page.locator("#detailDrawer").bounding_box()
+    assert drawer_box is not None
+    assert abs((drawer_box["x"] + drawer_box["width"] / 2) - 800) < 3
     expect(page.locator("#drawerBody")).to_contain_text("Prueba integral local")
     expect(page.locator("#drawerStatusSelect")).to_have_attribute(
         "aria-label", "Nuevo estado de la actividad"
@@ -345,7 +401,7 @@ def launch_and_check(
     ).evaluate("element => getComputedStyle(element).opacity")
     assert float(opacity) < 0.7
     page.locator("#closeDrawerButton").click()
-    assert page.locator("#detailDrawer").evaluate("element => element.inert") is True
+    expect(page.locator("#detailDrawer")).not_to_be_visible()
 
     page.get_by_test_id("new-activity").click()
     page.fill("#activityDate", "2026-07-09")
@@ -377,6 +433,8 @@ def launch_and_check(
     ]
     assert len({item["id"] for item in series_items}) == 4
 
+    if page.locator("#detailDrawer").is_visible():
+        page.locator("#closeDrawerButton").click()
     for item in series_items[:2]:
         page.locator(
             f'[data-activity-id="{item["id"]}"] .activity-select'
@@ -464,6 +522,10 @@ def launch_and_check(
     with page.expect_download() as download_info:
             click_menu_action(page, "backupButton")
     backup_download = download_info.value
+    assert re.match(
+        r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_respaldo-cronograma_[a-z0-9-]+\.json",
+        backup_download.suggested_filename,
+    )
     backup_path = artifact_dir / "respaldo-prueba.json"
     backup_download.save_as(str(backup_path))
     backup = json.loads(backup_path.read_text(encoding="utf-8"))
@@ -475,6 +537,10 @@ def launch_and_check(
     with page.expect_download() as download_info:
             click_menu_action(page, "exportCsvButton")
     csv_download = download_info.value
+    assert re.match(
+        r"\d{4}-\d{2}_programacion_[a-z0-9-]+\.csv",
+        csv_download.suggested_filename,
+    )
     csv_path = artifact_dir / "programacion-prueba.csv"
     csv_download.save_as(str(csv_path))
     csv_text = csv_path.read_text(encoding="utf-8-sig")
@@ -501,6 +567,7 @@ def launch_and_check(
 
     with page.expect_download() as download_info:
             click_menu_action(page, "programmingTemplateButton")
+    assert download_info.value.suggested_filename == "plantilla_programacion_SIYS-Sync.xlsx"
     template_path = artifact_dir / "plantilla-programacion-hvac.xlsx"
     download_info.value.save_as(str(template_path))
     workbook = load_workbook(template_path)

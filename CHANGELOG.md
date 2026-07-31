@@ -1,5 +1,31 @@
 # Historial de cambios
 
+## [0.9.0] - 2026-07-30
+
+### Añadido
+
+- Agenda diaria como vista móvil principal, con navegación por día y selector
+  mensual superpuesto.
+- Cabecera móvil reducida a **Nueva actividad**, **Ver mes** y **Más**.
+- Detalle de actividad centrado en escritorio y casi a pantalla completa en
+  móvil.
+
+### Mejorado
+
+- Menús con vocabulario operativo y explicaciones breves en lugar de nombres
+  técnicos de formatos.
+- Nombres de descarga reconocibles, con fecha, hora, periodo y cronograma.
+- Tema claro inicial; Claro, Oscuro y Sistema siguen disponibles y se
+  recuerdan por canal.
+- Contraste oscuro de acciones, chips, avisos y estados.
+- Un solo menú superior abierto; cierre por acción, clic externo o Escape.
+- Botón semántico de panel para mostrar u ocultar el banco.
+
+### Compatibilidad
+
+- Sin cambios en el esquema 3, IndexedDB, series, respaldos ni separación de
+  canales local, estable y beta.
+
 ## [0.8.0] - 2026-07-30
 
 ### Añadido

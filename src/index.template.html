@@ -26,35 +26,41 @@
         <button class="button primary" id="newActivityButton" type="button" data-testid="new-activity">
           <span aria-hidden="true">＋</span> Nueva actividad
         </button>
-        <button class="button" id="toggleCatalogButton" type="button" aria-expanded="true" aria-controls="catalogPanel">Ocultar banco</button>
-        <details class="action-menu">
-          <summary class="button">Datos</summary>
-          <div class="action-menu-panel">
-            <button class="menu-action" id="importBaseButton" type="button" data-testid="import-base">Importar Base Operativa</button>
-            <button class="menu-action" id="programmingTemplateButton" type="button">Descargar plantilla</button>
-            <button class="menu-action" id="importProgrammingButton" type="button">Importar programación</button>
-            <button class="menu-action" id="backupButton" type="button">Descargar respaldo JSON</button>
-            <button class="menu-action" id="restoreButton" type="button">Restaurar respaldo JSON</button>
-            <button class="menu-action" id="mergeJsonButton" type="button">Añadir desde JSON</button>
-            <button class="menu-action danger-text" id="resetDataButton" type="button">Reiniciar datos</button>
-          </div>
-        </details>
-        <details class="action-menu">
-          <summary class="button">Exportar</summary>
-          <div class="action-menu-panel">
-            <button class="menu-action" id="exportCsvButton" type="button">Mes a CSV</button>
-            <button class="menu-action" id="exportImageButton" type="button">Vista como PNG</button>
-          </div>
-        </details>
-        <details class="action-menu">
-          <summary class="button">Configuración</summary>
-          <div class="action-menu-panel">
-            <button class="menu-action" id="holidayButton" type="button">Festivos y ajustes</button>
-            <button class="menu-action" id="calendarSettingsButton" type="button">Identificación</button>
-            <button class="menu-action" id="themeButton" type="button">Tema: Sistema</button>
-            <button class="menu-action" id="helpButton" type="button">Ayuda y privacidad</button>
-          </div>
-        </details>
+        <button class="button mobile-header-action" id="mobileMonthButton" type="button">Ver mes</button>
+        <button class="button mobile-header-action" id="mobileMoreButton" type="button" aria-expanded="false" aria-controls="advancedActions">Más</button>
+        <div class="advanced-actions" id="advancedActions">
+          <button class="icon-button catalog-toggle" id="toggleCatalogButton" type="button" aria-expanded="true" aria-controls="catalogPanel" title="Ocultar banco de tarjetas">
+            <span aria-hidden="true">◧</span><span class="visually-hidden">Ocultar banco de tarjetas</span>
+          </button>
+          <details class="action-menu">
+            <summary class="button">Gestionar</summary>
+            <div class="action-menu-panel">
+              <button class="menu-action" id="importBaseButton" type="button" data-testid="import-base"><strong>Actualizar base operativa</strong><small>Clientes, sedes y responsables</small></button>
+              <button class="menu-action" id="programmingTemplateButton" type="button"><strong>Descargar plantilla de programación</strong><small>Formato para preparar una carga</small></button>
+              <button class="menu-action" id="importProgrammingButton" type="button"><strong>Cargar programación desde Excel</strong><small>Añade actividades desde la plantilla</small></button>
+              <button class="menu-action" id="backupButton" type="button"><strong>Descargar copia del cronograma</strong><small>Guárdala para recuperar o trasladar tus datos</small></button>
+              <button class="menu-action" id="restoreButton" type="button"><strong>Recuperar una copia del cronograma</strong><small>Reemplaza los datos actuales</small></button>
+              <button class="menu-action" id="mergeJsonButton" type="button"><strong>Combinar otra copia</strong><small>Añade y actualiza sin borrar lo existente</small></button>
+              <button class="menu-action danger-text" id="resetDataButton" type="button"><strong>Borrar y empezar de cero</strong><small>Descarga una copia antes de reiniciar</small></button>
+            </div>
+          </details>
+          <details class="action-menu">
+            <summary class="button">Compartir</summary>
+            <div class="action-menu-panel">
+              <button class="menu-action" id="exportCsvButton" type="button"><strong>Descargar listado del mes</strong><small>Archivo para revisar en Excel</small></button>
+              <button class="menu-action" id="exportImageButton" type="button"><strong>Descargar imagen del cronograma</strong><small>Respeta la búsqueda y los filtros activos</small></button>
+            </div>
+          </details>
+          <details class="action-menu">
+            <summary class="button">Configuración</summary>
+            <div class="action-menu-panel">
+              <button class="menu-action" id="holidayButton" type="button"><strong>Festivos y ajustes</strong><small>Excepciones del calendario colombiano</small></button>
+              <button class="menu-action" id="calendarSettingsButton" type="button"><strong>Nombre del cronograma</strong><small>Identificación y coordinador</small></button>
+              <button class="menu-action" id="themeButton" type="button"><strong>Tema: Claro</strong><small>Apariencia clara, oscura o del sistema</small></button>
+              <button class="menu-action" id="helpButton" type="button"><strong>Ayuda y privacidad</strong><small>Uso, almacenamiento y respaldos</small></button>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div class="save-indicator" id="saveIndicator" role="status" aria-live="polite">
@@ -81,10 +87,10 @@
 
     <section class="backup-banner" id="backupBanner" hidden>
       <div>
-        <strong>Conviene crear un respaldo.</strong>
+        <strong>Conviene descargar una copia.</strong>
         <span id="backupBannerText">Tus datos viven en este navegador.</span>
       </div>
-      <button class="button small" id="backupBannerButton" type="button">Respaldar ahora</button>
+      <button class="button small" id="backupBannerButton" type="button">Descargar copia</button>
       <button class="icon-button small" id="dismissBackupBanner" type="button" aria-label="Ocultar recordatorio">×</button>
     </section>
 
@@ -135,21 +141,28 @@
         </div>
       </aside>
 
-      <section class="calendar-panel" role="region" aria-label="Calendario mensual">
-        <div class="weekday-row" id="weekdayRow" aria-hidden="true">
-          <div>Lunes</div>
-          <div>Martes</div>
-          <div>Miércoles</div>
-          <div>Jueves</div>
-          <div>Viernes</div>
-          <div>Sábado</div>
-          <div>Domingo</div>
+      <section class="calendar-panel" id="calendarPanel" role="region" aria-label="Calendario mensual">
+        <div class="month-grid-wrap" id="monthGridWrap">
+          <div class="weekday-row" id="weekdayRow" aria-hidden="true">
+            <div>Lunes</div>
+            <div>Martes</div>
+            <div>Miércoles</div>
+            <div>Jueves</div>
+            <div>Viernes</div>
+            <div>Sábado</div>
+            <div>Domingo</div>
+          </div>
+          <div class="calendar-grid" id="calendarGrid" data-testid="calendar-grid"></div>
         </div>
-        <div class="calendar-grid" id="calendarGrid" data-testid="calendar-grid"></div>
         <section class="mobile-agenda" id="mobileAgenda" aria-labelledby="mobileAgendaTitle">
+          <nav class="mobile-agenda-navigation" aria-label="Cambiar día">
+            <button class="icon-button" id="mobilePreviousDayButton" type="button" aria-label="Día anterior">‹</button>
+            <button class="button small" id="mobileTodayButton" type="button">Hoy</button>
+            <button class="icon-button" id="mobileNextDayButton" type="button" aria-label="Día siguiente">›</button>
+          </nav>
           <header class="mobile-agenda-header">
             <div>
-              <p class="eyebrow">Agenda seleccionada</p>
+              <p class="eyebrow">Agenda del día</p>
               <h2 id="mobileAgendaTitle">Día</h2>
               <p id="mobileAgendaMeta"></p>
             </div>
@@ -159,7 +172,7 @@
         </section>
       </section>
 
-      <aside class="detail-drawer" id="detailDrawer" aria-labelledby="drawerTitle" aria-hidden="true" inert>
+      <dialog class="detail-drawer" id="detailDrawer" aria-labelledby="drawerTitle" aria-hidden="true">
         <div class="drawer-header">
           <div>
             <p class="eyebrow" id="drawerEyebrow">Detalle</p>
@@ -168,7 +181,7 @@
           <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Cerrar detalle">×</button>
         </div>
         <div class="drawer-body" id="drawerBody"></div>
-      </aside>
+      </dialog>
     </main>
 
     <div class="selection-bar" id="selectionBar" hidden>
@@ -180,6 +193,21 @@
       <button class="button small ghost" id="clearSelectionButton" type="button">Limpiar selección</button>
     </div>
   </div>
+
+  <dialog class="modal mobile-month-modal" id="mobileMonthDialog" aria-labelledby="mobileMonthDialogTitle">
+    <div class="mobile-month-shell">
+      <header class="modal-header">
+        <div><p class="eyebrow">Seleccionar fecha</p><h2 id="mobileMonthDialogTitle">Vista del mes</h2></div>
+        <button class="icon-button" id="closeMobileMonthButton" type="button" aria-label="Cerrar vista del mes">×</button>
+      </header>
+      <div class="mobile-month-navigation">
+        <button class="icon-button" id="mobilePreviousMonthButton" type="button" aria-label="Mes anterior">‹</button>
+        <strong id="mobileMonthTitle">Mes</strong>
+        <button class="icon-button" id="mobileNextMonthButton" type="button" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="mobile-month-grid-host" id="mobileMonthGridHost"></div>
+    </div>
+  </dialog>
 
   <dialog class="modal activity-modal" id="activityDialog" data-testid="activity-dialog" aria-labelledby="activityDialogTitle">
     <form id="activityForm" method="dialog" novalidate>

@@ -33,6 +33,20 @@
   --outside-bg: #f2f4f1;
   --input-bg: #ffffff;
   --focus: #214f27;
+  --on-accent: #ffffff;
+  --overlay: rgba(12, 22, 15, 0.58);
+  --control-border: #b8c4b8;
+  --interactive-bg: #edf5e9;
+  --interactive-ink: #294e22;
+  --primary-action: #365b2c;
+  --success-bg: #e1f0d9;
+  --success-ink: #35612a;
+  --warning-bg: #fff3cd;
+  --warning-ink: #6b4700;
+  --error-bg: #f9dddd;
+  --error-ink: #8d2b2b;
+  --payroll-bg: #d6e8e5;
+  --contractor-bg: #fde0cb;
   --shadow: 0 14px 40px rgba(43, 66, 45, 0.16);
   --radius: 12px;
   --font: Arial, "Segoe UI", sans-serif;
@@ -63,6 +77,20 @@ html[data-theme="dark"] {
   --outside-bg: #151c17;
   --input-bg: #202a23;
   --focus: #9ad877;
+  --on-accent: #ffffff;
+  --overlay: rgba(0, 0, 0, 0.72);
+  --control-border: #657267;
+  --interactive-bg: #2b3b2d;
+  --interactive-ink: #d9f0cf;
+  --primary-action: #355f2e;
+  --success-bg: #294027;
+  --success-ink: #c7edb2;
+  --warning-bg: #4a3517;
+  --warning-ink: #ffe2a8;
+  --error-bg: #4b2929;
+  --error-ink: #ffc1c1;
+  --payroll-bg: #24423f;
+  --contractor-bg: #50311e;
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.42);
 }
 
@@ -206,6 +234,16 @@ textarea:focus-visible,
   flex-wrap: nowrap;
 }
 
+.advanced-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-header-action {
+  display: none;
+}
+
 .action-menu {
   position: relative;
 }
@@ -231,7 +269,7 @@ textarea:focus-visible,
   top: calc(100% + 7px);
   right: 0;
   z-index: 70;
-  min-width: 220px;
+  min-width: 300px;
   display: grid;
   gap: 3px;
   padding: 7px;
@@ -251,7 +289,20 @@ textarea:focus-visible,
   color: var(--ink);
   background: transparent;
   cursor: pointer;
+  display: grid;
+  gap: 2px;
   font-weight: 650;
+}
+
+.menu-action strong {
+  font-size: 13px;
+}
+
+.menu-action small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 .menu-action:hover,
@@ -275,7 +326,7 @@ textarea:focus-visible,
 .button {
   min-height: 38px;
   padding: 0 14px;
-  border: 1px solid #cbd5cb;
+  border: 1px solid var(--control-border);
   border-radius: 9px;
   background: var(--surface);
   font-weight: 700;
@@ -289,9 +340,9 @@ textarea:focus-visible,
 }
 
 .button.primary {
-  color: white;
-  border-color: var(--green-800);
-  background: var(--green-800);
+  color: var(--on-accent);
+  border-color: var(--primary-action);
+  background: var(--primary-action);
 }
 
 .button.danger {
@@ -307,13 +358,13 @@ button:disabled {
 }
 
 .topbar .button:not(.primary) {
-  color: var(--green-800);
+  color: var(--interactive-ink);
   border-color: rgba(255, 255, 255, 0.82);
 }
 
 .topbar .button.primary {
   border-color: rgba(255, 255, 255, 0.35);
-  background: var(--green-800);
+  background: var(--primary-action);
 }
 
 .button.ghost {
@@ -460,15 +511,16 @@ body.read-only .day-add {
   padding: 3px 9px;
   border: 1px solid #bfd0b6;
   border-radius: 999px;
-  color: #365b2c;
-  background: #edf5e9;
+  color: var(--interactive-ink);
+  background: var(--interactive-bg);
   cursor: pointer;
   font-size: 12px;
 }
 
 .mobile-only,
 .mobile-agenda,
-.mobile-day-count {
+.mobile-day-count,
+.mobile-agenda-navigation {
   display: none;
 }
 
@@ -764,6 +816,14 @@ body.catalog-collapsed .catalog-panel {
   overflow: auto;
 }
 
+.month-grid-wrap {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
 .weekday-row,
 .calendar-grid {
   min-width: 760px;
@@ -1011,23 +1071,23 @@ body.catalog-collapsed .catalog-panel {
 }
 
 .detail-drawer {
-  position: fixed;
-  top: 68px;
-  right: 0;
-  bottom: 0;
-  width: 390px;
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
+  width: min(720px, calc(100vw - 40px));
+  max-height: min(88dvh, 900px);
+  padding: 0;
+  color: var(--ink);
   background: var(--surface);
-  border-left: 1px solid var(--line);
-  box-shadow: -14px 0 40px rgba(38, 56, 39, 0.16);
-  transform: translateX(104%);
-  transition: transform 180ms ease;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
 }
 
-.detail-drawer.open {
-  transform: translateX(0);
+.detail-drawer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-drawer::backdrop {
+  background: var(--overlay);
 }
 
 .drawer-header,
@@ -1096,28 +1156,28 @@ body.catalog-collapsed .catalog-panel {
   gap: 4px;
   padding: 4px 7px;
   border-radius: 999px;
-  background: #edf2ed;
+  background: var(--surface-2);
   font-size: 11px;
   font-weight: 700;
 }
 
 .chip.payroll {
-  background: #d6e8e5;
+  background: var(--payroll-bg);
 }
 
 .chip.contractor {
-  background: #fde0cb;
+  background: var(--contractor-bg);
 }
 
 .status-badge.completed {
-  color: #35612a;
-  background: #e1f0d9;
+  color: var(--success-ink);
+  background: var(--success-bg);
 }
 
 .status-badge.not_executed,
 .status-badge.cancelled {
-  color: #8d2b2b;
-  background: #f9dddd;
+  color: var(--error-ink);
+  background: var(--error-bg);
 }
 
 .history-list {
@@ -1142,7 +1202,7 @@ body.catalog-collapsed .catalog-panel {
   padding: 9px 12px;
   color: white;
   border-radius: 12px;
-  background: var(--green-800);
+  background: var(--primary-action);
   box-shadow: var(--shadow);
   transform: translateX(-50%);
 }
@@ -1372,21 +1432,21 @@ html[data-theme="dark"] dialog::backdrop {
 }
 
 .range-preview {
-  color: #335f2e;
+  color: var(--success-ink);
   background: var(--green-050);
 }
 
 .warning-box,
 .warning-list {
-  color: #744e00;
-  background: #fff3cd;
+  color: var(--warning-ink);
+  background: var(--warning-bg);
   border: 1px solid #ecd899;
 }
 
 .form-errors {
   margin: 14px 20px 0;
-  color: #8a2c2c;
-  background: #fbe5e5;
+  color: var(--error-ink);
+  background: var(--error-bg);
   border: 1px solid #efbcbc;
 }
 
@@ -1745,29 +1805,59 @@ html[data-theme="dark"] dialog::backdrop {
 
   .top-actions {
     grid-column: 1 / -1;
-    justify-content: flex-start;
+    justify-content: stretch;
     gap: 6px;
-    overflow-x: auto;
     padding: 1px 0 2px;
-    scrollbar-width: thin;
   }
 
-  .top-actions .button {
+  .top-actions > .button {
+    flex: 1;
     min-height: 42px;
-    padding-inline: 11px;
+    padding-inline: 8px;
   }
 
-  .top-actions #newActivityButton {
-    order: -2;
+  .mobile-header-action {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  .top-actions #toggleCatalogButton {
-    order: -1;
+  .advanced-actions {
+    position: fixed;
+    top: 103px;
+    right: 8px;
+    left: 8px;
+    z-index: 75;
+    display: none;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  body.mobile-more-open .advanced-actions {
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr);
+  }
+
+  .advanced-actions > .button,
+  .advanced-actions > .icon-button,
+  .advanced-actions summary.button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .advanced-actions .catalog-toggle {
+    width: 44px;
   }
 
   .action-menu-panel {
     position: fixed;
-    top: 102px;
+    top: 162px;
     right: 8px;
     bottom: auto;
     left: 8px;
@@ -1819,7 +1909,7 @@ html[data-theme="dark"] dialog::backdrop {
   }
 
   .month-navigation {
-    width: 100%;
+    display: none;
   }
 
   .month-navigation h1 {
@@ -1887,66 +1977,74 @@ html[data-theme="dark"] dialog::backdrop {
 
   .calendar-panel {
     height: 100%;
-    padding: 7px 7px 0;
+    padding: 0;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 
-  .weekday-row,
-  .calendar-grid {
+  .month-grid-wrap {
+    display: none;
+  }
+
+  .mobile-month-grid-host .month-grid-wrap {
+    display: block;
+  }
+
+  .mobile-month-grid-host .weekday-row,
+  .mobile-month-grid-host .calendar-grid {
     width: 100%;
     min-width: 0;
     grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 
-  .weekday-row div {
+  .mobile-month-grid-host .weekday-row div {
     padding: 6px 1px;
     font-size: 0;
   }
 
-  .weekday-row div::before {
+  .mobile-month-grid-host .weekday-row div::before {
     font-size: 11px;
   }
 
-  .weekday-row div:nth-child(1)::before { content: "L"; }
-  .weekday-row div:nth-child(2)::before { content: "M"; }
-  .weekday-row div:nth-child(3)::before { content: "X"; }
-  .weekday-row div:nth-child(4)::before { content: "J"; }
-  .weekday-row div:nth-child(5)::before { content: "V"; }
-  .weekday-row div:nth-child(6)::before { content: "S"; }
-  .weekday-row div:nth-child(7)::before { content: "D"; }
+  .mobile-month-grid-host .weekday-row div:nth-child(1)::before { content: "L"; }
+  .mobile-month-grid-host .weekday-row div:nth-child(2)::before { content: "M"; }
+  .mobile-month-grid-host .weekday-row div:nth-child(3)::before { content: "X"; }
+  .mobile-month-grid-host .weekday-row div:nth-child(4)::before { content: "J"; }
+  .mobile-month-grid-host .weekday-row div:nth-child(5)::before { content: "V"; }
+  .mobile-month-grid-host .weekday-row div:nth-child(6)::before { content: "S"; }
+  .mobile-month-grid-host .weekday-row div:nth-child(7)::before { content: "D"; }
 
-  .calendar-grid {
+  .mobile-month-grid-host .calendar-grid {
     flex: 0 0 auto;
     grid-template-rows: repeat(6, minmax(48px, 1fr));
   }
 
-  .day-cell {
+  .mobile-month-grid-host .day-cell {
     min-height: 48px;
     padding: 1px;
     overflow: visible;
   }
 
-  .day-cell.agenda-selected {
+  .mobile-month-grid-host .day-cell.agenda-selected {
     z-index: 2;
     box-shadow: inset 0 0 0 3px var(--green);
   }
 
-  .day-header {
+  .mobile-month-grid-host .day-header {
     min-height: 46px;
     align-items: center;
     justify-content: center;
   }
 
-  .day-number {
+  .mobile-month-grid-host .day-number {
     width: 38px;
     height: 38px;
     font-size: 13px;
   }
 
-  .holiday-label,
-  .day-cards {
+  .mobile-month-grid-host .holiday-label,
+  .mobile-month-grid-host .day-cards {
     display: none;
   }
 
@@ -1967,14 +2065,25 @@ html[data-theme="dark"] dialog::backdrop {
   }
 
   .mobile-agenda {
-    min-height: 0;
+    min-height: 100%;
     display: flex;
     flex: 1;
     flex-direction: column;
-    margin: 8px -7px 0;
-    padding: 0 10px 12px;
-    border-top: 1px solid var(--line);
+    margin: 0;
+    padding: 8px 10px 12px;
     background: var(--surface);
+  }
+
+  .mobile-agenda-navigation {
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    gap: 8px;
+    padding: 2px 0 6px;
+  }
+
+  .mobile-agenda-navigation .icon-button,
+  .mobile-agenda-navigation .button {
+    min-height: 42px;
   }
 
   .mobile-agenda-header {
@@ -1983,6 +2092,10 @@ html[data-theme="dark"] dialog::backdrop {
     justify-content: space-between;
     gap: 10px;
     padding: 10px 0 8px;
+  }
+
+  .mobile-agenda-header #mobileAgendaAddButton {
+    display: none;
   }
 
   .mobile-agenda-header h2,
@@ -2044,11 +2157,9 @@ html[data-theme="dark"] dialog::backdrop {
   }
 
   .detail-drawer {
-    top: 12dvh;
-    width: 100%;
-    border-top: 1px solid var(--line);
-    border-left: 0;
-    border-radius: 16px 16px 0 0;
+    width: calc(100vw - 10px);
+    max-height: calc(100dvh - 10px);
+    border-radius: 14px;
   }
 
   .drawer-header,
@@ -2070,6 +2181,30 @@ html[data-theme="dark"] dialog::backdrop {
   dialog > form {
     max-height: calc(100dvh - 14px);
     overflow-y: auto;
+  }
+
+  .mobile-month-modal {
+    width: calc(100vw - 14px) !important;
+    padding: 0;
+  }
+
+  .mobile-month-shell {
+    display: grid;
+    gap: 8px;
+  }
+
+  .mobile-month-navigation {
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    text-align: center;
+    text-transform: capitalize;
+  }
+
+  .mobile-month-grid-host {
+    padding: 0 8px 10px;
   }
 
   .form-grid.two-columns,
@@ -2217,35 +2352,41 @@ html[data-theme="dark"] dialog::backdrop {
         <button class="button primary" id="newActivityButton" type="button" data-testid="new-activity">
           <span aria-hidden="true">＋</span> Nueva actividad
         </button>
-        <button class="button" id="toggleCatalogButton" type="button" aria-expanded="true" aria-controls="catalogPanel">Ocultar banco</button>
-        <details class="action-menu">
-          <summary class="button">Datos</summary>
-          <div class="action-menu-panel">
-            <button class="menu-action" id="importBaseButton" type="button" data-testid="import-base">Importar Base Operativa</button>
-            <button class="menu-action" id="programmingTemplateButton" type="button">Descargar plantilla</button>
-            <button class="menu-action" id="importProgrammingButton" type="button">Importar programación</button>
-            <button class="menu-action" id="backupButton" type="button">Descargar respaldo JSON</button>
-            <button class="menu-action" id="restoreButton" type="button">Restaurar respaldo JSON</button>
-            <button class="menu-action" id="mergeJsonButton" type="button">Añadir desde JSON</button>
-            <button class="menu-action danger-text" id="resetDataButton" type="button">Reiniciar datos</button>
-          </div>
-        </details>
-        <details class="action-menu">
-          <summary class="button">Exportar</summary>
-          <div class="action-menu-panel">
-            <button class="menu-action" id="exportCsvButton" type="button">Mes a CSV</button>
-            <button class="menu-action" id="exportImageButton" type="button">Vista como PNG</button>
-          </div>
-        </details>
-        <details class="action-menu">
-          <summary class="button">Configuración</summary>
-          <div class="action-menu-panel">
-            <button class="menu-action" id="holidayButton" type="button">Festivos y ajustes</button>
-            <button class="menu-action" id="calendarSettingsButton" type="button">Identificación</button>
-            <button class="menu-action" id="themeButton" type="button">Tema: Sistema</button>
-            <button class="menu-action" id="helpButton" type="button">Ayuda y privacidad</button>
-          </div>
-        </details>
+        <button class="button mobile-header-action" id="mobileMonthButton" type="button">Ver mes</button>
+        <button class="button mobile-header-action" id="mobileMoreButton" type="button" aria-expanded="false" aria-controls="advancedActions">Más</button>
+        <div class="advanced-actions" id="advancedActions">
+          <button class="icon-button catalog-toggle" id="toggleCatalogButton" type="button" aria-expanded="true" aria-controls="catalogPanel" title="Ocultar banco de tarjetas">
+            <span aria-hidden="true">◧</span><span class="visually-hidden">Ocultar banco de tarjetas</span>
+          </button>
+          <details class="action-menu">
+            <summary class="button">Gestionar</summary>
+            <div class="action-menu-panel">
+              <button class="menu-action" id="importBaseButton" type="button" data-testid="import-base"><strong>Actualizar base operativa</strong><small>Clientes, sedes y responsables</small></button>
+              <button class="menu-action" id="programmingTemplateButton" type="button"><strong>Descargar plantilla de programación</strong><small>Formato para preparar una carga</small></button>
+              <button class="menu-action" id="importProgrammingButton" type="button"><strong>Cargar programación desde Excel</strong><small>Añade actividades desde la plantilla</small></button>
+              <button class="menu-action" id="backupButton" type="button"><strong>Descargar copia del cronograma</strong><small>Guárdala para recuperar o trasladar tus datos</small></button>
+              <button class="menu-action" id="restoreButton" type="button"><strong>Recuperar una copia del cronograma</strong><small>Reemplaza los datos actuales</small></button>
+              <button class="menu-action" id="mergeJsonButton" type="button"><strong>Combinar otra copia</strong><small>Añade y actualiza sin borrar lo existente</small></button>
+              <button class="menu-action danger-text" id="resetDataButton" type="button"><strong>Borrar y empezar de cero</strong><small>Descarga una copia antes de reiniciar</small></button>
+            </div>
+          </details>
+          <details class="action-menu">
+            <summary class="button">Compartir</summary>
+            <div class="action-menu-panel">
+              <button class="menu-action" id="exportCsvButton" type="button"><strong>Descargar listado del mes</strong><small>Archivo para revisar en Excel</small></button>
+              <button class="menu-action" id="exportImageButton" type="button"><strong>Descargar imagen del cronograma</strong><small>Respeta la búsqueda y los filtros activos</small></button>
+            </div>
+          </details>
+          <details class="action-menu">
+            <summary class="button">Configuración</summary>
+            <div class="action-menu-panel">
+              <button class="menu-action" id="holidayButton" type="button"><strong>Festivos y ajustes</strong><small>Excepciones del calendario colombiano</small></button>
+              <button class="menu-action" id="calendarSettingsButton" type="button"><strong>Nombre del cronograma</strong><small>Identificación y coordinador</small></button>
+              <button class="menu-action" id="themeButton" type="button"><strong>Tema: Claro</strong><small>Apariencia clara, oscura o del sistema</small></button>
+              <button class="menu-action" id="helpButton" type="button"><strong>Ayuda y privacidad</strong><small>Uso, almacenamiento y respaldos</small></button>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div class="save-indicator" id="saveIndicator" role="status" aria-live="polite">
@@ -2272,10 +2413,10 @@ html[data-theme="dark"] dialog::backdrop {
 
     <section class="backup-banner" id="backupBanner" hidden>
       <div>
-        <strong>Conviene crear un respaldo.</strong>
+        <strong>Conviene descargar una copia.</strong>
         <span id="backupBannerText">Tus datos viven en este navegador.</span>
       </div>
-      <button class="button small" id="backupBannerButton" type="button">Respaldar ahora</button>
+      <button class="button small" id="backupBannerButton" type="button">Descargar copia</button>
       <button class="icon-button small" id="dismissBackupBanner" type="button" aria-label="Ocultar recordatorio">×</button>
     </section>
 
@@ -2326,21 +2467,28 @@ html[data-theme="dark"] dialog::backdrop {
         </div>
       </aside>
 
-      <section class="calendar-panel" role="region" aria-label="Calendario mensual">
-        <div class="weekday-row" id="weekdayRow" aria-hidden="true">
-          <div>Lunes</div>
-          <div>Martes</div>
-          <div>Miércoles</div>
-          <div>Jueves</div>
-          <div>Viernes</div>
-          <div>Sábado</div>
-          <div>Domingo</div>
+      <section class="calendar-panel" id="calendarPanel" role="region" aria-label="Calendario mensual">
+        <div class="month-grid-wrap" id="monthGridWrap">
+          <div class="weekday-row" id="weekdayRow" aria-hidden="true">
+            <div>Lunes</div>
+            <div>Martes</div>
+            <div>Miércoles</div>
+            <div>Jueves</div>
+            <div>Viernes</div>
+            <div>Sábado</div>
+            <div>Domingo</div>
+          </div>
+          <div class="calendar-grid" id="calendarGrid" data-testid="calendar-grid"></div>
         </div>
-        <div class="calendar-grid" id="calendarGrid" data-testid="calendar-grid"></div>
         <section class="mobile-agenda" id="mobileAgenda" aria-labelledby="mobileAgendaTitle">
+          <nav class="mobile-agenda-navigation" aria-label="Cambiar día">
+            <button class="icon-button" id="mobilePreviousDayButton" type="button" aria-label="Día anterior">‹</button>
+            <button class="button small" id="mobileTodayButton" type="button">Hoy</button>
+            <button class="icon-button" id="mobileNextDayButton" type="button" aria-label="Día siguiente">›</button>
+          </nav>
           <header class="mobile-agenda-header">
             <div>
-              <p class="eyebrow">Agenda seleccionada</p>
+              <p class="eyebrow">Agenda del día</p>
               <h2 id="mobileAgendaTitle">Día</h2>
               <p id="mobileAgendaMeta"></p>
             </div>
@@ -2350,7 +2498,7 @@ html[data-theme="dark"] dialog::backdrop {
         </section>
       </section>
 
-      <aside class="detail-drawer" id="detailDrawer" aria-labelledby="drawerTitle" aria-hidden="true" inert>
+      <dialog class="detail-drawer" id="detailDrawer" aria-labelledby="drawerTitle" aria-hidden="true">
         <div class="drawer-header">
           <div>
             <p class="eyebrow" id="drawerEyebrow">Detalle</p>
@@ -2359,7 +2507,7 @@ html[data-theme="dark"] dialog::backdrop {
           <button class="icon-button" id="closeDrawerButton" type="button" aria-label="Cerrar detalle">×</button>
         </div>
         <div class="drawer-body" id="drawerBody"></div>
-      </aside>
+      </dialog>
     </main>
 
     <div class="selection-bar" id="selectionBar" hidden>
@@ -2371,6 +2519,21 @@ html[data-theme="dark"] dialog::backdrop {
       <button class="button small ghost" id="clearSelectionButton" type="button">Limpiar selección</button>
     </div>
   </div>
+
+  <dialog class="modal mobile-month-modal" id="mobileMonthDialog" aria-labelledby="mobileMonthDialogTitle">
+    <div class="mobile-month-shell">
+      <header class="modal-header">
+        <div><p class="eyebrow">Seleccionar fecha</p><h2 id="mobileMonthDialogTitle">Vista del mes</h2></div>
+        <button class="icon-button" id="closeMobileMonthButton" type="button" aria-label="Cerrar vista del mes">×</button>
+      </header>
+      <div class="mobile-month-navigation">
+        <button class="icon-button" id="mobilePreviousMonthButton" type="button" aria-label="Mes anterior">‹</button>
+        <strong id="mobileMonthTitle">Mes</strong>
+        <button class="icon-button" id="mobileNextMonthButton" type="button" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="mobile-month-grid-host" id="mobileMonthGridHost"></div>
+    </div>
+  </dialog>
 
   <dialog class="modal activity-modal" id="activityDialog" data-testid="activity-dialog" aria-labelledby="activityDialogTitle">
     <form id="activityForm" method="dialog" novalidate>
@@ -3125,7 +3288,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   </script>
   <script type="module">
-export const APP_VERSION = "0.8.0";
+export const APP_VERSION = "0.9.0";
 export const SCHEMA_VERSION = 3;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -5901,14 +6064,16 @@ function applyCatalogPreference() {
   if (compactLayoutQuery?.matches) {
     const open = document.body.classList.contains("catalog-mobile-open");
     dom.toggleCatalogButton.setAttribute("aria-expanded", String(open));
-    dom.toggleCatalogButton.textContent = open ? "Cerrar banco" : "Banco";
+    dom.toggleCatalogButton.title = open ? "Cerrar banco de tarjetas" : "Abrir banco de tarjetas";
+    dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
     return;
   }
   const collapsed = readUiPreferences().catalogCollapsed === true;
   document.body.classList.remove("catalog-mobile-open");
   document.body.classList.toggle("catalog-collapsed", collapsed);
   dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
-  dom.toggleCatalogButton.textContent = collapsed ? "Mostrar banco" : "Ocultar banco";
+  dom.toggleCatalogButton.title = collapsed ? "Mostrar banco de tarjetas" : "Ocultar banco de tarjetas";
+  dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
 }
 
 function toggleCatalog() {
@@ -5924,7 +6089,7 @@ function toggleCatalog() {
 
 function themePreference() {
   const value = readUiPreferences().theme;
-  return ["light", "dark", "system"].includes(value) ? value : "system";
+  return ["light", "dark", "system"].includes(value) ? value : "light";
 }
 
 function applyThemePreference() {
@@ -5935,7 +6100,11 @@ function applyThemePreference() {
   document.documentElement.dataset.theme = resolved;
   document.documentElement.style.colorScheme = resolved;
   const labels = { light: "Claro", dark: "Oscuro", system: "Sistema" };
-  if (dom.themeButton) dom.themeButton.textContent = `Tema: ${labels[preference]}`;
+  if (dom.themeButton) {
+    const label = dom.themeButton.querySelector("strong");
+    if (label) label.textContent = `Tema: ${labels[preference]}`;
+    else dom.themeButton.textContent = `Tema: ${labels[preference]}`;
+  }
 }
 
 function openThemeDialog() {
@@ -6359,6 +6528,21 @@ function downloadBlob(content, mimeType, fileName) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function timestampForFile(value = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(value);
+  const part = (type) => parts.find((item) => item.type === type)?.value ?? "00";
+  return `${part("year")}-${part("month")}-${part("day")}_${part("hour")}-${part("minute")}-${part("second")}`;
+}
+
 async function sha256Hex(arrayBuffer) {
   if (!crypto?.subtle) return null;
   const digest = await crypto.subtle.digest("SHA-256", arrayBuffer);
@@ -6404,7 +6588,7 @@ function closeDrawer({ restoreFocus = true } = {}) {
   }
   dom.detailDrawer.classList.remove("open");
   dom.detailDrawer.setAttribute("aria-hidden", "true");
-  dom.detailDrawer.inert = true;
+  if (dom.detailDrawer.open) dom.detailDrawer.close();
   activeDrawer = null;
   drawerReturnFocus = null;
   if (focusTarget && document.activeElement !== focusTarget) {
@@ -6415,12 +6599,45 @@ function closeDrawer({ restoreFocus = true } = {}) {
 function openDrawer() {
   const wasOpen = dom.detailDrawer.classList.contains("open");
   if (!wasOpen) drawerReturnFocus = focusReferenceFor(document.activeElement);
-  dom.detailDrawer.inert = false;
+  if (!dom.detailDrawer.open) dom.detailDrawer.showModal();
   dom.detailDrawer.classList.add("open");
   dom.detailDrawer.setAttribute("aria-hidden", "false");
   if (!wasOpen) {
     window.requestAnimationFrame(() => dom.closeDrawerButton.focus());
   }
+}
+
+function closeAllActionMenus(except = null) {
+  for (const menu of document.querySelectorAll(".action-menu[open]")) {
+    if (menu !== except) menu.removeAttribute("open");
+  }
+}
+
+function closeMobileMore() {
+  document.body.classList.remove("mobile-more-open");
+  dom.mobileMoreButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleMobileMore() {
+  const open = !document.body.classList.contains("mobile-more-open");
+  document.body.classList.toggle("mobile-more-open", open);
+  dom.mobileMoreButton.setAttribute("aria-expanded", String(open));
+  if (!open) closeAllActionMenus();
+}
+
+function openMobileMonthPicker() {
+  closeMobileMore();
+  dom.mobileMonthGridHost.append(dom.monthGridWrap);
+  dom.mobileMonthTitle.textContent = dom.monthTitle.textContent;
+  if (!dom.mobileMonthDialog.open) dom.mobileMonthDialog.showModal();
+}
+
+function closeMobileMonthPicker({ restoreFocus = true } = {}) {
+  if (dom.monthGridWrap.parentElement === dom.mobileMonthGridHost) {
+    dom.calendarPanel.insertBefore(dom.monthGridWrap, dom.mobileAgenda);
+  }
+  if (dom.mobileMonthDialog.open) dom.mobileMonthDialog.close();
+  if (restoreFocus) dom.mobileMonthButton.focus();
 }
 
 function activitySearchText(activity, maps = lookupMaps()) {
@@ -6593,10 +6810,9 @@ function renderBackupReminder() {
 }
 
 async function renderStorageStatus() {
-  const mode = runtimeMode();
   dom.storageStatusTitle.textContent = "Datos guardados solamente en este navegador";
   if (!navigator.storage) {
-    dom.storageStatusText.textContent = `Modo ${mode}. El navegador no informa el estado de protección. Mantén respaldos JSON frecuentes.`;
+    dom.storageStatusText.textContent = "Guardado en este navegador · Descarga copias periódicas para proteger tus datos.";
     dom.requestPersistenceButton.hidden = true;
     return;
   }
@@ -6611,11 +6827,11 @@ async function renderStorageStatus() {
       ? ` Uso aproximado: ${(used / 1024 / 1024).toFixed(1)} MB de ${(quota / 1024 / 1024).toFixed(0)} MB.`
       : "";
     dom.storageStatusText.textContent = persisted
-      ? `Modo ${mode}. El navegador concedió persistencia para este origen.${usageLabel}`
-      : `Modo ${mode}. El navegador puede liberar estos datos bajo presión de espacio.${usageLabel} El respaldo JSON sigue siendo la copia portable.`;
+      ? `Guardado en este navegador · Protección activa.${usageLabel}`
+      : `Guardado en este navegador · Puede borrarse al limpiar datos o por falta de espacio.${usageLabel}`;
     dom.requestPersistenceButton.hidden = Boolean(persisted) || typeof navigator.storage.persist !== "function";
   } catch {
-    dom.storageStatusText.textContent = `Modo ${mode}. No fue posible comprobar la protección. El respaldo JSON sigue siendo la copia portable.`;
+    dom.storageStatusText.textContent = "Guardado en este navegador · No fue posible comprobar la protección.";
     dom.requestPersistenceButton.hidden = true;
   }
 }
@@ -6910,8 +7126,16 @@ function buildActivityCard(activity, maps) {
 function selectMobileAgendaDate(date) {
   mobileAgendaDate = date;
   appDocument.settings.currentDate = date;
+  if (dom.mobileMonthDialog.open) closeMobileMonthPicker({ restoreFocus: false });
   renderCalendar();
   scheduleSave();
+}
+
+function changeMobileAgendaDay(delta) {
+  selectMobileAgendaDate(addDaysISO(
+    mobileAgendaDate || appDocument.settings.currentDate || todayInBogota(),
+    delta
+  ));
 }
 
 function renderMobileAgenda(date, items, maps, holiday) {
@@ -6942,6 +7166,7 @@ function renderMobileAgenda(date, items, maps, holiday) {
 function renderCalendar() {
   const { year, month } = currentMonthParts();
   dom.monthTitle.textContent = formatMonthTitle(year, month);
+  dom.mobileMonthTitle.textContent = dom.monthTitle.textContent;
   const gridDates = monthGridDates(year, month);
   const years = [...new Set(gridDates.map((date) => Number(date.slice(0, 4))))];
   const holidays = holidayMapForYears(years, appDocument.holidayOverrides);
@@ -6991,13 +7216,17 @@ function renderCalendar() {
     const header = createElement("div", "day-header");
     const number = createElement("button", "day-number", String(day));
     number.type = "button";
-    number.title = `Crear actividad el ${formatDisplayDate(date)}`;
-    number.setAttribute("aria-label", `Crear actividad el ${formatDisplayDate(date)}`);
+    const compact = compactLayoutQuery?.matches;
+    number.title = `${compact ? "Ver agenda del" : "Crear actividad el"} ${formatDisplayDate(date)}`;
+    number.setAttribute("aria-label", number.title);
     number.tabIndex = date === preferredFocusDate ? 0 : -1;
     number.addEventListener("focus", () => {
       calendarFocusDate = date;
     });
-    number.addEventListener("click", () => openActivityDialog({ date }));
+    number.addEventListener("click", () => {
+      if (compactLayoutQuery?.matches) selectMobileAgendaDate(date);
+      else openActivityDialog({ date });
+    });
     number.addEventListener("keydown", (event) => {
       const weekdayOffset = (dayOfWeek(date) + 6) % 7;
       const offsets = {
@@ -8170,7 +8399,6 @@ async function createBackup() {
   appendAudit("backup_created", "Respaldo JSON descargado");
   renderBackupReminder();
   await scheduleSave({ immediate: true });
-  const date = todayInBogota();
   const fileIdentity = normalizeKey(appDocument.calendarMeta.coordinator || appDocument.calendarMeta.name) || "cronograma";
   const envelope = createBackupEnvelope(appDocument, {
     exportedAt: appDocument.settings.lastBackupAt,
@@ -8180,9 +8408,9 @@ async function createBackup() {
   downloadBlob(
     JSON.stringify(envelope, null, 2),
     "application/json;charset=utf-8",
-    `calendario-hvac-${fileIdentity}-r${appDocument.calendarMeta.revision}-${date}.json`
+    `${timestampForFile()}_respaldo-cronograma_${fileIdentity}.json`
   );
-  showToast("Respaldo JSON descargado.");
+  showToast("Copia del cronograma descargada.");
 }
 
 function openResetDataDialog() {
@@ -8227,10 +8455,11 @@ function exportCurrentMonthCsv() {
   const { year, month } = currentMonthParts();
   const csv = buildMonthlyCsv(appDocument, year, month);
   const fileMonth = `${year}-${String(month).padStart(2, "0")}`;
-  downloadBlob(csv, "text/csv;charset=utf-8", `programacion-hvac-${fileMonth}.csv`);
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  downloadBlob(csv, "text/csv;charset=utf-8", `${fileMonth}_programacion_${identity}.csv`);
   appendAudit("csv_exported", `Mes exportado: ${fileMonth}`);
   scheduleSave();
-  showToast(`CSV de ${formatMonthTitle(year, month)} descargado.`);
+  showToast(`Listado de ${formatMonthTitle(year, month)} descargado.`);
 }
 
 function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
@@ -8351,7 +8580,8 @@ async function exportCurrentMonthImage() {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
   );
   const fileMonth = `${year}-${String(month).padStart(2, "0")}`;
-  downloadBlob(blob, "image/png", `cronograma-hvac-${normalizeKey(appDocument.calendarMeta.name)}-${fileMonth}.png`);
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  downloadBlob(blob, "image/png", `${fileMonth}_cronograma_${identity}.png`);
   appendAudit("png_exported", `Vista filtrada exportada: ${fileMonth}`);
   scheduleSave();
   showToast(`Imagen de ${formatMonthTitle(year, month)} descargada.`);
@@ -8393,7 +8623,7 @@ function downloadProgrammingTemplate() {
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(catalogRows), "Catalogos");
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(instructions), "Instrucciones");
   const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-  downloadBlob(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla-programacion-hvac.xlsx");
+  downloadBlob(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla_programacion_SIYS-Sync.xlsx");
   showToast("Plantilla Excel descargada.");
 }
 
@@ -8747,6 +8977,14 @@ function bindEvents() {
   }));
   dom.importBaseButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.toggleCatalogButton.addEventListener("click", toggleCatalog);
+  dom.mobileMoreButton.addEventListener("click", toggleMobileMore);
+  dom.mobileMonthButton.addEventListener("click", openMobileMonthPicker);
+  dom.closeMobileMonthButton.addEventListener("click", () => closeMobileMonthPicker());
+  dom.mobilePreviousMonthButton.addEventListener("click", () => changeVisibleMonth(-1));
+  dom.mobileNextMonthButton.addEventListener("click", () => changeVisibleMonth(1));
+  dom.mobilePreviousDayButton.addEventListener("click", () => changeMobileAgendaDay(-1));
+  dom.mobileNextDayButton.addEventListener("click", () => changeMobileAgendaDay(1));
+  dom.mobileTodayButton.addEventListener("click", () => selectMobileAgendaDate(todayInBogota()));
   dom.closeCatalogMobileButton.addEventListener("click", () => {
     document.body.classList.remove("catalog-mobile-open");
     applyCatalogPreference();
@@ -8825,6 +9063,17 @@ function bindEvents() {
   });
   dom.newCatalogButton.addEventListener("click", () => openCatalogDialog(catalogTab === "responsibles" ? "responsible" : "client"));
   dom.closeDrawerButton.addEventListener("click", closeDrawer);
+  dom.detailDrawer.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeDrawer();
+  });
+  dom.detailDrawer.addEventListener("close", () => {
+    if (activeDrawer) closeDrawer();
+  });
+  dom.mobileMonthDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeMobileMonthPicker();
+  });
   dom.clearSelectionButton.addEventListener("click", () => {
     selectedActivityIds.clear();
     renderCalendar();
@@ -8893,8 +9142,20 @@ function bindEvents() {
   for (const button of document.querySelectorAll(".action-menu .menu-action")) {
     button.addEventListener("click", () => {
       button.closest("details")?.removeAttribute("open");
+      closeMobileMore();
     });
   }
+  for (const menu of document.querySelectorAll(".action-menu")) {
+    menu.addEventListener("toggle", () => {
+      if (menu.open) closeAllActionMenus(menu);
+    });
+  }
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".action-menu, #mobileMoreButton, #advancedActions")) {
+      closeAllActionMenus();
+      closeMobileMore();
+    }
+  });
   for (const dialog of document.querySelectorAll("dialog")) {
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) {
@@ -8910,7 +9171,10 @@ function bindEvents() {
     });
   }
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && dom.detailDrawer.classList.contains("open")) closeDrawer();
+    if (event.key === "Escape") {
+      closeAllActionMenus();
+      closeMobileMore();
+    }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "n" && !document.querySelector("dialog[open]")) {
       event.preventDefault();
       openActivityDialog({ date: appDocument.settings.currentDate });
@@ -8920,7 +9184,11 @@ function bindEvents() {
     if (themePreference() === "system") applyThemePreference();
   });
   compactLayoutQuery?.addEventListener("change", () => {
+    if (!compactLayoutQuery.matches && dom.mobileMonthDialog.open) {
+      closeMobileMonthPicker({ restoreFocus: false });
+    }
     document.body.classList.remove("catalog-mobile-open");
+    closeMobileMore();
     applyCatalogPreference();
     renderCalendar();
   });

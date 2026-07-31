@@ -29,7 +29,7 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
     "SIYS Sync",
     "Ampliar",
     "REINICIAR",
-    "Añadir desde JSON",
+    "Combinar otra copia",
     "beta",
     "Tema",
     "Oscuro",
@@ -37,10 +37,37 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
     "impresión",
     "Teléfonos y tabletas",
     "alternativas táctiles",
-    "899 px"
+    "899 px",
+    "agenda diaria",
+    "Ver mes",
+    "Borrar y empezar de cero",
+    "plantilla_programacion_SIYS-Sync.xlsx"
   ]) {
     assert.match(manual, new RegExp(required, "i"));
   }
+});
+
+test("la interfaz usa lenguaje operativo, tema claro inicial y menús móviles explícitos", () => {
+  const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
+  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  for (const label of [
+    "Gestionar",
+    "Actualizar base operativa",
+    "Descargar copia del cronograma",
+    "Recuperar una copia del cronograma",
+    "Combinar otra copia",
+    "Borrar y empezar de cero",
+    "Descargar listado del mes",
+    "Descargar imagen del cronograma",
+    "Ver mes",
+    "Más"
+  ]) {
+    assert.match(template, new RegExp(label, "i"));
+  }
+  assert.match(app, /return \["light", "dark", "system"\]\.includes\(value\) \? value : "light"/);
+  assert.match(app, /respaldo-cronograma_/);
+  assert.match(app, /_programacion_/);
+  assert.match(app, /_cronograma_/);
 });
 
 test("la guía de Base Operativa enumera hojas y exclusiones de privacidad", () => {
