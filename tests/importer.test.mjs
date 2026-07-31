@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 
 import { createDefaultDocument } from "../src/core.js";
 import {
+  applyProgrammingImport,
   applyParsedImport,
   buildImportPreview,
-  parseBaseWorkbook
+  parseBaseWorkbook,
+  parseProgrammingWorkbook
 } from "../src/importer.js";
 
 function encodeColumn(index) {
@@ -367,4 +369,115 @@ test("applyParsedImport mezcla sin borrar y preserva ajustes e ids locales", () 
   assert.equal(applied.importMetadata.importedAt, "2026-07-30T15:00:00.000Z");
   assert.equal(applied.importMetadata.sha256, "B".repeat(64));
   assert.equal(applied.audit.at(-1).action, "base_operativa_imported");
+});
+
+function programmingDocument() {
+  const document = createDefaultDocument("2026-07-30");
+  document.catalog.clients.push({ id: "c1", name: "Cliente Uno", active: true });
+  document.catalog.sites.push({ id: "s1", clientId: "c1", name: "Sede Centro", city: "Pereira", active: true });
+  document.catalog.responsibles.push(
+    { id: "r1", name: "Ana Nómina", responsibleType: "payroll", active: true },
+    { id: "r2", name: "Carlos Contratista", responsibleType: "contractor", active: true }
+  );
+  return document;
+}
+
+function programmingWorkbook(rows) {
+  return {
+    SheetNames: ["Programacion"],
+    Sheets: {
+      Programacion: makeSheet([
+        [
+          "FechaInicio", "FechaFin", "Cliente", "Sede", "Ciudad", "Responsables",
+          "TipoServicio", "Estado", "Observaciones", "IncluirNoLaborables"
+        ],
+        ...rows
+      ])
+    }
+  };
+}
+
+test("la plantilla de programación valida filas operativas, administrativas y rangos", () => {
+  const preview = parseProgrammingWorkbook(programmingWorkbook([
+    [
+      "2026-07-09", "2026-07-14", "Cliente Uno", "Sede Centro", "",
+      "Ana Nómina; Carlos Contratista", "Mantenimiento preventivo", "Confirmada",
+      "Rango preventivo", "No"
+    ],
+    [
+      "2026-07-30", "", "", "", "", "", "Administrativo", "Programada",
+      "Reunión interna", "No"
+    ]
+  ]), programmingDocument());
+  assert.equal(preview.structuralErrors.length, 0);
+  assert.equal(preview.counts.valid, 2);
+  assert.equal(preview.counts.errors, 0);
+  assert.equal(preview.rows[0].dates.length, 4);
+  assert.equal(preview.rows[0].omitted.length, 2);
+  assert.deepEqual(preview.rows[0].input.responsibleIds, ["r1", "r2"]);
+
+  let counter = 0;
+  const applied = applyProgrammingImport(programmingDocument(), preview, {
+    now: "2026-07-30T12:00:00.000Z",
+    idFactory: () => `id${++counter}`
+  });
+  assert.equal(applied.activities.length, 5);
+  assert.equal(applied.document.series.length, 1);
+  assert.equal(applied.document.audit.at(-1).action, "programming_imported");
+});
+
+test("la importación reporta faltantes, ambigüedad, duplicados y errores estructurales", () => {
+  const document = programmingDocument();
+  document.catalog.responsibles.push({
+    id: "r3", name: "Ana Nómina", responsibleType: "contractor", active: true
+  });
+  const preview = parseProgrammingWorkbook(programmingWorkbook([
+    [
+      "2026-07-30", "", "Cliente Uno", "Sede Centro", "Pereira", "Ana Nómina",
+      "Mantenimiento preventivo", "Confirmada", "Ambigua", "No"
+    ],
+    [
+      "2026-07-31", "", "Cliente inexistente", "Sede Centro", "Pereira", "",
+      "Mantenimiento preventivo", "Programada", "Faltante", "No"
+    ]
+  ]), document);
+  assert.equal(preview.counts.errors, 2);
+  assert.match(preview.rows[0].errors.join(" "), /ambiguo/i);
+  assert.match(preview.rows[1].errors.join(" "), /no existe/i);
+
+  const broken = {
+    SheetNames: ["Programacion"],
+    Sheets: { Programacion: makeSheet([["FechaInicio"], ["2026-07-30"]]) }
+  };
+  const structural = parseProgrammingWorkbook(broken, document);
+  assert.ok(structural.structuralErrors.length >= 1);
+  assert.throws(() => applyProgrammingImport(document, structural), /Falta la columna/);
+});
+
+test("los duplicados se omiten por defecto y pueden incluirse explícitamente", () => {
+  const document = programmingDocument();
+  const workbook = programmingWorkbook([
+    [
+      "2026-07-30", "", "Cliente Uno", "Sede Centro", "Pereira", "Ana Nómina",
+      "Mantenimiento preventivo", "Programada", "Duplicada", "No"
+    ],
+    [
+      "2026-07-30", "", "Cliente Uno", "Sede Centro", "Pereira", "Ana Nómina",
+      "Mantenimiento preventivo", "Programada", "Duplicada", "No"
+    ]
+  ]);
+  const preview = parseProgrammingWorkbook(workbook, document);
+  assert.equal(preview.counts.valid, 1);
+  assert.equal(preview.counts.duplicates, 1);
+  let counter = 0;
+  const applied = applyProgrammingImport(document, preview, {
+    idFactory: () => `dup${++counter}`,
+    includeDuplicates: false
+  });
+  assert.equal(applied.activities.length, 1);
+  const included = applyProgrammingImport(document, preview, {
+    idFactory: () => `all${++counter}`,
+    includeDuplicates: true
+  });
+  assert.equal(included.activities.length, 2);
 });

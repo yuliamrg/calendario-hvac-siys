@@ -1,0 +1,135 @@
+# Manual de uso — Calendario HVAC SI&S
+
+## 1. Abrir y reconocer el cronograma
+
+Abra `dist/calendario-hvac-siys.html` en Chrome o Microsoft Edge. La aplicación
+funciona sin servidor y sin conexión. En **Identificación** registre el nombre
+del cronograma y el coordinador; estos datos aparecerán en los respaldos y en
+las imágenes exportadas.
+
+La revisión aumenta con los cambios operativos. Cambiar de mes, buscar o filtrar
+no cambia la revisión.
+
+## 2. Cargar la base operativa
+
+1. Pulse **Importar Base Operativa**.
+2. Seleccione `Base_operativa_HVAC_SIYS.xlsx`.
+3. Revise nuevos, actualizados, ausentes y advertencias.
+4. Confirme la importación.
+
+La aplicación sólo lee campos permitidos de clientes, sedes, ciudades,
+responsables y pistas de cobertura. No modifica el Excel, no borra registros
+locales ausentes y excluye documentos, teléfonos, correos y otros datos
+personales. Consulte [BASE_OPERATIVA.md](BASE_OPERATIVA.md) para el esquema.
+
+## 3. Crear y administrar actividades
+
+Arrastre un cliente o sede a una fecha, use el signo `+` del día o pulse
+**Nueva actividad**. La tarjeta contiene fecha, cliente, sede, ciudad, uno o
+varios responsables, tipo de servicio, estado y observaciones.
+
+Los servicios disponibles son mantenimiento preventivo, mantenimiento
+correctivo, llamada de emergencia y administrativo. Los estados son:
+Programada, Confirmada, En ejecución, Terminada, No ejecutada y Cancelada.
+Una actividad confirmada exige al menos un responsable.
+
+Un rango genera tarjetas independientes enlazadas. Los domingos y festivos
+colombianos se omiten inicialmente; la vista previa permite incluirlos. Cada
+tarjeta se puede mover o editar después sin alterar las demás. El estado puede
+aplicarse al día, desde ese día en adelante o a toda la actividad.
+
+Las tarjetas terminadas se muestran opacas. Nómina, contratistas y equipos
+mixtos tienen estilos distintos.
+
+## 4. Selección y edición múltiple
+
+Marque las casillas de las tarjetas o use `Ctrl`/`Cmd` al hacer clic.
+
+- **Mover:** conserva las distancias relativas o reúne todo en una fecha.
+- **Cambiar estado:** modifica sólo las tarjetas seleccionadas.
+- **Editar campo:** cambia servicio, estado, responsables, ciudad u
+  observaciones. Los responsables se pueden reemplazar, agregar o quitar; las
+  observaciones se pueden reemplazar, anexar o vaciar.
+- **Eliminar:** exige confirmación y permite deshacer una vez.
+
+Cada operación es atómica: si una tarjeta quedaría inválida, no cambia ninguna.
+
+## 5. Filtros y exportaciones
+
+La búsqueda libre revisa cliente, sede, ciudad, servicio, estado,
+observaciones y responsables. **Filtros** permite seleccionar varias ciudades,
+clientes, sedes, responsables, servicios y estados. Dentro de una categoría se
+acepta cualquiera de los valores; entre categorías deben cumplirse todos.
+
+Los chips muestran los filtros activos y permiten retirarlos individualmente.
+Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
+
+- **CSV:** exporta las actividades del mes y separa nómina de contratistas.
+- **PNG:** crea una imagen horizontal a escala 2 con nombre, coordinador, mes,
+  filtros, festivos y todas las tarjetas visibles, incluso en días densos.
+- **JSON:** crea el respaldo portable completo.
+
+## 6. Importar programación con plantilla
+
+1. Pulse **Plantilla** y abra `plantilla-programacion-hvac.xlsx`.
+2. Conserve las hojas `Programacion`, `Catalogos` e `Instrucciones`.
+3. Reemplace la fila de ejemplo y guarde el archivo.
+4. Pulse **Importar programación** y revise la vista previa.
+5. Corrija las filas con error. Las filas válidas se pueden importar en una
+   sola operación con opción de deshacer.
+
+Columnas de `Programacion`:
+
+| Columna | Regla |
+| --- | --- |
+| `FechaInicio` | Obligatoria, fecha inicial |
+| `FechaFin` | Opcional; vacía equivale a un día |
+| `Cliente` | Coincidencia exacta; opcional sólo en Administrativo |
+| `Sede` | Coincidencia exacta dentro del cliente; opcional sólo en Administrativo |
+| `Ciudad` | Obligatoria para servicios operativos; se completa desde la sede si está vacía |
+| `Responsables` | Nombres exactos separados por `;` |
+| `TipoServicio` | Uno de los cuatro tipos admitidos |
+| `Estado` | Uno de los seis estados admitidos |
+| `Observaciones` | Texto opcional |
+| `IncluirNoLaborables` | `Sí` o `No` |
+
+La importación no crea clientes, sedes ni responsables faltantes. Reporta
+ambigüedades, duplicados y fechas no laborables omitidas. Los duplicados se
+omiten por defecto y se pueden incluir expresamente.
+
+## 7. Persistencia, pestañas y respaldos
+
+IndexedDB guarda el documento dentro del perfil del navegador y del origen:
+
+- el archivo local y GitHub Pages tienen bases separadas;
+- Chrome y Edge no comparten datos;
+- dos perfiles del mismo navegador no comparten datos;
+- copiar la carpeta HTML no copia la programación.
+
+**Proteger almacenamiento** solicita persistencia al navegador. La concesión
+reduce la posibilidad de liberación automática, pero no garantiza una copia de
+seguridad. Descargue JSON regularmente y guárdelo fuera de la carpeta temporal.
+
+Sólo una pestaña edita. Las demás quedan en lectura y pueden filtrar, imprimir
+y exportar. **Tomar control** transfiere la edición. Si la pestaña editora se
+cierra o falla, otra recupera el control tras unos 15 segundos.
+
+Al restaurar se muestran cronograma, coordinador, revisión y antigüedad. La
+restauración reemplaza el documento, no mezcla versiones, y conserva una copia
+de recuperación local. Se aceptan respaldos heredados de `v0.1.0`.
+
+## 8. Solución de problemas
+
+- **No guarda:** descargue JSON inmediatamente, compruebe que IndexedDB esté
+  habilitado y que el navegador tenga espacio.
+- **Sólo lectura:** cierre la pestaña editora o use **Tomar control** después de
+  confirmar que nadie esté ingresando datos.
+- **Cliente o responsable no aparece:** reimporte la Base Operativa o actívelo
+  desde el catálogo.
+- **Excel rechazado:** descargue una plantilla nueva y no cambie encabezados ni
+  nombres de hojas.
+- **PNG sin una tarjeta esperada:** revise chips y búsqueda; la imagen respeta
+  la vista filtrada.
+- **Cambio de equipo o navegador:** exporte JSON en el origen anterior y
+  restáurelo en el nuevo.
+

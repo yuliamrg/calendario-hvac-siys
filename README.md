@@ -42,6 +42,10 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
   **Festivos y ajustes** (símbolo `◉`).
 - **Exportar CSV** genera la programación del mes visible con columnas
   separadas para personal de nómina y contratistas.
+- **Filtros** combina varias ciudades, clientes, sedes, responsables, servicios
+  y estados; **PNG** descarga exactamente esa vista.
+- **Plantilla** e **Importar programación** permiten una carga masiva Excel con
+  validación previa, detección de duplicados y una sola operación deshacible.
 
 ## Persistencia y respaldos
 
@@ -103,3 +107,9 @@ npm run build
 El HTML incorpora localmente SheetJS Community Edition 0.20.3 para leer
 archivos Excel. Su licencia y aviso se encuentran en `vendor/` y también están
 incluidos dentro del HTML generado.
+
+Documentación:
+
+- [Manual completo](docs/MANUAL_DE_USO.md)
+- [Guía de Base Operativa](docs/BASE_OPERATIVA.md)
+- [Historial de cambios](CHANGELOG.md)

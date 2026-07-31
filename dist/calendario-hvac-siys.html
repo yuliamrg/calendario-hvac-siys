@@ -309,6 +309,7 @@ body.read-only .day-add {
   padding: 10px 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
 }
 
 .month-navigation h1 {
@@ -316,6 +317,54 @@ body.read-only .day-add {
   margin: 0 0 0 6px;
   color: var(--green-800);
   font-size: 22px;
+}
+
+.filter-chips {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-chips:empty {
+  display: none;
+}
+
+.filter-chip {
+  min-height: 28px;
+  padding: 3px 9px;
+  border: 1px solid #bfd0b6;
+  border-radius: 999px;
+  color: #365b2c;
+  background: #edf5e9;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.filter-modal {
+  width: min(1040px, calc(100vw - 42px));
+}
+
+.filter-grid {
+  max-height: 58vh;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.filter-group {
+  min-width: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.filter-group legend {
+  padding: 0 5px;
+  font-weight: 700;
 }
 
 .filters select,
@@ -1438,6 +1487,9 @@ dialog::backdrop {
         <button class="icon-button" id="backupButton" type="button" title="Descargar respaldo JSON" aria-label="Descargar respaldo JSON">⇩</button>
         <button class="icon-button" id="restoreButton" type="button" title="Restaurar respaldo JSON" aria-label="Restaurar respaldo JSON">⇧</button>
         <button class="icon-button" id="exportCsvButton" type="button" title="Exportar mes a CSV" aria-label="Exportar mes a CSV">CSV</button>
+        <button class="icon-button" id="exportImageButton" type="button" title="Exportar vista como imagen" aria-label="Exportar vista como imagen">PNG</button>
+        <button class="button small ghost" id="programmingTemplateButton" type="button">Plantilla</button>
+        <button class="button small ghost" id="importProgrammingButton" type="button">Importar programación</button>
         <button class="icon-button" id="holidayButton" type="button" title="Festivos y ajustes" aria-label="Festivos y ajustes">◉</button>
         <button class="icon-button" id="helpButton" type="button" title="Ayuda y privacidad" aria-label="Ayuda y privacidad">?</button>
         <button class="button small ghost" id="calendarSettingsButton" type="button">Identificación</button>
@@ -1487,25 +1539,10 @@ dialog::backdrop {
           <span aria-hidden="true">⌕</span>
           <input id="globalSearch" type="search" placeholder="Buscar cliente, sede, ciudad…" autocomplete="off">
         </label>
-        <label>
-          <span class="visually-hidden">Filtrar por estado</span>
-          <select id="statusFilter" aria-label="Filtrar por estado">
-            <option value="all">Todos los estados</option>
-          </select>
-        </label>
-        <label>
-          <span class="visually-hidden">Filtrar por servicio</span>
-          <select id="serviceFilter" aria-label="Filtrar por servicio">
-            <option value="all">Todos los servicios</option>
-          </select>
-        </label>
-        <label>
-          <span class="visually-hidden">Filtrar por responsable</span>
-          <select id="responsibleFilter" aria-label="Filtrar por responsable">
-            <option value="all">Todos los responsables</option>
-          </select>
-        </label>
+        <button class="button small" id="filterButton" type="button">Filtros <span id="filterCount">0</span></button>
+        <button class="button small ghost" id="clearFiltersButton" type="button" hidden>Limpiar</button>
       </div>
+      <div class="filter-chips" id="filterChips" aria-live="polite"></div>
     </section>
 
     <main class="workspace">
@@ -1658,6 +1695,21 @@ dialog::backdrop {
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="activityDialog">Cancelar</button>
         <button class="button primary" id="saveActivityButton" type="submit" value="default" data-testid="save-activity">Guardar actividad</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal filter-modal" id="filterDialog" aria-labelledby="filterDialogTitle">
+    <form id="filterForm" method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Vista del calendario</p><h2 id="filterDialogTitle">Filtros combinables</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="filterDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="field-note">Dentro de cada categoría se acepta cualquiera de los valores seleccionados; entre categorías deben cumplirse todos.</p>
+      <div class="filter-grid" id="filterGrid"></div>
+      <footer class="modal-footer">
+        <button class="button ghost" id="clearFiltersDialogButton" type="button">Limpiar todo</button>
+        <button class="button primary" type="submit">Aplicar filtros</button>
       </footer>
     </form>
   </dialog>
@@ -1889,6 +1941,27 @@ dialog::backdrop {
     </form>
   </dialog>
 
+  <dialog class="modal" id="programmingImportDialog" aria-labelledby="programmingImportDialogTitle">
+    <form id="programmingImportForm" method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Carga masiva</p><h2 id="programmingImportDialogTitle">Importar programación</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="programmingImportDialog" aria-label="Cerrar">×</button>
+      </header>
+      <div id="programmingImportSummary"></div>
+      <div class="import-stat-grid" id="programmingImportStats"></div>
+      <div class="warning-list" id="programmingImportWarnings" hidden></div>
+      <div class="form-errors" id="programmingImportErrors" role="alert" hidden></div>
+      <label class="check-row" id="includeDuplicatesLabel" hidden>
+        <input id="includeProgrammingDuplicates" type="checkbox">
+        <span>Incluir filas detectadas como duplicadas</span>
+      </label>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="programmingImportDialog">Cancelar</button>
+        <button class="button primary" id="applyProgrammingImportButton" type="submit">Importar actividades válidas</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog class="modal compact-modal" id="helpDialog" aria-labelledby="helpDialogTitle">
     <header class="modal-header">
       <div><p class="eyebrow">Guía rápida</p><h2 id="helpDialogTitle">Cómo usar el calendario</h2></div>
@@ -1900,6 +1973,8 @@ dialog::backdrop {
         <li>Arrastra un cliente o sede a una fecha, o usa <strong>Nueva actividad</strong>.</li>
         <li>Haz clic en una tarjeta para ver todos sus datos y cambiar su estado.</li>
         <li>Usa la casilla de cada tarjeta para seleccionar y mover varias a la vez.</li>
+        <li>Combina filtros de ciudad, cliente, sede, responsable, servicio y estado.</li>
+        <li>Descarga la vista filtrada como PNG o usa la plantilla Excel para una carga masiva.</li>
         <li>Descarga un respaldo JSON con regularidad.</li>
       </ol>
       <div class="privacy-note">
@@ -1921,6 +1996,7 @@ dialog::backdrop {
   </dialog>
 
   <input id="baseFileInput" type="file" accept=".xlsx,.xls" hidden>
+  <input id="programmingFileInput" type="file" accept=".xlsx,.xls" hidden>
   <input id="restoreFileInput" type="file" accept=".json,application/json" hidden>
 
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>
@@ -2171,7 +2247,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   </script>
   <script type="module">
-export const APP_VERSION = "0.2.0";
+export const APP_VERSION = "0.3.0";
 export const SCHEMA_VERSION = 2;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -2587,9 +2663,12 @@ export function createDefaultDocument(today = todayInBogota(), now = new Date().
       holidayRuleSetVersion: HOLIDAY_RULESET_VERSION,
       filters: {
         query: "",
-        status: "all",
-        serviceType: "all",
-        responsible: "all"
+        cities: [],
+        clients: [],
+        sites: [],
+        responsibles: [],
+        serviceTypes: [],
+        statuses: []
       }
     },
     holidayOverrides: [],
@@ -2911,6 +2990,44 @@ function cleanStringArray(value, maxLength = 160, maxItems = 200) {
   return [...new Set(cleaned)];
 }
 
+export function normalizeFilterArray(value, legacyValue = null) {
+  if (Array.isArray(value)) return cleanStringArray(value, 160, 500);
+  const legacy = safeText(legacyValue, 160);
+  return legacy && legacy !== "all" ? [legacy] : [];
+}
+
+export function activityMatchesFilters(activity, filters, maps) {
+  const selected = {
+    cities: normalizeFilterArray(filters?.cities),
+    clients: normalizeFilterArray(filters?.clients),
+    sites: normalizeFilterArray(filters?.sites),
+    responsibles: normalizeFilterArray(filters?.responsibles),
+    serviceTypes: normalizeFilterArray(filters?.serviceTypes),
+    statuses: normalizeFilterArray(filters?.statuses)
+  };
+  if (selected.cities.length && !selected.cities.includes(activity.city ?? "")) return false;
+  if (selected.clients.length && !selected.clients.includes(activity.clientId ?? "")) return false;
+  if (selected.sites.length && !selected.sites.includes(activity.siteId ?? "")) return false;
+  if (selected.responsibles.length && !selected.responsibles.some((id) => activity.responsibleIds?.includes(id))) return false;
+  if (selected.serviceTypes.length && !selected.serviceTypes.includes(activity.serviceType)) return false;
+  if (selected.statuses.length && !selected.statuses.includes(activity.status)) return false;
+  const query = normalizeText(filters?.query);
+  if (!query) return true;
+  const client = maps?.clients?.get(activity.clientId);
+  const site = maps?.sites?.get(activity.siteId);
+  const responsibles = (activity.responsibleIds ?? []).map((id) => maps?.responsibles?.get(id)?.name ?? "");
+  return normalizeText([
+    client?.name,
+    site?.name,
+    site?.shoppingCenter,
+    activity.city,
+    SERVICE_TYPES[activity.serviceType],
+    ACTIVITY_STATUSES[activity.status],
+    activity.observations,
+    ...responsibles
+  ].filter(Boolean).join(" ")).includes(query);
+}
+
 function cleanSafeCount(value) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value
@@ -3120,7 +3237,22 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
       holidayRuleSetVersion: HOLIDAY_RULESET_VERSION,
       filters: {
         ...base.settings.filters,
-        ...keepAllowed(raw.settings?.filters, ["query", "status", "serviceType", "responsible"])
+        query: safeText(raw.settings?.filters?.query, 500),
+        cities: normalizeFilterArray(raw.settings?.filters?.cities),
+        clients: normalizeFilterArray(raw.settings?.filters?.clients),
+        sites: normalizeFilterArray(raw.settings?.filters?.sites),
+        responsibles: normalizeFilterArray(
+          raw.settings?.filters?.responsibles,
+          raw.settings?.filters?.responsible
+        ),
+        serviceTypes: normalizeFilterArray(
+          raw.settings?.filters?.serviceTypes,
+          raw.settings?.filters?.serviceType
+        ),
+        statuses: normalizeFilterArray(
+          raw.settings?.filters?.statuses,
+          raw.settings?.filters?.status
+        )
       }
     },
     holidayOverrides: rawOverrides,
@@ -3272,6 +3404,19 @@ const MONTHS = Object.freeze([
   "Octubre",
   "Noviembre",
   "Diciembre"
+]);
+
+export const PROGRAMMING_COLUMNS = Object.freeze([
+  "FechaInicio",
+  "FechaFin",
+  "Cliente",
+  "Sede",
+  "Ciudad",
+  "Responsables",
+  "TipoServicio",
+  "Estado",
+  "Observaciones",
+  "IncluirNoLaborables"
 ]);
 
 const SOURCE_FIELDS = Object.freeze({
@@ -4170,6 +4315,227 @@ export function applyParsedImport(document, parsed, now = new Date().toISOString
   };
 }
 
+function excelDateToISO(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return [
+      value.getUTCFullYear(),
+      String(value.getUTCMonth() + 1).padStart(2, "0"),
+      String(value.getUTCDate()).padStart(2, "0")
+    ].join("-");
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return excelDateToISO(new Date(Math.round((value - 25569) * 86400000)));
+  }
+  const text = safeText(value, 40);
+  if (!text) return "";
+  const latin = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const iso = latin
+    ? `${latin[3]}-${latin[2].padStart(2, "0")}-${latin[1].padStart(2, "0")}`
+    : text.slice(0, 10);
+  parseISODate(iso);
+  return iso;
+}
+
+function exactMatches(items, label, predicate = () => true) {
+  const key = normalizeText(label);
+  return items.filter((item) => predicate(item) && [
+    item.name,
+    ...(item.aliases ?? [])
+  ].some((candidate) => normalizeText(candidate) === key));
+}
+
+function enumValue(value, entries) {
+  const key = normalizeText(value);
+  return Object.entries(entries).find(([code, label]) =>
+    normalizeText(code) === key || normalizeText(label) === key
+  )?.[0] ?? null;
+}
+
+function truthyCell(value) {
+  return ["si", "sí", "s", "true", "1", "x"].includes(normalizeText(value));
+}
+
+function programmingFingerprint(activity) {
+  return [
+    activity.date,
+    activity.clientId ?? "",
+    activity.siteId ?? "",
+    normalizeText(activity.city),
+    [...(activity.responsibleIds ?? [])].sort().join("|"),
+    activity.serviceType,
+    normalizeText(activity.observations)
+  ].join("::");
+}
+
+export function parseProgrammingWorkbook(workbook, document) {
+  if (!document?.catalog || !Array.isArray(document.activities)) {
+    throw new TypeError("Se requiere el documento activo para validar la programación.");
+  }
+  const warnings = [];
+  const table = sheetTable(workbook, "Programacion", warnings);
+  const indexes = {};
+  const structuralErrors = [];
+  for (const column of PROGRAMMING_COLUMNS) {
+    indexes[column] = findHeader(table.headers, [column]);
+    if (indexes[column] < 0) structuralErrors.push(`Falta la columna ${column}.`);
+  }
+  if (structuralErrors.length) {
+    return { rows: [], structuralErrors, warnings, counts: { valid: 0, errors: 0, duplicates: 0, omitted: 0 } };
+  }
+  const existingFingerprints = new Set(document.activities.map(programmingFingerprint));
+  const fileFingerprints = new Set();
+  const rows = [];
+  let omittedCount = 0;
+  for (const { row, rowNumber } of nonEmptyRows(table.rows)) {
+    const errors = [];
+    const rowWarnings = [];
+    let startDate = "";
+    let endDate = "";
+    try {
+      startDate = excelDateToISO(rowValue(row, indexes.FechaInicio));
+      if (!startDate) throw new TypeError("FechaInicio está vacía.");
+    } catch (error) {
+      errors.push(`FechaInicio: ${error.message}`);
+    }
+    try {
+      endDate = excelDateToISO(rowValue(row, indexes.FechaFin)) || startDate;
+    } catch (error) {
+      errors.push(`FechaFin: ${error.message}`);
+    }
+
+    const clientLabel = cleanLabel(rowValue(row, indexes.Cliente), 200);
+    const siteLabel = cleanLabel(rowValue(row, indexes.Sede), 240);
+    const cityLabel = cleanLabel(rowValue(row, indexes.Ciudad), 120);
+    const serviceType = enumValue(rowValue(row, indexes.TipoServicio), SERVICE_TYPES);
+    const status = enumValue(rowValue(row, indexes.Estado), ACTIVITY_STATUSES);
+    if (!serviceType) errors.push("TipoServicio no coincide con el catálogo permitido.");
+    if (!status) errors.push("Estado no coincide con el catálogo permitido.");
+
+    let clientId = null;
+    let siteId = null;
+    let city = cityLabel;
+    if (clientLabel) {
+      const matches = exactMatches(document.catalog.clients, clientLabel);
+      if (matches.length === 1) clientId = matches[0].id;
+      else errors.push(matches.length ? "Cliente ambiguo." : "Cliente no existe en el catálogo.");
+    }
+    if (siteLabel) {
+      const matches = exactMatches(
+        document.catalog.sites,
+        siteLabel,
+        (site) => !clientId || site.clientId === clientId
+      );
+      if (matches.length === 1) {
+        siteId = matches[0].id;
+        clientId ||= matches[0].clientId;
+        city ||= matches[0].city ?? "";
+      } else {
+        errors.push(matches.length ? "Sede ambigua." : "Sede no existe para el cliente indicado.");
+      }
+    }
+    if (serviceType && serviceType !== "administrative" && (!clientId || !siteId || !city)) {
+      errors.push("Cliente, Sede y Ciudad son obligatorios para servicios operativos.");
+    }
+
+    const responsibleIds = [];
+    const responsibleLabels = safeText(rowValue(row, indexes.Responsables), 2000)
+      .split(";")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    for (const label of responsibleLabels) {
+      const matches = exactMatches(document.catalog.responsibles, label);
+      if (matches.length === 1) responsibleIds.push(matches[0].id);
+      else errors.push(matches.length ? `Responsable ambiguo: ${label}.` : `Responsable no existe: ${label}.`);
+    }
+    if (status === "confirmed" && !responsibleIds.length) {
+      errors.push("Una actividad confirmada debe tener responsables.");
+    }
+
+    const includeNonWorking = truthyCell(rowValue(row, indexes.IncluirNoLaborables));
+    const observations = safeText(rowValue(row, indexes.Observaciones), 5000);
+    let dates = [];
+    let omitted = [];
+    if (startDate && endDate) {
+      try {
+        const holidays = holidayMapForRange(startDate, endDate, document.holidayOverrides);
+        ({ included: dates, omitted } = generateSeriesDates(startDate, endDate, holidays, includeNonWorking));
+        omittedCount += omitted.length;
+        if (omitted.length) rowWarnings.push(`${omitted.length} fecha(s) no laborable(s) se omitirán.`);
+        if (!dates.length) errors.push("El rango no contiene fechas laborables para importar.");
+      } catch (error) {
+        errors.push(error.message);
+      }
+    }
+
+    const input = {
+      date: startDate,
+      endDate,
+      clientId,
+      siteId,
+      city,
+      responsibleIds: [...new Set(responsibleIds)],
+      serviceType,
+      status,
+      observations,
+      includeNonWorking
+    };
+    const fingerprints = dates.map((date) => programmingFingerprint({ ...input, date }));
+    const duplicate = fingerprints.length > 0 && fingerprints.every((fingerprint) =>
+      existingFingerprints.has(fingerprint) || fileFingerprints.has(fingerprint)
+    );
+    if (duplicate) rowWarnings.push("La fila duplica programación existente o anterior en el archivo.");
+    for (const fingerprint of fingerprints) fileFingerprints.add(fingerprint);
+    rows.push({
+      rowNumber,
+      input,
+      dates,
+      omitted,
+      duplicate,
+      errors: [...new Set(errors)],
+      warnings: [...new Set(rowWarnings)]
+    });
+  }
+  return {
+    rows,
+    structuralErrors,
+    warnings,
+    counts: {
+      valid: rows.filter((item) => !item.errors.length && !item.duplicate).length,
+      errors: rows.filter((item) => item.errors.length).length,
+      duplicates: rows.filter((item) => item.duplicate && !item.errors.length).length,
+      omitted: omittedCount
+    }
+  };
+}
+
+export function applyProgrammingImport(
+  document,
+  preview,
+  { includeDuplicates = false, now = new Date().toISOString(), idFactory = () => crypto.randomUUID() } = {}
+) {
+  if (preview?.structuralErrors?.length) throw new TypeError(preview.structuralErrors.join(" "));
+  const candidates = (preview?.rows ?? []).filter((row) =>
+    !row.errors.length && (includeDuplicates || !row.duplicate)
+  );
+  if (!candidates.length) throw new TypeError("No hay filas válidas para importar.");
+  const result = structuredClone(document);
+  const created = [];
+  for (const row of candidates) {
+    const holidays = holidayMapForRange(row.input.date, row.input.endDate, result.holidayOverrides);
+    const generated = createActivitiesFromRange(row.input, holidays, { idFactory, now });
+    result.activities.push(...generated.activities);
+    if (generated.series) result.series.push(generated.series);
+    created.push(...generated.activities);
+  }
+  result.audit ??= [];
+  result.audit.push({
+    at: now,
+    action: "programming_imported",
+    detail: `${created.length} tarjetas importadas desde ${candidates.length} filas`
+  });
+  return { document: result, activities: created, rowsApplied: candidates.length };
+}
+
 
 const DATABASE_NAME = "calendario-hvac-siys";
 const DATABASE_VERSION = 1;
@@ -4207,6 +4573,7 @@ let drawerReturnFocus = null;
 let calendarFocusDate = null;
 let pendingImport = null;
 let pendingRestore = null;
+let pendingProgrammingImport = null;
 let dragContext = null;
 let undoSnapshot = null;
 let forcedRangeDates = new Set();
@@ -4385,7 +4752,7 @@ function renderAccessMode() {
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
-    "calendarSettingsButton"
+    "calendarSettingsButton", "importProgrammingButton"
   ];
   for (const id of guardedIds) {
     if (dom[id]) dom[id].disabled = !hasEditControl;
@@ -4672,13 +5039,8 @@ function activitySearchText(activity, maps = lookupMaps()) {
   ].filter(Boolean).join(" "));
 }
 
-function activityMatchesFilters(activity, maps) {
-  const filters = appDocument.settings.filters;
-  if (filters.status !== "all" && activity.status !== filters.status) return false;
-  if (filters.serviceType !== "all" && activity.serviceType !== filters.serviceType) return false;
-  if (filters.responsible !== "all" && !activity.responsibleIds.includes(filters.responsible)) return false;
-  const query = normalizeText(filters.query);
-  return !query || activitySearchText(activity, maps).includes(query);
+function matchesActivityFilters(activity, maps, filters = appDocument.settings.filters) {
+  return activityMatchesFilters(activity, filters, maps);
 }
 
 function responsibleVisualClass(activity, maps) {
@@ -4693,33 +5055,124 @@ function responsibleVisualClass(activity, maps) {
 }
 
 function renderFilters() {
-  const currentStatus = appDocument.settings.filters.status;
-  const currentService = appDocument.settings.filters.serviceType;
-  const currentResponsible = appDocument.settings.filters.responsible;
-  setChildren(
-    dom.statusFilter,
-    option("all", "Todos los estados"),
-    ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label))
-  );
-  setChildren(
-    dom.serviceFilter,
-    option("all", "Todos los servicios"),
-    ...Object.entries(SERVICE_TYPES).map(([value, label]) => option(value, label))
-  );
-  setChildren(
-    dom.responsibleFilter,
-    option("all", "Todos los responsables"),
-    ...appDocument.catalog.responsibles
-      .filter((item) => item.active !== false)
-      .sort((a, b) => a.name.localeCompare(b.name, "es"))
-      .map((item) => option(item.id, item.name))
-  );
-  dom.statusFilter.value = Object.hasOwn(ACTIVITY_STATUSES, currentStatus) ? currentStatus : "all";
-  dom.serviceFilter.value = Object.hasOwn(SERVICE_TYPES, currentService) ? currentService : "all";
-  dom.responsibleFilter.value = appDocument.catalog.responsibles.some((item) => item.id === currentResponsible)
-    ? currentResponsible
-    : "all";
   dom.globalSearch.value = appDocument.settings.filters.query ?? "";
+  const definitions = filterDefinitions();
+  const chips = document.createDocumentFragment();
+  let count = 0;
+  for (const definition of definitions) {
+    const selected = normalizeFilterArray(appDocument.settings.filters[definition.key]);
+    count += selected.length;
+    for (const value of selected) {
+      const label = definition.options.find((item) => item.value === value)?.label ?? value;
+      const chip = createElement("button", "filter-chip", `${definition.singular}: ${label} ×`);
+      chip.type = "button";
+      chip.addEventListener("click", () => {
+        appDocument.settings.filters[definition.key] = selected.filter((item) => item !== value);
+        renderAll();
+        scheduleSave();
+      });
+      chips.append(chip);
+    }
+  }
+  dom.filterChips.replaceChildren(chips);
+  dom.filterCount.textContent = String(count);
+  dom.clearFiltersButton.hidden = count === 0 && !appDocument.settings.filters.query;
+}
+
+function filterDefinitions() {
+  const uniqueCities = [...new Set([
+    ...appDocument.catalog.cities.map((item) => item.name),
+    ...appDocument.catalog.sites.map((item) => item.city),
+    ...appDocument.activities.map((item) => item.city)
+  ].filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  return [
+    { key: "cities", title: "Ciudades", singular: "Ciudad", options: uniqueCities.map((value) => ({ value, label: value })) },
+    {
+      key: "clients", title: "Clientes", singular: "Cliente",
+      options: appDocument.catalog.clients.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
+    },
+    {
+      key: "sites", title: "Sedes", singular: "Sede",
+      options: appDocument.catalog.sites.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
+    },
+    {
+      key: "responsibles", title: "Responsables", singular: "Responsable",
+      options: appDocument.catalog.responsibles.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
+    },
+    {
+      key: "serviceTypes", title: "Tipos de servicio", singular: "Servicio",
+      options: Object.entries(SERVICE_TYPES).map(([value, label]) => ({ value, label }))
+    },
+    {
+      key: "statuses", title: "Estados", singular: "Estado",
+      options: Object.entries(ACTIVITY_STATUSES).map(([value, label]) => ({ value, label }))
+    }
+  ].map((definition) => ({
+    ...definition,
+    options: definition.options.sort((a, b) => a.label.localeCompare(b.label, "es"))
+  }));
+}
+
+function renderFilterDialog() {
+  const maps = lookupMaps();
+  const fragment = document.createDocumentFragment();
+  for (const definition of filterDefinitions()) {
+    const section = createElement("fieldset", "filter-group");
+    section.append(createElement("legend", "", definition.title));
+    const selected = new Set(normalizeFilterArray(appDocument.settings.filters[definition.key]));
+    for (const item of definition.options) {
+      const candidateFilters = clone(appDocument.settings.filters);
+      candidateFilters[definition.key] = [item.value];
+      const matches = appDocument.activities.filter((activity) =>
+        matchesActivityFilters(activity, maps, candidateFilters)
+      ).length;
+      const label = createElement("label", "check-row");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = `filter-${definition.key}`;
+      input.value = item.value;
+      input.checked = selected.has(item.value);
+      input.disabled = matches === 0 && !input.checked;
+      label.append(input, createElement("span", "", `${item.label} (${matches})`));
+      section.append(label);
+    }
+    if (!definition.options.length) section.append(createElement("p", "field-note", "Sin opciones disponibles."));
+    fragment.append(section);
+  }
+  dom.filterGrid.replaceChildren(fragment);
+}
+
+function openFilterDialog() {
+  renderFilterDialog();
+  openDialog("filterDialog");
+}
+
+function clearAllFilters({ close = false } = {}) {
+  appDocument.settings.filters = {
+    ...appDocument.settings.filters,
+    query: "",
+    cities: [],
+    clients: [],
+    sites: [],
+    responsibles: [],
+    serviceTypes: [],
+    statuses: []
+  };
+  if (close) closeDialog("filterDialog");
+  renderAll();
+  scheduleSave();
+}
+
+function handleFilterSubmit(event) {
+  event.preventDefault();
+  for (const definition of filterDefinitions()) {
+    appDocument.settings.filters[definition.key] = [
+      ...dom.filterGrid.querySelectorAll(`input[name="filter-${definition.key}"]:checked`)
+    ].map((input) => input.value);
+  }
+  closeDialog("filterDialog");
+  renderAll();
+  scheduleSave();
 }
 
 function renderBackupReminder() {
@@ -5063,7 +5516,7 @@ function renderCalendar() {
   const maps = lookupMaps();
   const activitiesByDate = new Map();
   for (const activity of appDocument.activities) {
-    if (!activityMatchesFilters(activity, maps)) continue;
+    if (!matchesActivityFilters(activity, maps)) continue;
     const items = activitiesByDate.get(activity.date) ?? [];
     items.push(activity);
     activitiesByDate.set(activity.date, items);
@@ -6150,6 +6603,219 @@ function exportCurrentMonthCsv() {
   showToast(`CSV de ${formatMonthTitle(year, month)} descargado.`);
 }
 
+function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
+  context.font = `${bold ? "700 " : ""}${font}`;
+  context.fillStyle = color;
+  const value = safeText(text, 500);
+  if (context.measureText(value).width <= maxWidth) {
+    context.fillText(value, x, y);
+    return value;
+  }
+  let shortened = value;
+  while (shortened.length > 1 && context.measureText(`${shortened}…`).width > maxWidth) {
+    shortened = shortened.slice(0, -1);
+  }
+  context.fillText(`${shortened}…`, x, y);
+  return shortened;
+}
+
+async function exportCurrentMonthImage() {
+  const { year, month } = currentMonthParts();
+  const dates = monthGridDates(year, month);
+  const maps = lookupMaps();
+  const filtered = appDocument.activities.filter((activity) =>
+    dates.includes(activity.date) && matchesActivityFilters(activity, maps)
+  );
+  const byDate = new Map();
+  for (const activity of filtered) {
+    const list = byDate.get(activity.date) ?? [];
+    list.push(activity);
+    byDate.set(activity.date, list);
+  }
+  const weekHeights = Array.from({ length: 6 }, (_, week) => {
+    const maxCards = Math.max(...dates.slice(week * 7, week * 7 + 7).map((date) => byDate.get(date)?.length ?? 0));
+    return Math.max(150, 62 + maxCards * 54);
+  });
+  const logicalWidth = 1680;
+  const headerHeight = 180;
+  const weekdayHeight = 48;
+  const logicalHeight = headerHeight + weekdayHeight + weekHeights.reduce((sum, value) => sum + value, 0) + 40;
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = logicalWidth * scale;
+  canvas.height = logicalHeight * scale;
+  const context = canvas.getContext("2d");
+  context.scale(scale, scale);
+  context.fillStyle = "#f5f7f3";
+  context.fillRect(0, 0, logicalWidth, logicalHeight);
+  context.fillStyle = "#4f7d32";
+  context.fillRect(0, 0, logicalWidth, 112);
+  canvasText(context, appDocument.calendarMeta.name, 34, 48, 1050, { font: "30px Arial", color: "#fff", bold: true });
+  canvasText(context, appDocument.calendarMeta.coordinator || "Sin coordinador registrado", 34, 82, 1050, { font: "18px Arial", color: "#eaf2e6" });
+  canvasText(context, formatMonthTitle(year, month), 1250, 60, 390, { font: "28px Arial", color: "#fff", bold: true });
+  const filterLabels = [...dom.filterChips.querySelectorAll(".filter-chip")].map((chip) => chip.textContent.replace(/ ×$/, ""));
+  if (appDocument.settings.filters.query) filterLabels.unshift(`Búsqueda: ${appDocument.settings.filters.query}`);
+  canvasText(context, filterLabels.length ? `Filtros: ${filterLabels.join(" · ")}` : "Vista completa", 34, 142, 1250, { font: "17px Arial", color: "#465148" });
+  canvasText(context, `Generado ${timestampLabel(new Date().toISOString())}`, 1290, 142, 350, { font: "15px Arial", color: "#69736b" });
+
+  const columnWidth = logicalWidth / 7;
+  const weekdays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  context.fillStyle = "#e4ebe0";
+  context.fillRect(0, headerHeight, logicalWidth, weekdayHeight);
+  weekdays.forEach((label, index) => {
+    canvasText(context, label, index * columnWidth + 14, headerHeight + 31, columnWidth - 28, { font: "18px Arial", bold: true });
+  });
+  const holidayMap = holidayMapForYears([...new Set(dates.map((date) => Number(date.slice(0, 4))))], appDocument.holidayOverrides);
+  let y = headerHeight + weekdayHeight;
+  for (let week = 0; week < 6; week += 1) {
+    const height = weekHeights[week];
+    for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+      const date = dates[week * 7 + dayIndex];
+      const x = dayIndex * columnWidth;
+      const holiday = holidayMap.get(date);
+      context.fillStyle = dayOfWeek(date) === 0 || holiday ? "#fff0e7" : "#ffffff";
+      if (Number(date.slice(5, 7)) !== month) context.fillStyle = "#eef1ed";
+      context.fillRect(x, y, columnWidth, height);
+      context.strokeStyle = "#cfd8cf";
+      context.strokeRect(x, y, columnWidth, height);
+      canvasText(context, String(Number(date.slice(8, 10))), x + 12, y + 28, 40, { font: "18px Arial", bold: true });
+      if (holiday) canvasText(context, holiday.name, x + 48, y + 27, columnWidth - 60, { font: "13px Arial", color: "#9a4e1e" });
+      let cardY = y + 42;
+      for (const activity of byDate.get(date) ?? []) {
+        const client = maps.clients.get(activity.clientId);
+        const site = maps.sites.get(activity.siteId);
+        const visual = responsibleVisualClass(activity, maps);
+        const colors = visual === "contractor"
+          ? ["#fff0e4", "#ed7d31"]
+          : visual === "mixed"
+            ? ["#f7eee6", "#8e6651"]
+            : visual === "unassigned"
+              ? ["#f0f1ef", "#8b928b"]
+              : ["#e6f1ef", "#477d77"];
+        context.globalAlpha = ["completed", "cancelled"].includes(activity.status) ? 0.55 : 1;
+        context.fillStyle = colors[0];
+        context.fillRect(x + 8, cardY, columnWidth - 16, 46);
+        context.fillStyle = colors[1];
+        context.fillRect(x + 8, cardY, 5, 46);
+        canvasText(context, client?.name || SERVICE_TYPES[activity.serviceType], x + 20, cardY + 18, columnWidth - 36, { font: "14px Arial", bold: true });
+        canvasText(context, `${site?.name || activity.city || ""} · ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 37, columnWidth - 36, { font: "12px Arial", color: "#566057" });
+        context.globalAlpha = 1;
+        cardY += 54;
+      }
+    }
+    y += height;
+  }
+  const blob = await new Promise((resolve, reject) =>
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
+  );
+  const fileMonth = `${year}-${String(month).padStart(2, "0")}`;
+  downloadBlob(blob, "image/png", `cronograma-hvac-${normalizeKey(appDocument.calendarMeta.name)}-${fileMonth}.png`);
+  appendAudit("png_exported", `Vista filtrada exportada: ${fileMonth}`);
+  scheduleSave();
+  showToast(`Imagen de ${formatMonthTitle(year, month)} descargada.`);
+}
+
+function downloadProgrammingTemplate() {
+  const workbook = XLSX.utils.book_new();
+  const example = [
+    PROGRAMMING_COLUMNS,
+    [
+      todayInBogota(), todayInBogota(), "Ejemplo Cliente", "Ejemplo Sede", "Pereira",
+      "Responsable Uno; Responsable Dos", SERVICE_TYPES.preventive,
+      ACTIVITY_STATUSES.scheduled, "Fila de ejemplo: reemplazar o eliminar", "No"
+    ]
+  ];
+  const catalogRows = [
+    ["Tipo", "Cliente", "Sede", "Ciudad", "Responsable", "Clasificación"],
+    ...appDocument.catalog.sites.map((site) => {
+      const client = appDocument.catalog.clients.find((item) => item.id === site.clientId);
+      return ["Sede", client?.name ?? "", site.name, site.city ?? "", "", ""];
+    }),
+    ...appDocument.catalog.responsibles.map((responsible) => [
+      "Responsable", "", "", responsible.baseCity ?? "", responsible.name,
+      RESPONSIBLE_TYPES[responsible.responsibleType] ?? responsible.responsibleType
+    ])
+  ];
+  const instructions = [
+    ["Plantilla de programación HVAC SI&S"],
+    ["Una fila crea una actividad; un rango crea tarjetas independientes enlazadas."],
+    ["Los nombres de cliente, sede y responsables deben coincidir exactamente con Catalogos."],
+    ["Separe varios responsables con punto y coma (;)."],
+    [`TipoServicio: ${Object.values(SERVICE_TYPES).join(" | ")}`],
+    [`Estado: ${Object.values(ACTIVITY_STATUSES).join(" | ")}`],
+    ["Cliente y Sede pueden quedar vacíos solamente para Administrativo."],
+    ["IncluirNoLaborables acepta Sí/No. Por defecto domingos y festivos se omiten."],
+    ["La importación no crea registros faltantes del catálogo."]
+  ];
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(example), "Programacion");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(catalogRows), "Catalogos");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(instructions), "Instrucciones");
+  const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  downloadBlob(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla-programacion-hvac.xlsx");
+  showToast("Plantilla Excel descargada.");
+}
+
+function renderProgrammingImportPreview(preview, file) {
+  dom.programmingImportSummary.textContent = `${file.name} · ${(file.size / 1024).toFixed(1)} KB`;
+  const stats = [
+    [preview.counts.valid, "Filas válidas"],
+    [preview.counts.errors, "Filas con error"],
+    [preview.counts.duplicates, "Duplicadas"],
+    [preview.counts.omitted, "Fechas no laborables omitidas"]
+  ];
+  dom.programmingImportStats.replaceChildren(...stats.map(([count, label]) => {
+    const element = createElement("div", "import-stat");
+    element.append(createElement("strong", "", String(count)), createElement("span", "", label));
+    return element;
+  }));
+  const messages = [
+    ...preview.warnings.map((item) => item.message),
+    ...preview.rows.flatMap((row) => [
+      ...row.errors.map((message) => `Fila ${row.rowNumber}: ${message}`),
+      ...row.warnings.map((message) => `Fila ${row.rowNumber}: ${message}`)
+    ])
+  ];
+  dom.programmingImportWarnings.hidden = messages.length === 0;
+  dom.programmingImportWarnings.replaceChildren(...messages.map((message) => createElement("p", "", message)));
+  showFormErrors(dom.programmingImportErrors, preview.structuralErrors);
+  dom.includeDuplicatesLabel.hidden = preview.counts.duplicates === 0;
+  dom.includeProgrammingDuplicates.checked = false;
+  dom.applyProgrammingImportButton.disabled = preview.structuralErrors.length > 0 || preview.counts.valid === 0;
+}
+
+async function handleProgrammingFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", raw: true, cellDates: true });
+    const preview = parseProgrammingWorkbook(workbook, appDocument);
+    pendingProgrammingImport = preview;
+    renderProgrammingImportPreview(preview, file);
+    openDialog("programmingImportDialog");
+  } catch (error) {
+    showToast(`No se pudo analizar la programación: ${error.message}`, { type: "error", duration: 9000 });
+  }
+}
+
+function handleProgrammingImportSubmit(event) {
+  event.preventDefault();
+  if (!pendingProgrammingImport) return;
+  try {
+    const includeDuplicates = dom.includeProgrammingDuplicates.checked;
+    const count = pendingProgrammingImport.rows.filter((row) =>
+      !row.errors.length && (includeDuplicates || !row.duplicate)
+    ).length;
+    mutate("programming_imported", `${count} filas de programación importadas`, () => {
+      appDocument = applyProgrammingImport(appDocument, pendingProgrammingImport, { includeDuplicates }).document;
+    });
+    pendingProgrammingImport = null;
+    closeDialog("programmingImportDialog");
+  } catch (error) {
+    showFormErrors(dom.programmingImportErrors, [error.message]);
+  }
+}
+
 async function handleRestoreFile(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
@@ -6373,6 +7039,11 @@ function bindEvents() {
   dom.backupBannerButton.addEventListener("click", createBackup);
   dom.restoreButton.addEventListener("click", () => dom.restoreFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
+  dom.exportImageButton.addEventListener("click", () => {
+    exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
+  });
+  dom.programmingTemplateButton.addEventListener("click", downloadProgrammingTemplate);
+  dom.importProgrammingButton.addEventListener("click", () => dom.programmingFileInput.click());
   dom.holidayButton.addEventListener("click", () => {
     renderHolidayDialog();
     openDialog("holidayDialog");
@@ -6404,9 +7075,10 @@ function bindEvents() {
     scheduleSave();
   });
   dom.globalSearch.addEventListener("input", () => updateFilter("query", dom.globalSearch.value));
-  dom.statusFilter.addEventListener("change", () => updateFilter("status", dom.statusFilter.value));
-  dom.serviceFilter.addEventListener("change", () => updateFilter("serviceType", dom.serviceFilter.value));
-  dom.responsibleFilter.addEventListener("change", () => updateFilter("responsible", dom.responsibleFilter.value));
+  dom.filterButton.addEventListener("click", openFilterDialog);
+  dom.filterForm.addEventListener("submit", handleFilterSubmit);
+  dom.clearFiltersButton.addEventListener("click", () => clearAllFilters());
+  dom.clearFiltersDialogButton.addEventListener("click", () => clearAllFilters({ close: true }));
   dom.catalogSearch.addEventListener("input", renderCatalog);
   dom.sitesTab.addEventListener("click", () => {
     catalogTab = "sites";
@@ -6472,9 +7144,11 @@ function bindEvents() {
   dom.bulkEditField.addEventListener("change", renderBulkEditControls);
   dom.bulkEditMode.addEventListener("change", renderBulkEditControls);
   dom.restoreForm.addEventListener("submit", handleRestoreSubmit);
+  dom.programmingImportForm.addEventListener("submit", handleProgrammingImportSubmit);
   dom.importForm.addEventListener("submit", handleImportSubmit);
   dom.baseFileInput.addEventListener("change", handleBaseFile);
   dom.restoreFileInput.addEventListener("change", handleRestoreFile);
+  dom.programmingFileInput.addEventListener("change", handleProgrammingFile);
 
   for (const button of document.querySelectorAll("[data-close-dialog]")) {
     button.addEventListener("click", () => closeDialog(button.dataset.closeDialog));
