@@ -11,8 +11,9 @@ navegador mediante IndexedDB.
 
 También puede abrirse desde GitHub Pages. Esa opción sigue siendo estática: los
 datos se guardan en el navegador que abre el sitio y no se sincronizan. La
-versión local y la versión Pages usan almacenamientos separados; el respaldo
-JSON permite trasladar la programación entre ambas.
+versión local y la versión Pages usan almacenamientos separados; la opción
+**Descargar copia del cronograma** permite trasladar la programación entre
+ambas. El archivo usa internamente el formato JSON.
 
 GitHub Pages ofrece dos canales:
 
@@ -20,17 +21,17 @@ GitHub Pages ofrece dos canales:
 - beta: `https://yuliamrg.github.io/calendario-hvac-siys/beta/`.
 
 Cada canal tiene su propia IndexedDB. Los datos sólo pasan de uno a otro
-mediante un archivo JSON elegido por el usuario.
+mediante una copia del cronograma elegida por el usuario.
 
 ## Primer uso
 
 1. Abra `dist/calendario-hvac-siys.html`.
-2. Use **Importar Base Operativa** en la barra superior y seleccione
+2. Abra **Gestionar > Actualizar base operativa** y seleccione
    `Base_operativa_HVAC_SIYS.xlsx`.
 3. Revise la vista previa y confirme la importación.
 4. Arrastre una sede desde el banco a un día o haga clic en el fondo del día.
 5. Complete la tarjeta y guárdela.
-6. Cree un **respaldo JSON** al terminar una carga importante.
+6. Use **Descargar copia del cronograma** al terminar una carga importante.
 
 La importación sólo lee clientes, sedes, ciudades, responsables y pistas
 operativas permitidas. No elimina registros locales, no reemplaza campos
@@ -52,8 +53,9 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
 - Al arrastrar una tarjeta a otro día puede **Mover**, **Duplicar** o
   **Ampliar**. Ampliar conserva tarjetas diarias independientes, pero enlaza
   sus datos comunes. Soltar en el mismo día no genera cambios.
-- En teléfono y tablet vertical, el mes compacto se complementa con una agenda
-  del día. El detalle ofrece alternativas táctiles para Mover, Duplicar,
+- En teléfono y tablet vertical, la agenda diaria es la vista principal.
+  **Ver mes** abre un selector superpuesto y **Más** agrupa Banco, Gestionar,
+  Compartir y Configuración. El detalle ofrece alternativas táctiles para Mover, Duplicar,
   Ampliar, Editar y Cambiar estado sin depender del arrastre.
 - En tablet horizontal y escritorio se conserva el tablero completo; los temas
   Claro, Oscuro y Sistema funcionan en todos los tamaños.
@@ -62,32 +64,32 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
   permite incluir fechas específicas.
 - Los cierres manuales y las excepciones laborales se administran con el botón
   **Festivos y ajustes** (símbolo `◉`).
-- **Exportar CSV** genera la programación del mes visible con columnas
+- **Compartir > Descargar listado del mes** genera la programación del mes visible con columnas
   separadas para personal de nómina y contratistas.
 - **Filtros** combina varias ciudades, clientes, sedes, responsables, servicios
   y estados; **PNG** descarga exactamente esa vista.
 - **Plantilla** e **Importar programación** permiten una carga masiva Excel con
   validación previa, detección de duplicados y una sola operación deshacible.
 
-## Persistencia y respaldos
+## Persistencia y copias de seguridad
 
 Los datos permanecen únicamente en el navegador y equipo donde se usó el
 archivo. Borrar los datos del navegador, cambiar de perfil o usar otro equipo
 no traslada la programación.
 
-Use **Descargar respaldo JSON** regularmente y guárdelo en una carpeta
-sincronizada o protegida. El respaldo incluye el nombre del cronograma,
-coordinador, revisión, versión y origen de exportación. **Restaurar respaldo**
+Use **Gestionar > Descargar copia del cronograma** regularmente y guárdela en
+una carpeta sincronizada o protegida. La copia incluye el nombre del cronograma,
+coordinador, revisión, versión y origen de exportación. **Recuperar una copia**
 valida el archivo, advierte si su revisión es anterior o igual y conserva una
 copia de recuperación local. Los respaldos creados con `v0.1.0` se migran
 automáticamente.
 
-**Reiniciar datos** descarga primero un respaldo y exige escribir
+**Borrar y empezar de cero** descarga primero una copia y exige escribir
 `REINICIAR`. La operación limpia el cronograma y su recuperación en ese
 navegador, sin afectar otros perfiles u orígenes.
 
-**Restaurar respaldo JSON** reemplaza el documento completo. **Añadir desde
-JSON** combina catálogos, actividades, series y excepciones sin eliminar
+**Recuperar una copia del cronograma** reemplaza el documento completo.
+**Combinar otra copia** combina catálogos, actividades, series y excepciones sin eliminar
 registros ausentes. El registro con `updatedAt` más reciente gana; en empate se
 conserva el actual y la vista previa informa el conflicto.
 
@@ -100,9 +102,9 @@ pueden consultar, filtrar y exportar. **Tomar control** transfiere la edición a
 la pestaña actual; si la pestaña editora se cierra o deja de responder, otra
 recupera el control después de aproximadamente 15 segundos.
 
-## Identificación y edición múltiple
+## Nombre del cronograma y edición múltiple
 
-**Identificación** permite asignar un nombre y coordinador al cronograma. La
+**Configuración > Nombre del cronograma** permite asignar un nombre y coordinador. La
 revisión aumenta con cada cambio operativo; navegar entre meses o aplicar
 filtros no la incrementa.
 

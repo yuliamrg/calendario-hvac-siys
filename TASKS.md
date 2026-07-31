@@ -122,3 +122,30 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   `F15AD98A6BFC2B6D69566F7DC1C01558A8E0FF7A82843B606A34272421AE4B3A`.
   Smoke final estable: seis viewports, persistencia tras recarga, segunda
   pestaña en lectura, orígenes separados, JSON portable, temas y PNG válidos.
+
+## Goal de experiencia `v0.8.1` a `v0.9.0`
+
+### Claridad y navegación (`v0.8.1`)
+
+- [x] Usar Claro en la primera apertura y recordar la preferencia elegida.
+- [x] Sustituir términos técnicos por acciones operativas explicadas.
+- [x] Nombrar copias, listados, imágenes y plantilla de forma reconocible.
+- [x] Mantener un solo menú abierto y cerrarlo con Escape, clic externo o acción.
+- [x] Usar un icono semántico para mostrar u ocultar el banco.
+
+### Auditoría visual oscura (`v0.8.2`)
+
+- [x] Incorporar colores semánticos para controles, estados, avisos y chips.
+- [x] Corregir contraste de acciones principales y selección múltiple.
+- [x] Verificar componentes visibles en modo oscuro con prueba de contraste.
+
+### Agenda móvil y detalle (`v0.9.0`)
+
+- [x] Abrir el detalle como diálogo central y restaurar el foco al cerrar.
+- [x] Hacer de la agenda diaria la vista móvil principal.
+- [x] Navegar al día anterior, siguiente o actual.
+- [x] Abrir el mes como selector superpuesto sin crear una actividad al tocar.
+- [x] Limitar la cabecera móvil a Nueva actividad, Ver mes y Más.
+- [x] Agrupar Banco, Gestionar, Compartir y Configuración dentro de Más.
+- [ ] Ejecutar aceptación final local y en Pages.
+- [ ] Etiquetar y promover `v0.9.0` a estable.
