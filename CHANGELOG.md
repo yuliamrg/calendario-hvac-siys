@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## [0.4.0] - 2026-07-30
+
+### Añadido
+
+- Distribución idéntica para archivo local y GitHub Pages.
+- Integración continua, auditoría autocontenida y despliegue desde `main`.
+- Indicador visible del modo local o Pages y recordatorio de persistencia
+  exclusiva del navegador.
+
 ## [0.3.0] - 2026-07-30
 
 ### Añadido
