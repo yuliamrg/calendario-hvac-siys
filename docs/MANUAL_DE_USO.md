@@ -1,4 +1,4 @@
-# Manual de uso — Calendario HVAC SI&S
+# Manual de uso — SIYS Sync
 
 ## 1. Abrir y reconocer el cronograma
 
@@ -24,7 +24,7 @@ personales. Consulte [BASE_OPERATIVA.md](BASE_OPERATIVA.md) para el esquema.
 
 ## 3. Crear y administrar actividades
 
-Arrastre un cliente o sede a una fecha, use el signo `+` del día o pulse
+Arrastre un cliente o sede a una fecha, haga clic en el fondo del día o pulse
 **Nueva actividad**. La tarjeta contiene fecha, cliente, sede, ciudad, uno o
 varios responsables, tipo de servicio, estado y observaciones.
 
@@ -53,6 +53,22 @@ Marque las casillas de las tarjetas o use `Ctrl`/`Cmd` al hacer clic.
 - **Eliminar:** exige confirmación y permite deshacer una vez.
 
 Cada operación es atómica: si una tarjeta quedaría inválida, no cambia ninguna.
+
+### Mover, duplicar o ampliar al arrastrar
+
+Al soltar una tarjeta en otra fecha, SIYS Sync pregunta qué operación realizar:
+
+- **Mover:** conserva la misma tarjeta y cambia su fecha.
+- **Duplicar:** crea una copia independiente con estado Programada.
+- **Ampliar:** crea otro día de la misma actividad. Cada día conserva un ID
+  propio y puede moverse por separado, pero queda vinculado a los demás.
+- **Cancelar:** no realiza cambios.
+
+Al editar una actividad ampliada se puede aplicar cliente, sede, ciudad,
+responsables, servicio y observaciones sólo al día o a toda la actividad. La
+fecha siempre pertenece a una tarjeta concreta y el estado conserva su alcance
+independiente. Ampliar sólo está disponible al arrastrar una tarjeta. Soltarla
+en su fecha actual no abre el diálogo ni genera historial.
 
 ## 5. Filtros y exportaciones
 
@@ -118,6 +134,14 @@ Al restaurar se muestran cronograma, coordinador, revisión y antigüedad. La
 restauración reemplaza el documento, no mezcla versiones, y conserva una copia
 de recuperación local. Se aceptan respaldos heredados de `v0.1.0`.
 
+### Reiniciar el navegador
+
+En **Datos > Reiniciar datos**, escriba `REINICIAR`. SIYS Sync descarga un
+respaldo JSON y después elimina el documento activo y su recuperación en ese
+origen. La opción adicional restablece preferencias visuales como el estado del
+banco. Las demás pestañas reciben una notificación y recargan el documento
+vacío para no reintroducir información anterior.
+
 ## 8. Solución de problemas
 
 - **No guarda:** descargue JSON inmediatamente, compruebe que IndexedDB esté
@@ -132,4 +156,3 @@ de recuperación local. Se aceptan respaldos heredados de `v0.1.0`.
   la vista filtrada.
 - **Cambio de equipo o navegador:** exporte JSON en el origen anterior y
   restáurelo en el nuevo.
-

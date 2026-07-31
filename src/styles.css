@@ -75,18 +75,21 @@ textarea:focus-visible,
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
-  min-height: 68px;
+  min-height: 56px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 20px;
-  padding: 10px 18px;
+  gap: 14px;
+  padding: 7px 14px;
   color: white;
   background: var(--green);
   box-shadow: 0 2px 10px rgba(25, 63, 29, 0.22);
@@ -97,18 +100,15 @@ textarea:focus-visible,
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 210px;
+  min-width: 180px;
 }
 
 .brand-mark {
   width: 42px;
   height: 42px;
-  display: grid;
-  place-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.82);
-  border-radius: 11px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  object-fit: contain;
+  border-radius: 10px;
+  background: white;
 }
 
 .brand strong,
@@ -118,6 +118,12 @@ textarea:focus-visible,
 
 .brand strong {
   font-size: 17px;
+}
+
+.brand strong em {
+  color: #5ce0cf;
+  font-style: normal;
+  font-weight: 500;
 }
 
 .brand small {
@@ -138,7 +144,64 @@ textarea:focus-visible,
 
 .top-actions {
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.action-menu {
+  position: relative;
+}
+
+.action-menu > summary {
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+
+.action-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.action-menu > summary::after {
+  content: "▾";
+  margin-left: 7px;
+  font-size: 10px;
+}
+
+.action-menu-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 70;
+  min-width: 220px;
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.menu-action {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.menu-action:hover,
+.menu-action:focus-visible {
+  background: var(--green-050);
+}
+
+.danger-text {
+  color: var(--danger);
 }
 
 .button,
@@ -264,6 +327,17 @@ button:disabled {
   color: #5f4100;
   background: #fff3cd;
   border-bottom: 1px solid #ead18c;
+}
+
+.storage-banner.compact-status {
+  min-height: 28px;
+  justify-content: flex-end;
+  padding: 3px 14px;
+  font-size: 11px;
+}
+
+.storage-banner.compact-status strong {
+  display: none;
 }
 
 .backup-banner div,
@@ -404,6 +478,14 @@ body.read-only .day-add {
   display: grid;
   grid-template-columns: 280px minmax(760px, 1fr);
   overflow: hidden;
+}
+
+body.catalog-collapsed .workspace {
+  grid-template-columns: minmax(760px, 1fr);
+}
+
+body.catalog-collapsed .catalog-panel {
+  display: none;
 }
 
 .catalog-panel {
@@ -667,6 +749,11 @@ body.read-only .day-add {
   border-right: 1px solid #cfd7cf;
   background: white;
   overflow: hidden;
+  cursor: pointer;
+}
+
+.day-cell :is(button, input, .activity-card) {
+  cursor: auto;
 }
 
 .day-cell.outside-month {
@@ -1024,6 +1111,23 @@ dialog::backdrop {
 
 .compact-modal {
   width: min(500px, calc(100vw - 36px));
+}
+
+.drop-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  padding: 4px 20px 16px;
+}
+
+.edit-scope-panel {
+  background: var(--green-050);
+}
+
+.edit-scope-panel label {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
 }
 
 .modal form {

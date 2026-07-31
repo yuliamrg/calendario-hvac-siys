@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>Calendario HVAC SI&S</title>
+  <title>SIYS Sync</title>
+  <link rel="icon" type="image/svg+xml" href="__SIYS_SYNC_ICON__">
   <style>
 /*__APP_CSS__*/
   </style>
@@ -12,10 +13,10 @@
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand" aria-label="Calendario HVAC SI&S">
-        <span class="brand-mark" aria-hidden="true">HV</span>
+      <div class="brand" aria-label="SIYS Sync">
+        <img class="brand-mark" src="__SIYS_SYNC_ICON__" alt="">
         <span>
-          <strong>Calendario HVAC</strong>
+          <strong>SIYS <em>Sync</em></strong>
           <small id="calendarIdentity">Cronograma HVAC</small>
         </span>
       </div>
@@ -24,18 +25,33 @@
         <button class="button primary" id="newActivityButton" type="button" data-testid="new-activity">
           <span aria-hidden="true">＋</span> Nueva actividad
         </button>
-        <button class="button" id="importBaseButton" type="button" data-testid="import-base">
-          Importar Base Operativa
-        </button>
-        <button class="icon-button" id="backupButton" type="button" title="Descargar respaldo JSON" aria-label="Descargar respaldo JSON">⇩</button>
-        <button class="icon-button" id="restoreButton" type="button" title="Restaurar respaldo JSON" aria-label="Restaurar respaldo JSON">⇧</button>
-        <button class="icon-button" id="exportCsvButton" type="button" title="Exportar mes a CSV" aria-label="Exportar mes a CSV">CSV</button>
-        <button class="icon-button" id="exportImageButton" type="button" title="Exportar vista como imagen" aria-label="Exportar vista como imagen">PNG</button>
-        <button class="button small ghost" id="programmingTemplateButton" type="button">Plantilla</button>
-        <button class="button small ghost" id="importProgrammingButton" type="button">Importar programación</button>
-        <button class="icon-button" id="holidayButton" type="button" title="Festivos y ajustes" aria-label="Festivos y ajustes">◉</button>
-        <button class="icon-button" id="helpButton" type="button" title="Ayuda y privacidad" aria-label="Ayuda y privacidad">?</button>
-        <button class="button small ghost" id="calendarSettingsButton" type="button">Identificación</button>
+        <button class="button" id="toggleCatalogButton" type="button" aria-expanded="true" aria-controls="catalogPanel">Ocultar banco</button>
+        <details class="action-menu">
+          <summary class="button">Datos</summary>
+          <div class="action-menu-panel">
+            <button class="menu-action" id="importBaseButton" type="button" data-testid="import-base">Importar Base Operativa</button>
+            <button class="menu-action" id="programmingTemplateButton" type="button">Descargar plantilla</button>
+            <button class="menu-action" id="importProgrammingButton" type="button">Importar programación</button>
+            <button class="menu-action" id="backupButton" type="button">Descargar respaldo JSON</button>
+            <button class="menu-action" id="restoreButton" type="button">Restaurar respaldo JSON</button>
+            <button class="menu-action danger-text" id="resetDataButton" type="button">Reiniciar datos</button>
+          </div>
+        </details>
+        <details class="action-menu">
+          <summary class="button">Exportar</summary>
+          <div class="action-menu-panel">
+            <button class="menu-action" id="exportCsvButton" type="button">Mes a CSV</button>
+            <button class="menu-action" id="exportImageButton" type="button">Vista como PNG</button>
+          </div>
+        </details>
+        <details class="action-menu">
+          <summary class="button">Configuración</summary>
+          <div class="action-menu-panel">
+            <button class="menu-action" id="holidayButton" type="button">Festivos y ajustes</button>
+            <button class="menu-action" id="calendarSettingsButton" type="button">Identificación</button>
+            <button class="menu-action" id="helpButton" type="button">Ayuda y privacidad</button>
+          </div>
+        </details>
       </div>
 
       <div class="save-indicator" id="saveIndicator" role="status" aria-live="polite">
@@ -52,7 +68,7 @@
       <button class="button small" id="takeControlButton" type="button">Tomar control</button>
     </section>
 
-    <section class="storage-banner" id="storageBanner">
+    <section class="storage-banner compact-status" id="storageBanner">
       <div>
         <strong id="storageStatusTitle">Datos locales del navegador</strong>
         <span id="storageStatusText">Comprobando protección del almacenamiento…</span>
@@ -89,7 +105,7 @@
     </section>
 
     <main class="workspace">
-      <aside class="catalog-panel" aria-label="Catálogo operativo">
+      <aside class="catalog-panel" id="catalogPanel" aria-label="Catálogo operativo">
         <div class="panel-heading">
           <div>
             <p class="eyebrow">Banco de tarjetas</p>
@@ -235,9 +251,64 @@
         </label>
       </div>
 
+      <div class="form-section edit-scope-panel" id="activityEditScopePanel" hidden>
+        <h3>Alcance de la edición</h3>
+        <p class="field-note">La fecha siempre corresponde únicamente a esta tarjeta.</p>
+        <label>
+          <span>Datos de la actividad</span>
+          <select id="activityEditScope">
+            <option value="single">Solo este día</option>
+            <option value="series">Actividad completa</option>
+          </select>
+        </label>
+        <label>
+          <span>Estado</span>
+          <select id="activityEditStatusScope">
+            <option value="single">Solo este día</option>
+            <option value="future">Este día y siguientes</option>
+            <option value="series">Actividad completa</option>
+          </select>
+        </label>
+      </div>
+
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="activityDialog">Cancelar</button>
         <button class="button primary" id="saveActivityButton" type="submit" value="default" data-testid="save-activity">Guardar actividad</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="dropActionDialog" aria-labelledby="dropActionDialogTitle">
+    <form method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Organizar programación</p><h2 id="dropActionDialogTitle">¿Qué quieres hacer?</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="dropActionDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p id="dropActionSummary"></p>
+      <div class="drop-actions">
+        <button class="button primary" id="dropMoveButton" type="button">Mover</button>
+        <button class="button" id="dropDuplicateButton" type="button">Duplicar</button>
+        <button class="button" id="dropExtendButton" type="button">Ampliar</button>
+      </div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="dropActionDialog">Cancelar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="resetDataDialog" aria-labelledby="resetDataDialogTitle">
+    <form id="resetDataForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Protección de datos</p><h2 id="resetDataDialogTitle">Reiniciar SIYS Sync</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="resetDataDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p>Primero se descargará un respaldo JSON. Después se eliminarán el cronograma y su copia de recuperación en este navegador.</p>
+      <label><span>Escribe <strong>REINICIAR</strong> para confirmar</span><input id="resetConfirmation" autocomplete="off" required></label>
+      <label class="check-row"><input id="resetPreferences" type="checkbox"><span>Restablecer también las preferencias visuales</span></label>
+      <div class="form-errors" id="resetDataErrors" role="alert" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="resetDataDialog">Cancelar</button>
+        <button class="button danger" type="submit">Descargar respaldo y reiniciar</button>
       </footer>
     </form>
   </dialog>

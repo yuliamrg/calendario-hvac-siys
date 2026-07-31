@@ -20,6 +20,8 @@ import {
   createDefaultDocument,
   dayOfWeek,
   deleteActivities,
+  duplicateActivities,
+  extendActivity,
   generateSeriesDates,
   holidayMapForRange,
   holidayMapForYears,
@@ -87,6 +89,7 @@ let pendingImport = null;
 let pendingRestore = null;
 let pendingProgrammingImport = null;
 let dragContext = null;
+let pendingDrop = null;
 let undoSnapshot = null;
 let forcedRangeDates = new Set();
 let storageAvailable = true;
@@ -96,12 +99,46 @@ const tabId = crypto.randomUUID();
 const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
 const EDIT_LOCK_STALE_MS = 15000;
+const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
+  ? "beta"
+  : location.protocol === "file:"
+    ? "local"
+    : "stable";
+const UI_PREFERENCES_KEY = `siys-sync-ui:${RUNTIME_CHANNEL}`;
 const editChannel = "BroadcastChannel" in window
   ? new BroadcastChannel("calendario-hvac-siys-edit-lock")
   : null;
 
 function clone(value) {
   return structuredClone(value);
+}
+
+function readUiPreferences() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(UI_PREFERENCES_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function updateUiPreferences(patch) {
+  const next = { ...readUiPreferences(), ...patch };
+  localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(next));
+  return next;
+}
+
+function applyCatalogPreference() {
+  const collapsed = readUiPreferences().catalogCollapsed === true;
+  document.body.classList.toggle("catalog-collapsed", collapsed);
+  dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
+  dom.toggleCatalogButton.textContent = collapsed ? "Mostrar banco" : "Ocultar banco";
+}
+
+function toggleCatalog() {
+  const collapsed = !document.body.classList.contains("catalog-collapsed");
+  updateUiPreferences({ catalogCollapsed: collapsed });
+  applyCatalogPreference();
 }
 
 function createElement(tagName, className = "", text = "") {
@@ -264,7 +301,7 @@ function renderAccessMode() {
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
-    "calendarSettingsButton", "importProgrammingButton"
+    "calendarSettingsButton", "importProgrammingButton", "resetDataButton"
   ];
   for (const id of guardedIds) {
     if (dom[id]) dom[id].disabled = !hasEditControl;
@@ -309,6 +346,18 @@ async function initializeEditLock() {
     if (event.data?.type === "control-taken" && event.data.ownerId !== tabId) {
       setEditControl(false, "Otra pestaña tomó el control de edición.");
     }
+    if (event.data?.type === "data-reset" && event.data.ownerId !== tabId) {
+      readStoredDocument("current")
+        .then((stored) => {
+          appDocument = stored ? sanitizeDocument(stored) : createDefaultDocument();
+          selectedActivityIds.clear();
+          activeDrawer = null;
+          closeDrawer();
+          renderAll();
+          showToast("Los datos fueron reiniciados desde otra pestaña.", { duration: 8000 });
+        })
+        .catch(() => {});
+    }
   });
 }
 
@@ -349,6 +398,19 @@ function replaceCurrentDocument(documentSnapshot) {
     transaction.oncomplete = resolve;
     transaction.onerror = () => reject(transaction.error);
     transaction.onabort = () => reject(transaction.error ?? new Error("No se pudo restaurar la copia recuperable."));
+  });
+}
+
+function clearStoredDocuments() {
+  if (!database) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
+    const store = transaction.objectStore(DOCUMENT_STORE);
+    store.delete("current");
+    store.delete("recovery");
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error ?? new Error("No se pudieron reiniciar los datos."));
   });
 }
 
@@ -1141,6 +1203,11 @@ function renderCalendar() {
       if (!cell.contains(event.relatedTarget)) cell.classList.remove("drag-over");
     });
     cell.addEventListener("drop", (event) => handleCalendarDrop(event, date, holidays));
+    cell.addEventListener("click", (event) => {
+      if (!hasEditControl) return;
+      if (event.target.closest("button, input, .activity-card")) return;
+      openActivityDialog({ date });
+    });
     fragment.append(cell);
   }
   dom.calendarGrid.replaceChildren(fragment);
@@ -1169,24 +1236,59 @@ function handleCalendarDrop(event, date, holidayMap) {
     return;
   }
   if (payload.type === "activity") {
-    const label = payload.activityIds.length > 1
-      ? `${payload.activityIds.length} tarjetas movidas`
-      : "Actividad reprogramada";
-    try {
+    const anchor = appDocument.activities.find((item) => item.id === payload.anchorId);
+    if (!anchor || anchor.date === date) return;
+    pendingDrop = { ...payload, date, holidayMap };
+    dom.dropActionSummary.textContent = payload.activityIds.length > 1
+      ? `${payload.activityIds.length} tarjetas seleccionadas. Se conservará la distancia entre sus fechas.`
+      : `Actividad del ${formatDisplayDate(anchor.date)} hacia el ${formatDisplayDate(date)}.`;
+    dom.dropExtendButton.hidden = payload.activityIds.length !== 1;
+    openDialog("dropActionDialog");
+  }
+}
+
+function applyPendingDrop(action) {
+  if (!pendingDrop) return;
+  const payload = pendingDrop;
+  pendingDrop = null;
+  closeDialog("dropActionDialog");
+  try {
+    if (action === "move") {
+      const label = payload.activityIds.length > 1
+        ? `${payload.activityIds.length} tarjetas movidas`
+        : "Actividad movida";
       mutate("activities_moved", label, () => {
-        moveActivities(appDocument, payload.activityIds, date, {
+        const moved = moveActivities(appDocument, payload.activityIds, payload.date, {
           anchorId: payload.anchorId,
           mode: "preserve"
         });
+        if (!moved.length) throw new TypeError("La actividad ya está en esa fecha.");
       });
-      if (isNonWorkingDate(date, holidayMap)) {
-        showToast("La fecha de destino es domingo o festivo. La programación se conservó por decisión manual.", {
-          duration: 7500
-        });
-      }
-    } catch (error) {
-      showToast(error.message, { type: "error" });
+    } else if (action === "duplicate") {
+      const copies = [];
+      mutate("activities_duplicated", `${payload.activityIds.length} tarjeta(s) duplicada(s)`, () => {
+        copies.push(...duplicateActivities(appDocument, payload.activityIds, payload.date, {
+          anchorId: payload.anchorId
+        }));
+      });
+      selectedActivityIds.clear();
+      if (copies[0]) renderActivityDrawer(copies[0].id);
+    } else if (action === "extend") {
+      if (payload.activityIds.length !== 1) throw new TypeError("Sólo se puede ampliar una tarjeta a la vez.");
+      let extended = null;
+      mutate("activity_extended", "Actividad ampliada a otro día", () => {
+        extended = extendActivity(appDocument, payload.activityIds[0], payload.date);
+        if (!extended) throw new TypeError("La actividad ya está en esa fecha.");
+      });
+      if (extended) renderActivityDrawer(extended.id);
     }
+    if (isNonWorkingDate(payload.date, payload.holidayMap)) {
+      showToast("La fecha elegida es domingo o festivo. La programación se conservó por decisión manual.", {
+        duration: 7500
+      });
+    }
+  } catch (error) {
+    showToast(error.message, { type: "error" });
   }
 }
 
@@ -1529,6 +1631,10 @@ function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = ""
     siteId: resolvedSite,
     responsibleIds: source?.responsibleIds ?? []
   });
+  const linked = Boolean(source?.seriesId);
+  dom.activityEditScopePanel.hidden = !(mode === "edit" && linked);
+  dom.activityEditScope.value = "single";
+  dom.activityEditStatusScope.value = "single";
   if (!source && resolvedSite) syncActivityLocationFromSite();
   updateAdministrativeFormState();
   updateRangePreview();
@@ -1626,36 +1732,74 @@ function handleActivitySubmit(event) {
     }
     try {
       mutate("activity_edited", "Tarjeta actualizada", () => {
-        const previousDate = existing.date;
-        const previousStatus = existing.status;
-        Object.assign(existing, {
-          date: input.date,
+        const now = new Date().toISOString();
+        const commonScope = existing.seriesId ? dom.activityEditScope.value : "single";
+        const statusScope = existing.seriesId ? dom.activityEditStatusScope.value : "single";
+        const commonIds = new Set(activityIdsForScope(appDocument, activityId, commonScope));
+        const statusIds = new Set(activityIdsForScope(appDocument, activityId, statusScope));
+        const commonPatch = {
           clientId: input.clientId,
           siteId: input.siteId,
           city: input.city,
-          responsibleIds: input.responsibleIds,
+          responsibleIds: [...input.responsibleIds],
           serviceType: input.serviceType,
-          status: input.status,
-          observations: input.observations,
-          updatedAt: new Date().toISOString(),
-          completedAt: input.status === "completed" ? (existing.completedAt || new Date().toISOString()) : null
+          observations: input.observations
+        };
+        const drafts = appDocument.activities.map((activity) => {
+          const draft = structuredClone(activity);
+          if (commonIds.has(activity.id)) Object.assign(draft, commonPatch);
+          if (activity.id === activityId) draft.date = input.date;
+          if (statusIds.has(activity.id)) {
+            draft.status = input.status;
+            draft.completedAt = input.status === "completed" ? (draft.completedAt || now) : null;
+          }
+          return draft;
         });
-        existing.history ??= [];
-        if (previousDate !== existing.date) {
-          existing.history.push({
-            at: existing.updatedAt,
-            action: "rescheduled",
-            detail: `${previousDate} → ${existing.date}`,
-            mode: "single"
-          });
-        }
-        if (previousStatus !== existing.status) {
-          existing.history.push({
-            at: existing.updatedAt,
-            action: "status_changed",
-            detail: `${ACTIVITY_STATUSES[previousStatus]} → ${ACTIVITY_STATUSES[existing.status]}`,
-            scope: "single"
-          });
+        const errors = drafts.flatMap((activity) => validateActivity(activity));
+        if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
+
+        for (let index = 0; index < appDocument.activities.length; index += 1) {
+          const activity = appDocument.activities[index];
+          const draft = drafts[index];
+          const previousDate = activity.date;
+          const previousStatus = activity.status;
+          const commonChanged = commonIds.has(activity.id) && (
+            activity.clientId !== draft.clientId ||
+            activity.siteId !== draft.siteId ||
+            activity.city !== draft.city ||
+            activity.serviceType !== draft.serviceType ||
+            activity.observations !== draft.observations ||
+            JSON.stringify(activity.responsibleIds ?? []) !== JSON.stringify(draft.responsibleIds ?? [])
+          );
+          const dateChanged = activity.id === activityId && previousDate !== draft.date;
+          const statusChanged = statusIds.has(activity.id) && previousStatus !== draft.status;
+          if (!commonChanged && !dateChanged && !statusChanged) continue;
+          Object.assign(activity, draft, { updatedAt: now });
+          activity.history ??= [];
+          if (commonChanged) {
+            activity.history.push({
+              at: now,
+              action: "edited",
+              detail: commonScope === "series" ? "Datos comunes editados en toda la actividad" : "Datos editados sólo para este día",
+              scope: commonScope
+            });
+          }
+          if (dateChanged) {
+            activity.history.push({
+              at: now,
+              action: "rescheduled",
+              detail: `${previousDate} → ${draft.date}`,
+              mode: "single"
+            });
+          }
+          if (statusChanged) {
+            activity.history.push({
+              at: now,
+              action: "status_changed",
+              detail: `${ACTIVITY_STATUSES[previousStatus]} → ${ACTIVITY_STATUSES[draft.status]}`,
+              scope: statusScope
+            });
+          }
         }
       });
       closeDialog("activityDialog");
@@ -2118,6 +2262,43 @@ async function createBackup() {
   showToast("Respaldo JSON descargado.");
 }
 
+function openResetDataDialog() {
+  dom.resetDataForm.reset();
+  showFormErrors(dom.resetDataErrors, []);
+  openDialog("resetDataDialog");
+}
+
+async function handleResetDataSubmit(event) {
+  event.preventDefault();
+  if (dom.resetConfirmation.value.trim() !== "REINICIAR") {
+    showFormErrors(dom.resetDataErrors, ["Escribe REINICIAR exactamente para confirmar."]);
+    return;
+  }
+  try {
+    await createBackup();
+    await flushSave();
+    await clearStoredDocuments();
+    appDocument = createDefaultDocument();
+    appDocument.appVersion = APP_VERSION;
+    undoSnapshot = null;
+    selectedActivityIds.clear();
+    activeDrawer = null;
+    if (dom.resetPreferences.checked) {
+      localStorage.removeItem(UI_PREFERENCES_KEY);
+      applyCatalogPreference();
+    }
+    if (storageAvailable) await replaceCurrentDocument(clone(appDocument));
+    editChannel?.postMessage({ type: "data-reset", ownerId: tabId });
+    closeDialog("resetDataDialog");
+    closeDrawer();
+    renderAll();
+    setSaveIndicator(storageAvailable ? "saved" : "error", storageAvailable ? "Guardado" : "Sin guardado local");
+    showToast("Los datos persistentes se reiniciaron. El respaldo quedó en Descargas.", { duration: 8500 });
+  } catch (error) {
+    showFormErrors(dom.resetDataErrors, [`No se pudo reiniciar: ${error.message}`]);
+  }
+}
+
 function exportCurrentMonthCsv() {
   const { year, month } = currentMonthParts();
   const csv = buildMonthlyCsv(appDocument, year, month);
@@ -2559,6 +2740,7 @@ function bindEvents() {
     date: appDocument.settings.currentDate || todayInBogota()
   }));
   dom.importBaseButton.addEventListener("click", () => dom.baseFileInput.click());
+  dom.toggleCatalogButton.addEventListener("click", toggleCatalog);
   dom.emptyImportButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.backupButton.addEventListener("click", createBackup);
   dom.backupBannerButton.addEventListener("click", createBackup);
@@ -2575,6 +2757,11 @@ function bindEvents() {
   });
   dom.helpButton.addEventListener("click", () => openDialog("helpDialog"));
   dom.calendarSettingsButton.addEventListener("click", openCalendarSettingsDialog);
+  dom.resetDataButton.addEventListener("click", openResetDataDialog);
+  dom.resetDataForm.addEventListener("submit", handleResetDataSubmit);
+  dom.dropMoveButton.addEventListener("click", () => applyPendingDrop("move"));
+  dom.dropDuplicateButton.addEventListener("click", () => applyPendingDrop("duplicate"));
+  dom.dropExtendButton.addEventListener("click", () => applyPendingDrop("extend"));
   dom.calendarSettingsForm.addEventListener("submit", handleCalendarSettingsSubmit);
   dom.requestPersistenceButton.addEventListener("click", requestStoragePersistence);
   dom.takeControlButton.addEventListener("click", async () => {
@@ -2678,6 +2865,11 @@ function bindEvents() {
   for (const button of document.querySelectorAll("[data-close-dialog]")) {
     button.addEventListener("click", () => closeDialog(button.dataset.closeDialog));
   }
+  for (const button of document.querySelectorAll(".action-menu .menu-action")) {
+    button.addEventListener("click", () => {
+      button.closest("details")?.removeAttribute("open");
+    });
+  }
   for (const dialog of document.querySelectorAll("dialog")) {
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) {
@@ -2745,6 +2937,7 @@ async function loadInitialDocument() {
 async function initialize() {
   initializeStaticOptions();
   bindEvents();
+  applyCatalogPreference();
   appDocument = await loadInitialDocument();
   if (storageAvailable) {
     await initializeEditLock();

@@ -1,4 +1,4 @@
-# Calendario HVAC SI&S
+# SIYS Sync
 
 Herramienta local para programar servicios HVAC en un calendario mensual. El
 entregable listo para usar es:
@@ -20,7 +20,7 @@ JSON permite trasladar la programación entre ambas.
 2. Use **Importar Base Operativa** en la barra superior y seleccione
    `Base_operativa_HVAC_SIYS.xlsx`.
 3. Revise la vista previa y confirme la importación.
-4. Arrastre una sede desde el catálogo a un día o use el botón **+** del día.
+4. Arrastre una sede desde el banco a un día o haga clic en el fondo del día.
 5. Complete la tarjeta y guárdela.
 6. Cree un **respaldo JSON** al terminar una carga importante.
 
@@ -41,6 +41,10 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
   flechas; `Enter` abre una nueva actividad en la fecha enfocada.
 - Un servicio de varios días crea tarjetas independientes vinculadas. Después
   puede editar una fecha, las fechas futuras o toda la serie.
+- Al arrastrar una tarjeta a otro día puede **Mover**, **Duplicar** o
+  **Ampliar**. Ampliar conserva tarjetas diarias independientes, pero enlaza
+  sus datos comunes. Soltar en el mismo día no genera cambios.
+- El banco se puede ocultar y tiene desplazamiento propio.
 - Domingos y festivos se excluyen inicialmente de los rangos; la vista previa
   permite incluir fechas específicas.
 - Los cierres manuales y las excepciones laborales se administran con el botón
@@ -64,6 +68,10 @@ coordinador, revisión, versión y origen de exportación. **Restaurar respaldo*
 valida el archivo, advierte si su revisión es anterior o igual y conserva una
 copia de recuperación local. Los respaldos creados con `v0.1.0` se migran
 automáticamente.
+
+**Reiniciar datos** descarga primero un respaldo y exige escribir
+`REINICIAR`. La operación limpia el cronograma y su recuperación en ese
+navegador, sin afectar otros perfiles u orígenes.
 
 La sección **Datos locales del navegador** indica si el navegador concedió
 persistencia al origen. Esta protección reduce el riesgo de liberación

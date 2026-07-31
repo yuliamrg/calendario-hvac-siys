@@ -25,7 +25,10 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
     "IncluirNoLaborables",
     "duplicados",
     "PNG",
-    "respaldo"
+    "respaldo",
+    "SIYS Sync",
+    "Ampliar",
+    "REINICIAR"
   ]) {
     assert.match(manual, new RegExp(required, "i"));
   }

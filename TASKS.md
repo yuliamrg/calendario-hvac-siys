@@ -46,3 +46,48 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   `https://`/`file://`, portabilidad JSON y restauración en contexto limpio.
 - Cierre: PR #4 conserva el smoke reproducible; PR #5 prueba y persiste la
   recuperación desde `recovery` cuando `current` está corrupto.
+
+## Goal SIYS Sync — evolución `v0.5.0` a `v0.8.0`
+
+### Versión 0.5.0 — experiencia, marca y operaciones
+
+- [ ] Implementar la marca SIYS Sync, logo y favicon autocontenidos.
+- [ ] Compactar la cabecera y agrupar acciones secundarias.
+- [ ] Permitir ocultar el banco y darle scroll independiente.
+- [ ] Abrir una actividad al pulsar el fondo de un día.
+- [ ] Tratar una caída en la misma fecha como operación nula.
+- [ ] Preguntar Mover, Duplicar, Ampliar o Cancelar al arrastrar una tarjeta.
+- [ ] Enlazar días ampliados mediante `seriesId` sin repetir IDs.
+- [ ] Permitir editar un día o los datos comunes de toda la actividad.
+- [ ] Descargar respaldo y reiniciar los datos persistentes de forma segura.
+- [ ] Ejecutar pruebas, actualizar documentación y etiquetar `v0.5.0`.
+
+### Versión 0.6.0 — combinación JSON y canales
+
+- [ ] Añadir JSON con vista previa sin reemplazar el cronograma actual.
+- [ ] Migrar el documento de esquema 2 a esquema 3.
+- [ ] Resolver equivalencias y conflictos por `updatedAt`.
+- [ ] Aislar IndexedDB entre estable y beta.
+- [ ] Publicar simultáneamente estable y `/beta/`.
+- [ ] Ejecutar pruebas, actualizar documentación y etiquetar `v0.6.0`.
+
+### Versión 0.7.0 — modo oscuro
+
+- [ ] Implementar temas Claro, Oscuro y Sistema.
+- [ ] Persistir el tema fuera del documento operativo.
+- [ ] Adaptar calendario, tarjetas, formularios, exportación e impresión.
+- [ ] Verificar contraste, accesibilidad y regresiones.
+- [ ] Etiquetar y promover `v0.7.0`.
+
+### Versión 0.8.0 — responsive
+
+- [ ] Implementar tablero de escritorio, tablet y mes con agenda móvil.
+- [ ] Proporcionar alternativas táctiles a arrastrar y soltar.
+- [ ] Adaptar banco, cabecera, formularios y diálogos.
+- [ ] Verificar tamaños, orientaciones, zoom y exportación.
+- [ ] Etiquetar y promover `v0.8.0`.
+
+### Cierre del Goal
+
+- [ ] Auditar requisitos, datos heredados, canales, documentación y Git.
+- [ ] Confirmar estable en `v0.8.0`, beta operativa y worktree limpio.

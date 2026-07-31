@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.4.0";
+export const APP_VERSION = "0.5.0";
 export const SCHEMA_VERSION = 2;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -576,11 +576,14 @@ export function moveActivities(
     throw new TypeError("No se encontró la actividad de referencia.");
   }
   const delta = differenceInDays(anchor.date, targetDate);
+  if (mode === "preserve" && delta === 0) return [];
   const moved = [];
   for (const activity of document.activities) {
     if (!ids.has(activity.id)) continue;
     const previousDate = activity.date;
-    activity.date = mode === "same" ? targetDate : addDaysISO(activity.date, delta);
+    const nextDate = mode === "same" ? targetDate : addDaysISO(activity.date, delta);
+    if (nextDate === previousDate) continue;
+    activity.date = nextDate;
     activity.updatedAt = now;
     activity.history ??= [];
     activity.history.push({
@@ -592,6 +595,104 @@ export function moveActivities(
     moved.push({ id: activity.id, from: previousDate, to: activity.date });
   }
   return moved;
+}
+
+export function duplicateActivities(
+  document,
+  activityIds,
+  targetDate,
+  {
+    anchorId = activityIds[0],
+    idFactory = () => crypto.randomUUID(),
+    now = new Date().toISOString()
+  } = {}
+) {
+  parseISODate(targetDate);
+  if (!Array.isArray(activityIds) || !activityIds.length || new Set(activityIds).size !== activityIds.length) {
+    throw new TypeError("La selección de actividades no es válida.");
+  }
+  const ids = new Set(activityIds.map(String));
+  const selected = document.activities.filter((item) => ids.has(item.id));
+  if (selected.length !== ids.size) throw new TypeError("Una o más actividades seleccionadas no existen.");
+  const anchor = selected.find((item) => item.id === anchorId);
+  if (!anchor) throw new TypeError("No se encontró la actividad de referencia.");
+  const delta = differenceInDays(anchor.date, targetDate);
+  const copies = selected.map((activity) => ({
+    ...structuredClone(activity),
+    id: makeId("actividad", idFactory),
+    seriesId: null,
+    date: addDaysISO(activity.date, delta),
+    status: "scheduled",
+    completedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    history: [{
+      at: now,
+      action: "duplicated",
+      detail: `Duplicada desde ${activity.id}`
+    }]
+  }));
+  const errors = copies.flatMap((activity) => validateActivity(activity));
+  if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
+  document.activities.push(...copies);
+  return copies;
+}
+
+export function extendActivity(
+  document,
+  activityId,
+  targetDate,
+  {
+    idFactory = () => crypto.randomUUID(),
+    now = new Date().toISOString()
+  } = {}
+) {
+  parseISODate(targetDate);
+  const source = document.activities.find((item) => item.id === activityId);
+  if (!source) throw new TypeError("No se encontró la actividad.");
+  if (source.date === targetDate) return null;
+
+  let seriesId = source.seriesId;
+  if (!seriesId) {
+    seriesId = makeId("serie", idFactory);
+    source.seriesId = seriesId;
+    source.updatedAt = now;
+    source.history ??= [];
+    source.history.push({
+      at: now,
+      action: "series_created",
+      detail: "Actividad convertida en programación ampliada"
+    });
+    document.series.push({
+      id: seriesId,
+      createdAt: now,
+      originalStart: source.date,
+      originalEnd: targetDate
+    });
+  }
+  if (document.activities.some((item) => item.seriesId === seriesId && item.date === targetDate)) {
+    throw new TypeError("Esta actividad ya tiene una tarjeta en la fecha de destino.");
+  }
+
+  const extended = {
+    ...structuredClone(source),
+    id: makeId("actividad", idFactory),
+    seriesId,
+    date: targetDate,
+    status: "scheduled",
+    completedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    history: [{
+      at: now,
+      action: "extended",
+      detail: `Actividad ampliada desde ${source.date}`
+    }]
+  };
+  const errors = validateActivity(extended);
+  if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
+  document.activities.push(extended);
+  return extended;
 }
 
 export const BULK_EDIT_FIELDS = Object.freeze({

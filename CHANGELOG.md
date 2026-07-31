@@ -1,5 +1,21 @@
 # Historial de cambios
 
+## [0.5.0] - 2026-07-30
+
+### Añadido
+
+- Marca SIYS Sync, logo y favicon autocontenidos.
+- Cabecera compacta con acciones agrupadas y banco ocultable.
+- Diálogo Mover, Duplicar o Ampliar al arrastrar una tarjeta.
+- Actividades ampliadas con ocurrencias diarias enlazadas mediante `seriesId`.
+- Reinicio seguro con respaldo previo y confirmación escrita.
+
+### Corregido
+
+- Soltar una tarjeta en su misma fecha ya no registra una reprogramación.
+- El banco utiliza desplazamiento propio y el fondo de un día abre la fecha
+  correspondiente en el formulario.
+
 ## [0.4.0] - 2026-07-30
 
 ### Añadido

@@ -42,6 +42,13 @@ def wait_saved(page: Page) -> None:
     expect(page.locator("#saveIndicatorText")).to_have_text("Guardado", timeout=15_000)
 
 
+def click_menu_action(page: Page, button_id: str) -> None:
+    menu = page.locator(f".action-menu:has(#{button_id})")
+    if menu.get_attribute("open") is None:
+        menu.locator("summary").click()
+    page.locator(f"#{button_id}").click()
+
+
 def launch_and_check(
     playwright,
     channel: str,
@@ -77,7 +84,7 @@ def launch_and_check(
 
     page.goto(html_path.as_uri(), wait_until="load")
     page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
-    expect(page).to_have_title("Calendario HVAC SI&S")
+    expect(page).to_have_title("SIYS Sync")
     expect(page.get_by_test_id("month-title")).to_have_text("Julio de 2026")
     weekdays = page.locator("#weekdayRow > div").all_inner_texts()
     assert weekdays == [
@@ -109,6 +116,8 @@ def launch_and_check(
         "restoreDialog",
         "programmingImportDialog",
         "calendarSettingsDialog",
+        "dropActionDialog",
+        "resetDataDialog",
         "helpDialog",
     ):
         labelled_by = page.locator(f"#{dialog_id}").get_attribute("aria-labelledby")
@@ -146,7 +155,7 @@ def launch_and_check(
     second_page.close()
     expect(page.locator("#storageBanner")).to_be_visible()
 
-    page.locator("#calendarSettingsButton").click()
+    click_menu_action(page, "calendarSettingsButton")
     page.fill("#calendarName", "Cronograma automatizado")
     page.fill("#calendarCoordinator", "Coordinación QA")
     page.locator("#calendarSettingsForm button[type=submit]").click()
@@ -251,6 +260,26 @@ def launch_and_check(
         page.locator("#closeDrawerButton").click()
         page.wait_for_timeout(300)
 
+    original_revision = get_state(page)["calendarMeta"]["revision"]
+    original_history_count = len(get_state(page)["activities"][0]["history"])
+    page.evaluate(
+        """
+        ({ activityId, date }) => {
+          const source = document.querySelector(`[data-activity-id="${activityId}"]`);
+          const target = document.querySelector(`[data-date="${date}"]`);
+          const dataTransfer = new DataTransfer();
+          source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+          target.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer }));
+          source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
+        }
+        """,
+        {"activityId": activity_id, "date": "2026-07-30"},
+    )
+    expect(page.locator("#dropActionDialog")).not_to_be_visible()
+    same_day_state = get_state(page)
+    assert same_day_state["calendarMeta"]["revision"] == original_revision
+    assert len(same_day_state["activities"][0]["history"]) == original_history_count
+
     target_locator = page.locator('[data-date="2026-07-28"]')
     page.evaluate(
         """
@@ -265,6 +294,8 @@ def launch_and_check(
         """,
         {"activityId": activity_id, "date": "2026-07-28"},
     )
+    expect(page.locator("#dropActionDialog")).to_be_visible()
+    page.locator("#dropMoveButton").click()
     wait_saved(page)
     state = get_state(page)
     activity = next(item for item in state["activities"] if item["id"] == activity_id)
@@ -387,7 +418,7 @@ def launch_and_check(
     )
     page.locator("#closeDrawerButton").click()
 
-    page.locator("#holidayButton").click()
+    click_menu_action(page, "holidayButton")
     page.fill("#overrideDate", "2026-07-29")
     page.select_option("#overrideType", "manual-closure")
     page.fill("#overrideName", "Cierre de prueba")
@@ -410,7 +441,7 @@ def launch_and_check(
     assert len(state_after_reload["holidayOverrides"]) == 1
 
     with page.expect_download() as download_info:
-        page.locator("#backupButton").click()
+            click_menu_action(page, "backupButton")
     backup_download = download_info.value
     backup_path = artifact_dir / "respaldo-prueba.json"
     backup_download.save_as(str(backup_path))
@@ -421,7 +452,7 @@ def launch_and_check(
     assert len(backup_document["activities"]) == len(state_after_reload["activities"])
 
     with page.expect_download() as download_info:
-        page.locator("#exportCsvButton").click()
+            click_menu_action(page, "exportCsvButton")
     csv_download = download_info.value
     csv_path = artifact_dir / "programacion-prueba.csv"
     csv_download.save_as(str(csv_path))
@@ -448,7 +479,7 @@ def launch_and_check(
     assert len(get_state(page)["activities"]) == len(backup_document["activities"])
 
     with page.expect_download() as download_info:
-        page.locator("#programmingTemplateButton").click()
+            click_menu_action(page, "programmingTemplateButton")
     template_path = artifact_dir / "plantilla-programacion-hvac.xlsx"
     download_info.value.save_as(str(template_path))
     workbook = load_workbook(template_path)
@@ -486,7 +517,7 @@ def launch_and_check(
     page.locator("#filterForm button[type=submit]").click()
     expect(page.locator("#filterCount")).to_have_text("1")
     with page.expect_download() as download_info:
-        page.locator("#exportImageButton").click()
+            click_menu_action(page, "exportImageButton")
     png_path = artifact_dir / "cronograma-filtrado.png"
     download_info.value.save_as(str(png_path))
     wait_saved(page)
