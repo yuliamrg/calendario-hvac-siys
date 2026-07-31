@@ -163,9 +163,7 @@ origen. La opción adicional restablece preferencias visuales como el estado del
 banco. Las demás pestañas reciben una notificación y recargan el documento
 vacío para no reintroducir información anterior.
 
-## 8. Solución de problemas
-
-### Apariencia
+## 8. Apariencia
 
 En **Configuración > Tema** puede elegir **Claro**, **Oscuro** o **Sistema**.
 Sistema sigue la preferencia de Chrome, Edge o Windows y reacciona si esta
@@ -176,6 +174,28 @@ respaldos JSON y no se mezcla entre local, estable y beta.
 La exportación PNG respeta el tema que esté activo. La impresión siempre usa
 una presentación clara para conservar legibilidad y ahorrar tinta, aunque la
 interfaz esté en modo oscuro.
+
+## 9. Teléfonos y tabletas
+
+En pantallas de hasta 899 px de ancho, SIYS Sync muestra un mes compacto y una
+agenda desplazable para la fecha seleccionada. Toque el fondo de un día para
+consultar su agenda; toque el número o **Agregar** para crear una actividad con
+la fecha diligenciada. Los indicadores numéricos muestran cuántas tarjetas
+visibles tiene cada día y respetan los filtros activos.
+
+**Banco** abre el catálogo como panel lateral. Como alternativas táctiles, las
+tarjetas de la agenda abren el detalle, donde están **Editar tarjeta**,
+**Mover · Duplicar · Ampliar**,
+**Actualizar estado** y **Eliminar**. Al organizar una actividad se elige la
+fecha y luego una acción independiente: no es necesario arrastrar. Mover y
+Ampliar se deshabilitan si se elige el mismo día; Duplicar sigue disponible.
+
+En tablet horizontal y escritorio se conserva el tablero completo de siete
+columnas. En pantallas bajas, el calendario y la agenda tienen desplazamiento
+propio. La exportación CSV, PNG, JSON y la impresión no cambian por el tamaño
+de pantalla.
+
+## 10. Solución de problemas
 
 - **No guarda:** descargue JSON inmediatamente, compruebe que IndexedDB esté
   habilitado y que el navegador tenga espacio.

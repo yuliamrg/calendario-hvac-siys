@@ -1,5 +1,21 @@
 # Historial de cambios
 
+## [0.8.0] - 2026-07-30
+
+### Añadido
+
+- Mes compacto con agenda seleccionada para teléfonos y tabletas verticales.
+- Panel lateral táctil para el banco de tarjetas.
+- Acción por fecha **Mover · Duplicar · Ampliar** desde el detalle, sin
+  depender de arrastrar y soltar.
+- Adaptación de cabecera, filtros, formularios, diálogos, selección múltiple y
+  avisos para pantallas estrechas.
+
+### Compatibilidad
+
+- Tablero completo en tablet horizontal y escritorio.
+- Exportaciones, impresión, persistencia y separación de canales sin cambios.
+
 ## [0.7.0] - 2026-07-30
 
 ### Añadido
