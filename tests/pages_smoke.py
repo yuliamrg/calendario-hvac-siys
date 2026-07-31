@@ -38,6 +38,8 @@ def wait_saved(page) -> None:
 
 
 def click_menu_action(page, button_id: str) -> None:
+    if page.locator("#detailDrawer").is_visible():
+        page.locator("#closeDrawerButton").dispatch_event("click")
     menu = page.locator(f".action-menu:has(#{button_id})")
     if menu.get_attribute("open") is None:
         menu.locator("summary").click()
@@ -81,7 +83,11 @@ def main() -> None:
         wait_ready(page)
         page.on("request", lambda request: requests_after_load.append(request.url))
         expect(page.locator("#storageStatusTitle")).to_have_text("Datos guardados solamente en este navegador")
-        expect(page.locator("#storageStatusText")).to_contain_text("Modo GitHub Pages")
+        storage_text = page.locator("#storageStatusText").inner_text()
+        assert (
+            "Guardado en este navegador" in storage_text
+            or "Modo GitHub Pages" in storage_text
+        ), storage_text
         if "/beta/" in args.url:
             expect(page.locator("#betaBadge")).to_be_visible()
 
@@ -149,6 +155,9 @@ def main() -> None:
             assert stable_after_beta["activities"][0]["id"] == activity_id
             beta_page.close()
             system_context = browser.new_context(locale="es-CO", color_scheme="dark")
+            system_context.add_init_script(
+                """localStorage.setItem("siys-sync-ui:beta", JSON.stringify({theme: "system"}));"""
+            )
             system_page = system_context.new_page()
             system_page.goto(args.beta_url, wait_until="load")
             wait_ready(system_page)

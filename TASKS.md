@@ -147,5 +147,19 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 - [x] Abrir el mes como selector superpuesto sin crear una actividad al tocar.
 - [x] Limitar la cabecera móvil a Nueva actividad, Ver mes y Más.
 - [x] Agrupar Banco, Gestionar, Compartir y Configuración dentro de Más.
-- [ ] Ejecutar aceptación final local y en Pages.
+- [x] Ejecutar aceptación final local y en Pages.
 - [ ] Etiquetar y promover `v0.9.0` a estable.
+
+### Evidencia de aceptación `v0.9.0`
+
+- 41/41 pruebas unitarias y documentales; build autocontenido y auditoría sin
+  APIs de red.
+- Chrome completo y Edge smoke: Base Operativa, persistencia, segunda pestaña,
+  copias, combinación, Excel, CSV, PNG, series y edición múltiple aprobados.
+- Agenda y detalle aprobados en 320×640, 390×844, 844×390, 768×1024,
+  1024×768 y 1440×900 sin desbordamiento horizontal.
+- Beta Pages: persistencia tras recarga, tema oscuro y Sistema, PNG oscuro,
+  combinación deshacible, aislamiento estable/beta/local y restauración en un
+  contexto limpio.
+- La Base Operativa conservó SHA-256
+  `365E634EF865770B8C61D196C2C6ED7A46BEAA9045E32161AED44D09443C579A`.
