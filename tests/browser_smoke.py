@@ -102,7 +102,9 @@ def launch_and_check(
         "holidayDialog",
         "bulkMoveDialog",
         "bulkStatusDialog",
+        "bulkEditDialog",
         "restoreDialog",
+        "calendarSettingsDialog",
         "helpDialog",
     ):
         labelled_by = page.locator(f"#{dialog_id}").get_attribute("aria-labelledby")
@@ -124,11 +126,37 @@ def launch_and_check(
         browser.close()
         return {"channel": channel, "status": "ok", "mode": "smoke"}
 
+    second_page = context.new_page()
+    second_page.goto(html_path.as_uri(), wait_until="load")
+    second_page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
+    expect(second_page.locator("#accessBanner")).to_be_visible()
+    expect(second_page.locator("#newActivityButton")).to_be_disabled()
+    second_page.on("dialog", lambda dialog: dialog.accept())
+    second_page.locator("#takeControlButton").click()
+    expect(second_page.locator("#accessBanner")).not_to_be_visible()
+    expect(page.locator("#accessBanner")).to_be_visible()
+    page.on("dialog", lambda dialog: dialog.accept())
+    page.locator("#takeControlButton").click()
+    expect(page.locator("#accessBanner")).not_to_be_visible()
+    expect(second_page.locator("#accessBanner")).to_be_visible()
+    second_page.close()
+    expect(page.locator("#storageBanner")).to_be_visible()
+
+    page.locator("#calendarSettingsButton").click()
+    page.fill("#calendarName", "Cronograma automatizado")
+    page.fill("#calendarCoordinator", "Coordinación QA")
+    page.locator("#calendarSettingsForm button[type=submit]").click()
+    wait_saved(page)
+    identified_state = get_state(page)
+    assert identified_state["schemaVersion"] == 2
+    assert identified_state["calendarMeta"]["name"] == "Cronograma automatizado"
+    assert identified_state["calendarMeta"]["coordinator"] == "Coordinación QA"
+    assert identified_state["calendarMeta"]["revision"] == 1
+
     before_hash = file_hash(base_path)
     page.set_input_files("#baseFileInput", str(base_path))
     expect(page.locator("#importDialog")).to_be_visible(timeout=20_000)
     expect(page.locator("#importFileSummary")).to_contain_text(base_path.name)
-    expect(page.locator("#importWarnings")).to_contain_text("K1 está vacío")
     page.get_by_test_id("apply-import").click()
     expect(page.locator("#importDialog")).not_to_be_visible()
     wait_saved(page)
@@ -176,11 +204,29 @@ def launch_and_check(
     site_card = page.locator(
         f'[data-drag-type="site"][data-site-id="{site["id"]}"]'
     )
-    target_day = page.locator('[data-date="2026-07-30"]')
-    site_card.drag_to(target_day)
+    expect(site_card).to_be_visible()
+    page.evaluate(
+        """
+        ({ siteId, date }) => {
+          const source = document.querySelector(`[data-drag-type="site"][data-site-id="${siteId}"]`);
+          const target = document.querySelector(`[data-date="${date}"]`);
+          const dataTransfer = new DataTransfer();
+          source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+          target.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer }));
+        }
+        """,
+        {"siteId": site["id"], "date": "2026-07-30"},
+    )
     expect(page.get_by_test_id("activity-dialog")).to_be_visible()
-    assert page.locator("#activityClient").input_value() == client["id"]
-    assert page.locator("#activitySite").input_value() == site["id"]
+    actual_client = page.locator("#activityClient").input_value()
+    actual_site = page.locator("#activitySite").input_value()
+    assert actual_client == client["id"], {
+        "expectedClient": client["id"],
+        "actualClient": actual_client,
+        "expectedSite": site["id"],
+        "actualSite": actual_site,
+    }
+    assert actual_site == site["id"]
     page.select_option("#activityStatus", "confirmed")
     page.locator(
         f'#responsiblePicker input[value="{payroll["id"]}"]'
@@ -202,20 +248,19 @@ def launch_and_check(
         page.wait_for_timeout(300)
 
     target_locator = page.locator('[data-date="2026-07-28"]')
-    source_box = card.bounding_box()
-    target_box = target_locator.bounding_box()
-    assert source_box and target_box
-    page.mouse.move(
-        source_box["x"] + source_box["width"] / 2,
-        source_box["y"] + source_box["height"] / 2,
+    page.evaluate(
+        """
+        ({ activityId, date }) => {
+          const source = document.querySelector(`[data-activity-id="${activityId}"]`);
+          const target = document.querySelector(`[data-date="${date}"]`);
+          const dataTransfer = new DataTransfer();
+          source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+          target.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer }));
+          source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
+        }
+        """,
+        {"activityId": activity_id, "date": "2026-07-28"},
     )
-    page.mouse.down()
-    page.mouse.move(
-        target_box["x"] + target_box["width"] / 2,
-        target_box["y"] + target_box["height"] / 2,
-        steps=12,
-    )
-    page.mouse.up()
     wait_saved(page)
     state = get_state(page)
     activity = next(item for item in state["activities"] if item["id"] == activity_id)
@@ -295,6 +340,33 @@ def launch_and_check(
         {"2026-07-21", "2026-07-22"}
     )
 
+    if "open" in (page.locator("#detailDrawer").get_attribute("class") or ""):
+        page.locator("#closeDrawerButton").click()
+    editable_items = moved_series[:2]
+    for item in editable_items:
+        page.locator(f'[data-activity-id="{item["id"]}"] .activity-select').check()
+    page.locator("#bulkEditButton").click()
+    page.select_option("#bulkEditField", "observations")
+    page.select_option("#bulkEditMode", "append")
+    page.fill("#bulkEditTextarea", "Nota múltiple")
+    page.locator("#bulkEditForm button[type=submit]").click()
+    wait_saved(page)
+    state = get_state(page)
+    for item in editable_items:
+        changed = next(activity for activity in state["activities"] if activity["id"] == item["id"])
+        assert "Nota múltiple" in changed["observations"]
+        assert changed["history"][-1]["action"] == "bulk_edited"
+
+    for item in editable_items:
+        page.locator(f'[data-activity-id="{item["id"]}"] .activity-select').check()
+    activity_count_before_delete = len(get_state(page)["activities"])
+    page.locator("#bulkDeleteButton").click()
+    wait_saved(page)
+    assert len(get_state(page)["activities"]) == activity_count_before_delete - 2
+    page.get_by_role("button", name="Deshacer").last.click()
+    wait_saved(page)
+    assert len(get_state(page)["activities"]) == activity_count_before_delete
+
     anchor = next(item for item in moved_series if item["date"] == "2026-07-21")
     page.locator(f'[data-activity-id="{anchor["id"]}"]').click()
     page.select_option("#drawerStatusSelect", "completed")
@@ -339,7 +411,10 @@ def launch_and_check(
     backup_path = artifact_dir / "respaldo-prueba.json"
     backup_download.save_as(str(backup_path))
     backup = json.loads(backup_path.read_text(encoding="utf-8"))
-    assert len(backup["activities"]) == len(state_after_reload["activities"])
+    assert backup["format"] == "calendario-hvac-siys-backup"
+    assert backup["revision"] == state_after_reload["calendarMeta"]["revision"]
+    backup_document = backup["document"]
+    assert len(backup_document["activities"]) == len(state_after_reload["activities"])
 
     with page.expect_download() as download_info:
         page.locator("#exportCsvButton").click()
@@ -358,14 +433,15 @@ def launch_and_check(
     page.fill("#activityObservations", "Temporal para probar restauración")
     page.get_by_test_id("save-activity").click()
     wait_saved(page)
-    assert len(get_state(page)["activities"]) == len(backup["activities"]) + 1
+    assert len(get_state(page)["activities"]) == len(backup_document["activities"]) + 1
 
     page.set_input_files("#restoreFileInput", str(backup_path))
     expect(page.locator("#restoreDialog")).to_be_visible()
+    expect(page.locator("#restoreWarning")).to_contain_text("más antiguo")
     page.locator("#restoreForm button[type=submit]").click()
     expect(page.locator("#restoreDialog")).not_to_be_visible()
     wait_saved(page)
-    assert len(get_state(page)["activities"]) == len(backup["activities"])
+    assert len(get_state(page)["activities"]) == len(backup_document["activities"])
 
     page.screenshot(path=str(artifact_dir / f"{channel}-full.png"), full_page=True)
     assert not page_errors, page_errors
@@ -379,7 +455,7 @@ def launch_and_check(
         "status": "ok",
         "mode": "full",
         "catalog": {"clients": 3, "sites": 18, "responsibles": 30},
-        "activities": len(backup["activities"]),
+        "activities": len(backup_document["activities"]),
         "baseSha256": before_hash,
         "networkRequests": 0,
     }

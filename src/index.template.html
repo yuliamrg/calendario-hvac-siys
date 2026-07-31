@@ -16,7 +16,7 @@
         <span class="brand-mark" aria-hidden="true">HV</span>
         <span>
           <strong>Calendario HVAC</strong>
-          <small>Programación SI&amp;S</small>
+          <small id="calendarIdentity">Cronograma HVAC</small>
         </span>
       </div>
 
@@ -32,6 +32,7 @@
         <button class="icon-button" id="exportCsvButton" type="button" title="Exportar mes a CSV" aria-label="Exportar mes a CSV">CSV</button>
         <button class="icon-button" id="holidayButton" type="button" title="Festivos y ajustes" aria-label="Festivos y ajustes">◉</button>
         <button class="icon-button" id="helpButton" type="button" title="Ayuda y privacidad" aria-label="Ayuda y privacidad">?</button>
+        <button class="button small ghost" id="calendarSettingsButton" type="button">Identificación</button>
       </div>
 
       <div class="save-indicator" id="saveIndicator" role="status" aria-live="polite">
@@ -39,6 +40,22 @@
         <span id="saveIndicatorText">Iniciando…</span>
       </div>
     </header>
+
+    <section class="access-banner" id="accessBanner" hidden>
+      <div>
+        <strong id="accessBannerTitle">Modo de solo lectura</strong>
+        <span id="accessBannerText">Otra pestaña está editando este cronograma.</span>
+      </div>
+      <button class="button small" id="takeControlButton" type="button">Tomar control</button>
+    </section>
+
+    <section class="storage-banner" id="storageBanner">
+      <div>
+        <strong id="storageStatusTitle">Datos locales del navegador</strong>
+        <span id="storageStatusText">Comprobando protección del almacenamiento…</span>
+      </div>
+      <button class="button small" id="requestPersistenceButton" type="button" hidden>Proteger almacenamiento</button>
+    </section>
 
     <section class="backup-banner" id="backupBanner" hidden>
       <div>
@@ -139,6 +156,8 @@
       <strong><span id="selectionCount">0</span> seleccionadas</strong>
       <button class="button small" id="bulkMoveButton" type="button">Mover</button>
       <button class="button small" id="bulkStatusButton" type="button">Cambiar estado</button>
+      <button class="button small" id="bulkEditButton" type="button">Editar campo</button>
+      <button class="button small danger" id="bulkDeleteButton" type="button">Eliminar</button>
       <button class="button small ghost" id="clearSelectionButton" type="button">Limpiar selección</button>
     </div>
   </div>
@@ -231,6 +250,23 @@
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="activityDialog">Cancelar</button>
         <button class="button primary" id="saveActivityButton" type="submit" value="default" data-testid="save-activity">Guardar actividad</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="calendarSettingsDialog" aria-labelledby="calendarSettingsDialogTitle">
+    <form id="calendarSettingsForm" method="dialog" novalidate>
+      <header class="modal-header">
+        <div><p class="eyebrow">Identificación</p><h2 id="calendarSettingsDialogTitle">Datos del cronograma</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="calendarSettingsDialog" aria-label="Cerrar">×</button>
+      </header>
+      <div class="form-errors" id="calendarSettingsErrors" role="alert" hidden></div>
+      <label><span>Nombre del cronograma</span><input id="calendarName" maxlength="160" required></label>
+      <label><span>Coordinador</span><input id="calendarCoordinator" maxlength="160" placeholder="Nombre del coordinador"></label>
+      <div class="detail-grid" id="calendarMetaSummary"></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="calendarSettingsDialog">Cancelar</button>
+        <button class="button primary" type="submit">Guardar identificación</button>
       </footer>
     </form>
   </dialog>
@@ -397,6 +433,39 @@
     </form>
   </dialog>
 
+  <dialog class="modal compact-modal" id="bulkEditDialog" aria-labelledby="bulkEditDialogTitle">
+    <form id="bulkEditForm" method="dialog" novalidate>
+      <header class="modal-header">
+        <div><p class="eyebrow">Edición múltiple</p><h2 id="bulkEditDialogTitle">Editar campo</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="bulkEditDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p id="bulkEditSummary"></p>
+      <label><span>Campo</span>
+        <select id="bulkEditField">
+          <option value="serviceType">Tipo de servicio</option>
+          <option value="status">Estado</option>
+          <option value="responsibleIds">Responsables</option>
+          <option value="city">Ciudad</option>
+          <option value="observations">Observaciones</option>
+        </select>
+      </label>
+      <label id="bulkEditModeLabel"><span>Acción</span><select id="bulkEditMode"></select></label>
+      <label id="bulkEditValueLabel"><span id="bulkEditValueTitle">Valor</span>
+        <select id="bulkEditSelect"></select>
+        <input id="bulkEditText" maxlength="5000" hidden>
+        <textarea id="bulkEditTextarea" rows="4" maxlength="5000" hidden></textarea>
+      </label>
+      <fieldset id="bulkResponsiblePicker" class="responsible-picker" hidden>
+        <legend>Responsables</legend>
+      </fieldset>
+      <div class="form-errors" id="bulkEditErrors" role="alert" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="bulkEditDialog">Cancelar</button>
+        <button class="button primary" type="submit">Aplicar a la selección</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog class="modal compact-modal" id="restoreDialog" aria-labelledby="restoreDialogTitle">
     <form id="restoreForm" method="dialog">
       <header class="modal-header">
@@ -404,7 +473,7 @@
         <button class="icon-button" type="button" data-close-dialog="restoreDialog" aria-label="Cerrar">×</button>
       </header>
       <div id="restoreSummary"></div>
-      <p class="warning-box">La restauración reemplazará el estado actual. Se conservará una copia recuperable en este navegador.</p>
+      <p class="warning-box" id="restoreWarning">La restauración reemplazará el estado actual. Se conservará una copia recuperable en este navegador.</p>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="restoreDialog">Cancelar</button>
         <button class="button primary" type="submit">Restaurar respaldo</button>
@@ -428,6 +497,7 @@
       <div class="privacy-note">
         <strong>Privacidad y persistencia</strong>
         <p>La aplicación funciona sin conexión. Sus datos se guardan en IndexedDB dentro de este navegador y no se envían a ningún servidor. La importación de Excel excluye campos personales y de contacto.</p>
+        <p id="runtimeModeLabel"></p>
       </div>
       <div class="legend">
         <span><i class="legend-color payroll"></i>Nómina</span>

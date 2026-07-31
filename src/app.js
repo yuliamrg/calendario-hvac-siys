@@ -1,19 +1,24 @@
 import {
   ACTIVITY_STATUSES,
   APP_VERSION,
+  BULK_EDIT_FIELDS,
   HOLIDAY_RULESET_VERSION,
   RESPONSIBLE_TYPES,
   SERVICE_TYPES,
   STATUS_SCOPES,
+  SCHEMA_VERSION,
   activityIdsForScope,
   addDaysISO,
+  applyBulkEdit,
   applyStatus,
   buildMonthlyCsv,
   colombianHolidays,
   compareISODate,
   createActivitiesFromRange,
+  createBackupEnvelope,
   createDefaultDocument,
   dayOfWeek,
+  deleteActivities,
   generateSeriesDates,
   holidayMapForRange,
   holidayMapForYears,
@@ -25,6 +30,7 @@ import {
   normalizeKey,
   normalizeText,
   parseISODate,
+  parseBackup,
   safeText,
   sanitizeDocument,
   todayInBogota,
@@ -78,6 +84,15 @@ let dragContext = null;
 let undoSnapshot = null;
 let forcedRangeDates = new Set();
 let storageAvailable = true;
+let hasEditControl = false;
+let editLockTimer = null;
+const tabId = crypto.randomUUID();
+const EDIT_LOCK_KEY = "edit-lock";
+const EDIT_LOCK_HEARTBEAT_MS = 5000;
+const EDIT_LOCK_STALE_MS = 15000;
+const editChannel = "BroadcastChannel" in window
+  ? new BroadcastChannel("calendario-hvac-siys-edit-lock")
+  : null;
 
 function clone(value) {
   return structuredClone(value);
@@ -189,6 +204,108 @@ function readStoredDocument(key) {
   });
 }
 
+function readStoredRecord(key) {
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(DOCUMENT_STORE, "readonly");
+    const request = transaction.objectStore(DOCUMENT_STORE).get(key);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function claimEditLock({ force = false } = {}) {
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
+    const store = transaction.objectStore(DOCUMENT_STORE);
+    const request = store.get(EDIT_LOCK_KEY);
+    let claimed = false;
+    request.onsuccess = () => {
+      const current = request.result;
+      const age = current?.heartbeatAt ? Date.now() - new Date(current.heartbeatAt).getTime() : Infinity;
+      if (force || !current || current.ownerId === tabId || age > EDIT_LOCK_STALE_MS) {
+        store.put({
+          key: EDIT_LOCK_KEY,
+          ownerId: tabId,
+          heartbeatAt: new Date().toISOString()
+        });
+        claimed = true;
+      }
+    };
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => resolve(claimed);
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error ?? new Error("No se pudo reservar la edición."));
+  });
+}
+
+async function releaseEditLock() {
+  if (!database || !hasEditControl) return;
+  const current = await readStoredRecord(EDIT_LOCK_KEY);
+  if (current?.ownerId !== tabId) return;
+  await new Promise((resolve) => {
+    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
+    transaction.objectStore(DOCUMENT_STORE).delete(EDIT_LOCK_KEY);
+    transaction.oncomplete = resolve;
+    transaction.onerror = resolve;
+    transaction.onabort = resolve;
+  });
+}
+
+function renderAccessMode() {
+  document.body.classList.toggle("read-only", !hasEditControl);
+  dom.accessBanner.hidden = hasEditControl || !storageAvailable;
+  dom.takeControlButton.hidden = hasEditControl || !storageAvailable;
+  const guardedIds = [
+    "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
+    "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
+    "calendarSettingsButton"
+  ];
+  for (const id of guardedIds) {
+    if (dom[id]) dom[id].disabled = !hasEditControl;
+  }
+}
+
+function setEditControl(value, message = "") {
+  hasEditControl = Boolean(value);
+  if (!hasEditControl) {
+    selectedActivityIds.clear();
+    dom.accessBannerText.textContent = message || "Otra pestaña está editando este cronograma.";
+  }
+  renderAccessMode();
+  renderSelectionBar();
+}
+
+async function heartbeatEditLock() {
+  if (!database || !storageAvailable) return;
+  if (hasEditControl) {
+    const claimed = await claimEditLock();
+    if (!claimed) setEditControl(false, "Otra pestaña tomó el control de edición.");
+    return;
+  }
+  const current = await readStoredRecord(EDIT_LOCK_KEY);
+  const age = current?.heartbeatAt ? Date.now() - new Date(current.heartbeatAt).getTime() : Infinity;
+  if (!current || age > EDIT_LOCK_STALE_MS) {
+    const claimed = await claimEditLock();
+    if (claimed) {
+      setEditControl(true);
+      showToast("Esta pestaña recuperó el control de edición.");
+    }
+  }
+}
+
+async function initializeEditLock() {
+  if (!database || !storageAvailable) return;
+  setEditControl(await claimEditLock());
+  editLockTimer = window.setInterval(() => {
+    heartbeatEditLock().catch(() => {});
+  }, EDIT_LOCK_HEARTBEAT_MS);
+  editChannel?.addEventListener("message", (event) => {
+    if (event.data?.type === "control-taken" && event.data.ownerId !== tabId) {
+      setEditControl(false, "Otra pestaña tomó el control de edición.");
+    }
+  });
+}
+
 function writeStoredDocument(documentSnapshot) {
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
@@ -216,7 +333,7 @@ function writeStoredDocument(documentSnapshot) {
 }
 
 function scheduleSave({ immediate = false } = {}) {
-  if (!storageAvailable) return Promise.resolve();
+  if (!storageAvailable || !hasEditControl) return Promise.resolve();
   setSaveIndicator("saving", "Guardando…");
   if (saveTimer) clearTimeout(saveTimer);
   const delay = immediate ? 0 : 250;
@@ -272,11 +389,16 @@ function appendAudit(action, detail) {
 }
 
 function mutate(action, detail, callback, { undo = true, toast = detail } = {}) {
+  if (!hasEditControl) {
+    throw new TypeError("Esta pestaña está en modo de solo lectura.");
+  }
   const before = clone(appDocument);
   try {
     callback();
     appDocument.appVersion = APP_VERSION;
-    appDocument.schemaVersion = 1;
+    appDocument.schemaVersion = SCHEMA_VERSION;
+    appDocument.calendarMeta.revision += 1;
+    appDocument.calendarMeta.updatedAt = new Date().toISOString();
     appDocument.settings.holidayRuleSetVersion = HOLIDAY_RULESET_VERSION;
     appendAudit(action, detail);
   } catch (error) {
@@ -490,18 +612,108 @@ function renderBackupReminder() {
     : "Aún no has descargado un respaldo de tus actividades.";
 }
 
+async function renderStorageStatus() {
+  if (!navigator.storage) {
+    dom.storageStatusText.textContent = "El navegador no informa el estado de protección. Mantén respaldos JSON frecuentes.";
+    dom.requestPersistenceButton.hidden = true;
+    return;
+  }
+  try {
+    const [persisted, estimate] = await Promise.all([
+      navigator.storage.persisted?.() ?? false,
+      navigator.storage.estimate?.() ?? {}
+    ]);
+    const used = Number(estimate.usage) || 0;
+    const quota = Number(estimate.quota) || 0;
+    const usageLabel = quota
+      ? ` Uso aproximado: ${(used / 1024 / 1024).toFixed(1)} MB de ${(quota / 1024 / 1024).toFixed(0)} MB.`
+      : "";
+    dom.storageStatusTitle.textContent = persisted
+      ? "Almacenamiento protegido por el navegador"
+      : "Datos locales del navegador";
+    dom.storageStatusText.textContent = persisted
+      ? `El navegador concedió persistencia para este origen.${usageLabel}`
+      : `El navegador puede liberar estos datos bajo presión de espacio.${usageLabel} El respaldo JSON sigue siendo la copia portable.`;
+    dom.requestPersistenceButton.hidden = Boolean(persisted) || typeof navigator.storage.persist !== "function";
+  } catch {
+    dom.storageStatusText.textContent = "No fue posible comprobar la protección. El respaldo JSON sigue siendo la copia portable.";
+    dom.requestPersistenceButton.hidden = true;
+  }
+}
+
+async function requestStoragePersistence() {
+  try {
+    const granted = await navigator.storage.persist();
+    await renderStorageStatus();
+    showToast(granted
+      ? "El navegador concedió protección al almacenamiento."
+      : "El navegador no concedió protección. Usa respaldos JSON frecuentes.");
+  } catch (error) {
+    showToast(`No se pudo solicitar protección: ${error.message}`, { type: "error" });
+  }
+}
+
+function openCalendarSettingsDialog() {
+  dom.calendarName.value = appDocument.calendarMeta.name;
+  dom.calendarCoordinator.value = appDocument.calendarMeta.coordinator;
+  const summary = createElement("div", "detail-grid");
+  summary.append(detailItem("Revisión", String(appDocument.calendarMeta.revision)));
+  summary.append(detailItem("Creado", timestampLabel(appDocument.calendarMeta.createdAt)));
+  summary.append(detailItem("Última modificación", timestampLabel(appDocument.calendarMeta.updatedAt)));
+  dom.calendarMetaSummary.replaceChildren(summary);
+  showFormErrors(dom.calendarSettingsErrors, []);
+  openDialog("calendarSettingsDialog");
+}
+
+function handleCalendarSettingsSubmit(event) {
+  event.preventDefault();
+  const name = safeText(dom.calendarName.value, 160);
+  const coordinator = safeText(dom.calendarCoordinator.value, 160);
+  if (!name) {
+    showFormErrors(dom.calendarSettingsErrors, ["Escribe un nombre para el cronograma."]);
+    return;
+  }
+  try {
+    mutate("calendar_identified", "Identificación del cronograma actualizada", () => {
+      appDocument.calendarMeta.name = name;
+      appDocument.calendarMeta.coordinator = coordinator;
+    });
+    closeDialog("calendarSettingsDialog");
+  } catch (error) {
+    showFormErrors(dom.calendarSettingsErrors, [error.message]);
+  }
+}
+
 function renderSelectionBar() {
   const count = selectedActivityIds.size;
-  dom.selectionBar.hidden = count === 0;
+  dom.selectionBar.hidden = count === 0 || !hasEditControl;
   dom.selectionCount.textContent = String(count);
 }
 
+function runtimeMode() {
+  return location.protocol === "https:" && /\.github\.io$/i.test(location.hostname)
+    ? "GitHub Pages"
+    : location.protocol === "file:"
+      ? "archivo local"
+      : "servidor local";
+}
+
+function renderCalendarIdentity() {
+  const coordinator = appDocument.calendarMeta.coordinator;
+  dom.calendarIdentity.textContent = coordinator
+    ? `${appDocument.calendarMeta.name} · ${coordinator}`
+    : appDocument.calendarMeta.name;
+  dom.runtimeModeLabel.textContent = `Modo: ${runtimeMode()}. Revisión ${appDocument.calendarMeta.revision}. Los datos de cada origen se guardan por separado en este navegador.`;
+}
+
 function renderAll() {
+  renderCalendarIdentity();
   renderFilters();
   renderCatalog();
   renderCalendar();
   renderSelectionBar();
   renderBackupReminder();
+  renderAccessMode();
   if (activeDrawer?.type === "activity") renderActivityDrawer(activeDrawer.id);
   if (activeDrawer?.type === "day") renderDayDrawer(activeDrawer.date);
 }
@@ -531,7 +743,7 @@ function renderCatalog() {
 
       const group = createElement("section", "catalog-client-group");
       const clientRow = createElement("div", "catalog-client");
-      clientRow.draggable = true;
+      clientRow.draggable = hasEditControl;
       clientRow.dataset.dragType = "client";
       clientRow.dataset.clientId = client.id;
       clientRow.title = "Arrastrar cliente al calendario";
@@ -539,6 +751,7 @@ function renderCatalog() {
       clientRow.append(createElement("span", "", client.name));
       const editClient = createElement("button", "mini-edit", "✎");
       editClient.type = "button";
+      editClient.disabled = !hasEditControl;
       editClient.title = `Editar ${client.name}`;
       editClient.setAttribute("aria-label", `Editar cliente ${client.name}`);
       editClient.addEventListener("click", (event) => {
@@ -551,7 +764,7 @@ function renderCatalog() {
 
       for (const site of clientSites) {
         const row = createElement("div", "catalog-site");
-        row.draggable = true;
+        row.draggable = hasEditControl;
         row.dataset.dragType = "site";
         row.dataset.siteId = site.id;
         row.title = "Arrastrar sede al calendario";
@@ -562,6 +775,7 @@ function renderCatalog() {
         row.append(main);
         const edit = createElement("button", "mini-edit", "✎");
         edit.type = "button";
+        edit.disabled = !hasEditControl;
         edit.title = `Editar ${site.name}`;
         edit.setAttribute("aria-label", `Editar sede ${site.name}`);
         edit.addEventListener("click", (event) => {
@@ -622,7 +836,7 @@ function handleCatalogDragStart(event) {
 
 function buildActivityCard(activity, maps) {
   const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}`);
-  card.draggable = true;
+  card.draggable = hasEditControl;
   card.dataset.activityId = activity.id;
   card.setAttribute("aria-label", `${maps.clients.get(activity.clientId)?.name ?? "Actividad"} ${maps.sites.get(activity.siteId)?.name ?? ""}, ${ACTIVITY_STATUSES[activity.status]}`);
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
@@ -631,6 +845,7 @@ function buildActivityCard(activity, maps) {
   checkbox.type = "checkbox";
   checkbox.className = "activity-select";
   checkbox.checked = selectedActivityIds.has(activity.id);
+  checkbox.disabled = !hasEditControl;
   checkbox.title = "Seleccionar tarjeta";
   checkbox.setAttribute("aria-label", "Seleccionar tarjeta");
   checkbox.addEventListener("click", (event) => {
@@ -672,7 +887,7 @@ function buildActivityCard(activity, maps) {
     moved.title = "Actividad reprogramada";
     flags.append(moved);
   }
-  if (activity.status !== "completed" && activity.status !== "cancelled") {
+  if (hasEditControl && activity.status !== "completed" && activity.status !== "cancelled") {
     const complete = createElement("button", "quick-complete", "✓");
     complete.type = "button";
     complete.title = "Marcar como terminada";
@@ -693,6 +908,10 @@ function buildActivityCard(activity, maps) {
     renderActivityDrawer(activity.id);
   });
   card.addEventListener("dragstart", (event) => {
+    if (!hasEditControl) {
+      event.preventDefault();
+      return;
+    }
     const ids = selectedActivityIds.has(activity.id) && selectedActivityIds.size > 1
       ? [...selectedActivityIds]
       : [activity.id];
@@ -824,6 +1043,7 @@ function renderCalendar() {
 
 function handleCalendarDrop(event, date, holidayMap) {
   event.preventDefault();
+  if (!hasEditControl) return;
   event.currentTarget.classList.remove("drag-over");
   let payload = dragContext;
   if (!payload) {
@@ -866,6 +1086,7 @@ function handleCalendarDrop(event, date, holidayMap) {
 }
 
 function toggleActivitySelection(activityId, force) {
+  if (!hasEditControl) return;
   const shouldSelect = force ?? !selectedActivityIds.has(activityId);
   if (shouldSelect) selectedActivityIds.add(activityId);
   else selectedActivityIds.delete(activityId);
@@ -1671,16 +1892,123 @@ function handleBulkStatusSubmit(event) {
   closeDialog("bulkStatusDialog");
 }
 
+function selectedActivities() {
+  return appDocument.activities.filter((activity) => selectedActivityIds.has(activity.id));
+}
+
+function renderBulkEditControls() {
+  const field = dom.bulkEditField.value;
+  const requestedMode = dom.bulkEditMode.value;
+  dom.bulkEditSelect.hidden = true;
+  dom.bulkEditText.hidden = true;
+  dom.bulkEditTextarea.hidden = true;
+  dom.bulkResponsiblePicker.hidden = true;
+  dom.bulkEditModeLabel.hidden = ["serviceType", "status"].includes(field);
+  const modes = field === "responsibleIds"
+    ? [["replace", "Reemplazar"], ["add", "Agregar"], ["remove", "Quitar"]]
+    : field === "city"
+      ? [["replace", "Reemplazar"], ["clear", "Vaciar"]]
+      : field === "observations"
+        ? [["replace", "Reemplazar"], ["append", "Agregar al final"], ["clear", "Vaciar"]]
+        : [["replace", "Reemplazar"]];
+  setChildren(dom.bulkEditMode, ...modes.map(([value, label]) => option(value, label)));
+  if (modes.some(([value]) => value === requestedMode)) dom.bulkEditMode.value = requestedMode;
+  if (field === "serviceType") {
+    dom.bulkEditSelect.hidden = false;
+    setChildren(dom.bulkEditSelect, ...Object.entries(SERVICE_TYPES).map(([value, label]) => option(value, label)));
+  } else if (field === "status") {
+    dom.bulkEditSelect.hidden = false;
+    setChildren(dom.bulkEditSelect, ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label)));
+  } else if (field === "responsibleIds") {
+    dom.bulkResponsiblePicker.hidden = false;
+    const fragment = document.createDocumentFragment();
+    for (const responsible of appDocument.catalog.responsibles
+      .filter((item) => item.active !== false)
+      .sort((a, b) => a.name.localeCompare(b.name, "es"))) {
+      const label = createElement("label", "check-row");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = responsible.id;
+      label.append(input, createElement("span", "", `${responsible.name} · ${RESPONSIBLE_TYPES[responsible.responsibleType] ?? responsible.responsibleType}`));
+      fragment.append(label);
+    }
+    dom.bulkResponsiblePicker.replaceChildren(createElement("legend", "", "Responsables"), fragment);
+  } else if (field === "city") {
+    dom.bulkEditText.hidden = false;
+    dom.bulkEditValueTitle.textContent = "Ciudad";
+  } else {
+    dom.bulkEditTextarea.hidden = false;
+    dom.bulkEditValueTitle.textContent = "Observaciones";
+  }
+  const clearMode = dom.bulkEditMode.value === "clear";
+  dom.bulkEditValueLabel.hidden = clearMode || field === "responsibleIds";
+}
+
+function openBulkEditDialog() {
+  if (!selectedActivityIds.size) return;
+  dom.bulkEditSummary.textContent = `${selectedActivityIds.size} tarjetas seleccionadas. La operación será atómica: si una tarjeta no es válida, no cambiará ninguna.`;
+  dom.bulkEditField.value = "serviceType";
+  dom.bulkEditText.value = "";
+  dom.bulkEditTextarea.value = "";
+  showFormErrors(dom.bulkEditErrors, []);
+  renderBulkEditControls();
+  openDialog("bulkEditDialog");
+}
+
+function handleBulkEditSubmit(event) {
+  event.preventDefault();
+  const field = dom.bulkEditField.value;
+  const mode = dom.bulkEditMode.value || "replace";
+  const ids = [...selectedActivityIds];
+  let value = dom.bulkEditSelect.value;
+  if (field === "responsibleIds") {
+    value = [...dom.bulkResponsiblePicker.querySelectorAll("input:checked")].map((input) => input.value);
+  } else if (field === "city") {
+    value = dom.bulkEditText.value;
+  } else if (field === "observations") {
+    value = dom.bulkEditTextarea.value;
+  }
+  try {
+    mutate("activities_bulk_edited", `${BULK_EDIT_FIELDS[field]} actualizado en ${ids.length} tarjetas`, () => {
+      applyBulkEdit(appDocument, ids, field, value, { mode });
+      selectedActivityIds.clear();
+    });
+    closeDialog("bulkEditDialog");
+  } catch (error) {
+    showFormErrors(dom.bulkEditErrors, [error.message]);
+  }
+}
+
+function deleteSelectedActivities() {
+  const activities = selectedActivities();
+  if (!activities.length) return;
+  if (!window.confirm(`¿Eliminar ${activities.length} tarjeta(s) seleccionada(s)? Podrás deshacer esta operación una vez.`)) return;
+  try {
+    mutate("activities_deleted", `${activities.length} tarjetas eliminadas`, () => {
+      deleteActivities(appDocument, activities.map((activity) => activity.id));
+      selectedActivityIds.clear();
+      closeDrawer();
+    });
+  } catch (error) {
+    showToast(error.message, { type: "error" });
+  }
+}
+
 async function createBackup() {
   appDocument.settings.lastBackupAt = new Date().toISOString();
   appendAudit("backup_created", "Respaldo JSON descargado");
   renderBackupReminder();
   await scheduleSave({ immediate: true });
   const date = todayInBogota();
+  const fileIdentity = normalizeKey(appDocument.calendarMeta.coordinator || appDocument.calendarMeta.name) || "cronograma";
+  const envelope = createBackupEnvelope(appDocument, {
+    exportedAt: appDocument.settings.lastBackupAt,
+    origin: `${runtimeMode()} · ${location.origin}`
+  });
   downloadBlob(
-    JSON.stringify(appDocument, null, 2),
+    JSON.stringify(envelope, null, 2),
     "application/json;charset=utf-8",
-    `calendario-hvac-siys-respaldo-${date}.json`
+    `calendario-hvac-${fileIdentity}-r${appDocument.calendarMeta.revision}-${date}.json`
   );
   showToast("Respaldo JSON descargado.");
 }
@@ -1705,14 +2033,26 @@ async function handleRestoreFile(event) {
   }
   try {
     const raw = JSON.parse(await file.text());
-    const restored = sanitizeDocument(raw);
+    const parsed = parseBackup(raw);
+    const restored = parsed.document;
     pendingRestore = restored;
     const summary = createElement("div", "detail-grid");
     summary.append(detailItem("Archivo", file.name));
+    summary.append(detailItem("Cronograma", restored.calendarMeta.name));
+    summary.append(detailItem("Coordinador", restored.calendarMeta.coordinator || "Sin registrar"));
+    summary.append(detailItem("Revisión", String(restored.calendarMeta.revision)));
+    summary.append(detailItem("Formato", parsed.envelope ? "Respaldo versionado" : "Respaldo heredado"));
+    if (parsed.exportedAt) summary.append(detailItem("Exportado", timestampLabel(parsed.exportedAt)));
     summary.append(detailItem("Actividades", String(restored.activities.length)));
     summary.append(detailItem("Clientes y sedes", `${restored.catalog.clients.length} clientes · ${restored.catalog.sites.length} sedes`));
     summary.append(detailItem("Responsables", String(restored.catalog.responsibles.length)));
     dom.restoreSummary.replaceChildren(summary);
+    const difference = restored.calendarMeta.revision - appDocument.calendarMeta.revision;
+    dom.restoreWarning.textContent = difference < 0
+      ? `Advertencia: el respaldo es ${Math.abs(difference)} revisión(es) más antiguo que el cronograma actual. La restauración reemplazará los datos.`
+      : difference === 0
+        ? "Advertencia: el respaldo tiene la misma revisión que el cronograma actual. La restauración reemplazará los datos."
+        : `El respaldo contiene ${difference} revisión(es) más nuevas. La restauración reemplazará los datos actuales.`;
     openDialog("restoreDialog");
   } catch (error) {
     showToast(`No se pudo leer el respaldo: ${error.message}`, { type: "error", duration: 8000 });
@@ -1722,6 +2062,10 @@ async function handleRestoreFile(event) {
 function handleRestoreSubmit(event) {
   event.preventDefault();
   if (!pendingRestore) return;
+  if (!hasEditControl) {
+    showToast("Esta pestaña está en modo de solo lectura.", { type: "error" });
+    return;
+  }
   const before = clone(appDocument);
   appDocument = pendingRestore;
   pendingRestore = null;
@@ -1907,6 +2251,24 @@ function bindEvents() {
     openDialog("holidayDialog");
   });
   dom.helpButton.addEventListener("click", () => openDialog("helpDialog"));
+  dom.calendarSettingsButton.addEventListener("click", openCalendarSettingsDialog);
+  dom.calendarSettingsForm.addEventListener("submit", handleCalendarSettingsSubmit);
+  dom.requestPersistenceButton.addEventListener("click", requestStoragePersistence);
+  dom.takeControlButton.addEventListener("click", async () => {
+    if (!window.confirm("¿Tomar el control de edición? La otra pestaña pasará a solo lectura.")) return;
+    try {
+      const claimed = await claimEditLock({ force: true });
+      if (!claimed) throw new Error("No se pudo reservar la edición.");
+      const stored = await readStoredDocument("current");
+      if (stored) appDocument = sanitizeDocument(stored);
+      setEditControl(true);
+      editChannel?.postMessage({ type: "control-taken", ownerId: tabId });
+      renderAll();
+      showToast("Esta pestaña tomó el control de edición.");
+    } catch (error) {
+      showToast(error.message, { type: "error" });
+    }
+  });
   dom.previousMonthButton.addEventListener("click", () => changeVisibleMonth(-1));
   dom.nextMonthButton.addEventListener("click", () => changeVisibleMonth(1));
   dom.todayButton.addEventListener("click", () => {
@@ -1936,6 +2298,8 @@ function bindEvents() {
   });
   dom.bulkMoveButton.addEventListener("click", openBulkMoveDialog);
   dom.bulkStatusButton.addEventListener("click", openBulkStatusDialog);
+  dom.bulkEditButton.addEventListener("click", openBulkEditDialog);
+  dom.bulkDeleteButton.addEventListener("click", deleteSelectedActivities);
   dom.dismissBackupBanner.addEventListener("click", () => {
     appDocument.settings.backupReminderDismissed = todayInBogota();
     renderBackupReminder();
@@ -1977,6 +2341,9 @@ function bindEvents() {
   dom.bulkMoveForm.addEventListener("submit", handleBulkMoveSubmit);
   dom.bulkMoveDate.addEventListener("change", updateBulkMoveWarning);
   dom.bulkStatusForm.addEventListener("submit", handleBulkStatusSubmit);
+  dom.bulkEditForm.addEventListener("submit", handleBulkEditSubmit);
+  dom.bulkEditField.addEventListener("change", renderBulkEditControls);
+  dom.bulkEditMode.addEventListener("change", renderBulkEditControls);
   dom.restoreForm.addEventListener("submit", handleRestoreSubmit);
   dom.importForm.addEventListener("submit", handleImportSubmit);
   dom.baseFileInput.addEventListener("change", handleBaseFile);
@@ -2011,6 +2378,9 @@ function bindEvents() {
       clearTimeout(saveTimer);
       writeStoredDocument(clone(appDocument)).catch(() => {});
     }
+    if (editLockTimer) clearInterval(editLockTimer);
+    releaseEditLock().catch(() => {});
+    editChannel?.close();
   });
 }
 
@@ -2049,12 +2419,18 @@ async function initialize() {
   initializeStaticOptions();
   bindEvents();
   appDocument = await loadInitialDocument();
+  if (storageAvailable) {
+    await initializeEditLock();
+  } else {
+    setEditControl(true);
+  }
   try {
     parseISODate(appDocument.settings.currentDate);
   } catch {
     appDocument.settings.currentDate = todayInBogota();
   }
   renderAll();
+  await renderStorageStatus();
   if (storageAvailable) setSaveIndicator("saved", "Guardado");
   document.body.dataset.ready = "true";
   window.dispatchEvent(new CustomEvent("calendario-hvac-ready"));
