@@ -48,6 +48,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
     parser.add_argument("--beta-url")
+    parser.add_argument("--merge-fixture", type=Path)
     parser.add_argument("--local-html", required=True, type=Path)
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
@@ -114,6 +115,19 @@ def main() -> None:
             beta_page.locator("#activityForm button[type=submit]").click()
             wait_saved(beta_page)
             assert len(get_state(beta_page)["activities"]) == 1
+            if args.merge_fixture:
+                beta_page.set_input_files("#mergeJsonFileInput", str(args.merge_fixture.resolve()))
+                expect(beta_page.locator("#mergeJsonDialog")).to_be_visible()
+                expect(beta_page.locator("#mergeJsonWarnings")).to_contain_text("canal local")
+                beta_page.locator("#mergeJsonForm button[type=submit]").click()
+                wait_saved(beta_page)
+                assert len(get_state(beta_page)["activities"]) == 2
+                merge_toast = beta_page.locator("#toastRegion .toast").filter(
+                    has_text="registros añadidos"
+                )
+                merge_toast.get_by_role("button", name="Deshacer").click()
+                wait_saved(beta_page)
+                assert len(get_state(beta_page)["activities"]) == 1
             stable_after_beta = get_state(page)
             assert stable_after_beta and len(stable_after_beta["activities"]) == 1
             assert stable_after_beta["activities"][0]["id"] == activity_id
