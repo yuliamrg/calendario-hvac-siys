@@ -2,12 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ACTIVITY_STATUSES,
+  APP_VERSION,
+  SCHEMA_VERSION,
   addDaysISO,
+  applyBulkEdit,
   applyStatus,
   buildMonthlyCsv,
   colombianHolidays,
   createActivitiesFromRange,
+  createBackupEnvelope,
   createDefaultDocument,
+  deleteActivities,
   easterSunday,
   generateSeriesDates,
   holidayMapForYears,
@@ -16,6 +21,7 @@ import {
   mondayOnOrAfter,
   monthGridDates,
   moveActivities,
+  parseBackup,
   sanitizeDocument,
   startOfMondayWeek
 } from "../src/core.js";
@@ -379,4 +385,114 @@ test("el CSV mensual separa nómina y contratistas", () => {
   assert.match(csv, /Contratista Uno/);
   assert.match(csv, new RegExp(ACTIVITY_STATUSES.in_progress));
   assert.equal(buildMonthlyCsv(doc, 2026, 8).split("\r\n").length, 1);
+});
+
+test("un documento heredado migra al esquema 2 sin perder actividades", () => {
+  const legacy = createDefaultDocument("2026-07-01", "2026-07-01T00:00:00.000Z");
+  delete legacy.calendarMeta;
+  legacy.schemaVersion = 1;
+  legacy.appVersion = "1.0.0";
+  legacy.activities.push({
+    id: "a1",
+    seriesId: null,
+    date: "2026-07-30",
+    clientId: null,
+    siteId: null,
+    city: null,
+    responsibleIds: [],
+    serviceType: "administrative",
+    status: "scheduled",
+    observations: "Dato heredado",
+    createdAt: "2026-07-01T00:00:00.000Z",
+    updatedAt: "2026-07-01T00:00:00.000Z",
+    completedAt: null,
+    history: []
+  });
+  const migrated = sanitizeDocument(legacy, "2026-07-30");
+  assert.equal(migrated.schemaVersion, SCHEMA_VERSION);
+  assert.equal(migrated.calendarMeta.name, "Cronograma HVAC");
+  assert.equal(migrated.calendarMeta.revision, 0);
+  assert.equal(migrated.activities[0].observations, "Dato heredado");
+});
+
+test("el respaldo versionado conserva metadatos y admite el formato heredado", () => {
+  const doc = createDefaultDocument("2026-07-30", "2026-07-30T10:00:00.000Z");
+  doc.calendarMeta.name = "Cronograma Eje Cafetero";
+  doc.calendarMeta.coordinator = "Coordinación Uno";
+  doc.calendarMeta.revision = 7;
+  const envelope = createBackupEnvelope(doc, {
+    exportedAt: "2026-07-30T12:00:00.000Z",
+    origin: "archivo local"
+  });
+  assert.equal(envelope.appVersion, APP_VERSION);
+  assert.equal(envelope.revision, 7);
+  assert.equal(envelope.document.calendarMeta.name, "Cronograma Eje Cafetero");
+  const parsed = parseBackup(envelope);
+  assert.equal(parsed.envelope, true);
+  assert.equal(parsed.document.calendarMeta.coordinator, "Coordinación Uno");
+  const legacy = parseBackup(doc);
+  assert.equal(legacy.envelope, false);
+  assert.equal(legacy.document.calendarMeta.revision, 7);
+});
+
+test("la edición múltiple aplica modos operativos y deja historial", () => {
+  const doc = createDefaultDocument("2026-07-30");
+  doc.activities = ["a1", "a2"].map((id) => ({
+    id,
+    seriesId: null,
+    date: "2026-07-30",
+    clientId: "c1",
+    siteId: "s1",
+    city: "Pereira",
+    responsibleIds: ["r1"],
+    serviceType: "preventive",
+    status: "scheduled",
+    observations: "Inicial",
+    createdAt: "2026-07-01T00:00:00.000Z",
+    updatedAt: "2026-07-01T00:00:00.000Z",
+    completedAt: null,
+    history: []
+  }));
+  applyBulkEdit(doc, ["a1", "a2"], "responsibleIds", ["r2"], {
+    mode: "add",
+    now: "2026-07-30T12:00:00.000Z"
+  });
+  applyBulkEdit(doc, ["a1", "a2"], "observations", "Segunda nota", {
+    mode: "append",
+    now: "2026-07-30T12:01:00.000Z"
+  });
+  assert.deepEqual(doc.activities[0].responsibleIds, ["r1", "r2"]);
+  assert.equal(doc.activities[1].observations, "Inicial\nSegunda nota");
+  assert.equal(doc.activities[0].history.at(-1).action, "bulk_edited");
+});
+
+test("la edición múltiple revierte todo si una tarjeta queda inválida", () => {
+  const doc = createDefaultDocument("2026-07-30");
+  doc.activities = [
+    {
+      id: "a1", date: "2026-07-30", clientId: "c1", siteId: "s1", city: "Pereira",
+      responsibleIds: ["r1"], serviceType: "preventive", status: "confirmed",
+      observations: "", history: []
+    },
+    {
+      id: "a2", date: "2026-07-31", clientId: "c1", siteId: "s1", city: "Pereira",
+      responsibleIds: ["r1", "r2"], serviceType: "preventive", status: "confirmed",
+      observations: "", history: []
+    }
+  ];
+  const before = structuredClone(doc.activities);
+  assert.throws(
+    () => applyBulkEdit(doc, ["a1", "a2"], "responsibleIds", ["r1", "r2"], { mode: "remove" }),
+    /responsable/
+  );
+  assert.deepEqual(doc.activities, before);
+});
+
+test("la eliminación múltiple exige IDs existentes y devuelve lo eliminado", () => {
+  const doc = createDefaultDocument("2026-07-30");
+  doc.activities = [{ id: "a1" }, { id: "a2" }, { id: "a3" }];
+  const removed = deleteActivities(doc, ["a1", "a3"]);
+  assert.deepEqual(removed.map((item) => item.id), ["a1", "a3"]);
+  assert.deepEqual(doc.activities.map((item) => item.id), ["a2"]);
+  assert.throws(() => deleteActivities(doc, ["missing"]), /no existen/);
 });

@@ -1,5 +1,5 @@
-export const APP_VERSION = "1.0.0";
-export const SCHEMA_VERSION = 1;
+export const APP_VERSION = "0.2.0";
+export const SCHEMA_VERSION = 2;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
 export const SERVICE_TYPES = Object.freeze({
@@ -386,10 +386,18 @@ export function makeId(prefix = "id", idFactory = () => crypto.randomUUID()) {
   return `${prefix}_${idFactory()}`;
 }
 
-export function createDefaultDocument(today = todayInBogota()) {
+export function createDefaultDocument(today = todayInBogota(), now = new Date().toISOString()) {
   return {
     schemaVersion: SCHEMA_VERSION,
     appVersion: APP_VERSION,
+    calendarMeta: {
+      id: "calendario_principal",
+      name: "Cronograma HVAC",
+      coordinator: "",
+      revision: 0,
+      createdAt: now,
+      updatedAt: now
+    },
     catalog: {
       cities: [],
       clients: [],
@@ -583,6 +591,135 @@ export function moveActivities(
   return moved;
 }
 
+export const BULK_EDIT_FIELDS = Object.freeze({
+  serviceType: "Tipo de servicio",
+  status: "Estado",
+  responsibleIds: "Responsables",
+  city: "Ciudad",
+  observations: "Observaciones"
+});
+
+export function applyBulkEdit(
+  document,
+  activityIds,
+  field,
+  value,
+  { mode = "replace", now = new Date().toISOString() } = {}
+) {
+  if (!Object.hasOwn(BULK_EDIT_FIELDS, field)) {
+    throw new TypeError("Campo de edición múltiple inválido.");
+  }
+  if (!Array.isArray(activityIds) || !activityIds.length || new Set(activityIds).size !== activityIds.length) {
+    throw new TypeError("La selección de actividades no es válida.");
+  }
+  const ids = new Set(activityIds.map(String));
+  const selected = document.activities.filter((activity) => ids.has(activity.id));
+  if (selected.length !== ids.size) {
+    throw new TypeError("Una o más actividades seleccionadas no existen.");
+  }
+  const draft = selected.map((activity) => structuredClone(activity));
+  for (const activity of draft) {
+    let detail = "";
+    if (field === "serviceType") {
+      if (!Object.hasOwn(SERVICE_TYPES, value)) throw new TypeError("Tipo de servicio inválido.");
+      detail = `${SERVICE_TYPES[activity.serviceType] ?? activity.serviceType} → ${SERVICE_TYPES[value]}`;
+      activity.serviceType = value;
+    } else if (field === "status") {
+      if (!Object.hasOwn(ACTIVITY_STATUSES, value)) throw new TypeError("Estado inválido.");
+      detail = `${ACTIVITY_STATUSES[activity.status] ?? activity.status} → ${ACTIVITY_STATUSES[value]}`;
+      activity.status = value;
+      activity.completedAt = value === "completed" ? (activity.completedAt || now) : null;
+    } else if (field === "responsibleIds") {
+      if (!["replace", "add", "remove"].includes(mode)) throw new TypeError("Modo de responsables inválido.");
+      const incoming = [...new Set((Array.isArray(value) ? value : []).map(String).filter(Boolean))];
+      const current = [...new Set((activity.responsibleIds ?? []).map(String).filter(Boolean))];
+      activity.responsibleIds = mode === "add"
+        ? [...new Set([...current, ...incoming])]
+        : mode === "remove"
+          ? current.filter((id) => !incoming.includes(id))
+          : incoming;
+      detail = `${mode}: ${incoming.length} responsable(s)`;
+    } else if (field === "city") {
+      if (!["replace", "clear"].includes(mode)) throw new TypeError("Modo de ciudad inválido.");
+      const city = mode === "clear" ? "" : safeText(value, 120);
+      detail = `${activity.city || "Sin ciudad"} → ${city || "Sin ciudad"}`;
+      activity.city = city || null;
+    } else if (field === "observations") {
+      if (!["replace", "append", "clear"].includes(mode)) throw new TypeError("Modo de observaciones inválido.");
+      const incoming = safeText(value, 5000);
+      activity.observations = mode === "clear"
+        ? ""
+        : mode === "append"
+          ? safeText([activity.observations, incoming].filter(Boolean).join("\n"), 5000)
+          : incoming;
+      detail = mode === "clear" ? "Observaciones eliminadas" : `${mode}: observaciones`;
+    }
+    activity.updatedAt = now;
+    activity.history ??= [];
+    activity.history.push({
+      at: now,
+      action: "bulk_edited",
+      detail: `${BULK_EDIT_FIELDS[field]} · ${detail}`,
+      mode
+    });
+    const errors = validateActivity(activity);
+    if (errors.length) throw new TypeError(errors.join(" "));
+  }
+  const byId = new Map(draft.map((activity) => [activity.id, activity]));
+  document.activities = document.activities.map((activity) => byId.get(activity.id) ?? activity);
+  return [...ids];
+}
+
+export function deleteActivities(document, activityIds) {
+  if (!Array.isArray(activityIds) || !activityIds.length || new Set(activityIds).size !== activityIds.length) {
+    throw new TypeError("La selección de actividades no es válida.");
+  }
+  const ids = new Set(activityIds.map(String));
+  const found = document.activities.filter((activity) => ids.has(activity.id));
+  if (found.length !== ids.size) throw new TypeError("Una o más actividades seleccionadas no existen.");
+  document.activities = document.activities.filter((activity) => !ids.has(activity.id));
+  return found;
+}
+
+export function createBackupEnvelope(document, {
+  exportedAt = new Date().toISOString(),
+  origin = "local"
+} = {}) {
+  const clean = sanitizeDocument(document);
+  return {
+    format: "calendario-hvac-siys-backup",
+    formatVersion: 1,
+    exportedAt,
+    appVersion: APP_VERSION,
+    origin: safeText(origin, 120) || "local",
+    revision: clean.calendarMeta.revision,
+    document: clean
+  };
+}
+
+export function parseBackup(raw, today = todayInBogota()) {
+  if (raw?.format === "calendario-hvac-siys-backup") {
+    if (Number(raw.formatVersion) !== 1 || !raw.document) {
+      throw new TypeError("El formato del respaldo no es compatible.");
+    }
+    return {
+      envelope: true,
+      exportedAt: safeText(raw.exportedAt, 80) || null,
+      origin: safeText(raw.origin, 120) || "desconocido",
+      revision: Number.isSafeInteger(raw.revision) && raw.revision >= 0 ? raw.revision : 0,
+      document: sanitizeDocument(raw.document, today)
+    };
+  }
+  const document = sanitizeDocument(raw, today);
+  return {
+    envelope: false,
+    exportedAt: null,
+    origin: "respaldo heredado",
+    revision: document.calendarMeta.revision,
+    document
+  };
+}
+
 function keepAllowed(source, fields) {
   const target = {};
   for (const field of fields) {
@@ -753,7 +890,18 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
   }
   const result = {
     ...base,
+    schemaVersion: SCHEMA_VERSION,
     appVersion: safeText(raw.appVersion, 30) || APP_VERSION,
+    calendarMeta: {
+      id: safeText(raw.calendarMeta?.id, 120) || base.calendarMeta.id,
+      name: safeText(raw.calendarMeta?.name, 160) || base.calendarMeta.name,
+      coordinator: safeText(raw.calendarMeta?.coordinator, 160),
+      revision: Number.isSafeInteger(raw.calendarMeta?.revision) && raw.calendarMeta.revision >= 0
+        ? raw.calendarMeta.revision
+        : 0,
+      createdAt: safeText(raw.calendarMeta?.createdAt, 80) || base.calendarMeta.createdAt,
+      updatedAt: safeText(raw.calendarMeta?.updatedAt, 80) || base.calendarMeta.updatedAt
+    },
     catalog: {
       cities: Array.isArray(raw.catalog?.cities) ? raw.catalog.cities.map((item) => keepAllowed(item, [
         "id", "sourceKey", "name", "zone", "active", "source"

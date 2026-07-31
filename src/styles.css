@@ -172,6 +172,18 @@ textarea:focus-visible,
   background: var(--green-800);
 }
 
+.button.danger {
+  color: white;
+  border-color: #9d2f2f;
+  background: var(--danger);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none !important;
+}
+
 .topbar .button:not(.primary) {
   color: var(--green-800);
   border-color: rgba(255, 255, 255, 0.82);
@@ -240,7 +252,9 @@ textarea:focus-visible,
   background: #ff9d9d;
 }
 
-.backup-banner {
+.backup-banner,
+.storage-banner,
+.access-banner {
   min-height: 48px;
   display: flex;
   align-items: center;
@@ -252,9 +266,30 @@ textarea:focus-visible,
   border-bottom: 1px solid #ead18c;
 }
 
-.backup-banner div {
+.backup-banner div,
+.storage-banner div,
+.access-banner div {
   display: flex;
   gap: 6px;
+}
+
+.storage-banner {
+  color: #334435;
+  background: #edf4e8;
+  border-bottom: 1px solid #d4e2cc;
+}
+
+.access-banner {
+  color: #633b00;
+  background: #fff0cc;
+  border-bottom: 1px solid #e8c877;
+}
+
+body.read-only .activity-select,
+body.read-only .quick-complete,
+body.read-only .mini-edit,
+body.read-only .day-add {
+  display: none;
 }
 
 .calendar-toolbar {

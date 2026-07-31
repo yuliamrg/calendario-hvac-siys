@@ -50,8 +50,39 @@ archivo. Borrar los datos del navegador, cambiar de perfil o usar otro equipo
 no traslada la programación.
 
 Use **Descargar respaldo JSON** regularmente y guárdelo en una carpeta
-sincronizada o protegida. **Restaurar respaldo** valida el archivo antes de
-reemplazar la información activa y conserva una copia de recuperación local.
+sincronizada o protegida. El respaldo incluye el nombre del cronograma,
+coordinador, revisión, versión y origen de exportación. **Restaurar respaldo**
+valida el archivo, advierte si su revisión es anterior o igual y conserva una
+copia de recuperación local. Los respaldos creados con `v0.1.0` se migran
+automáticamente.
+
+La sección **Datos locales del navegador** indica si el navegador concedió
+persistencia al origen. Esta protección reduce el riesgo de liberación
+automática por falta de espacio, pero no reemplaza los respaldos JSON.
+
+Sólo una pestaña puede editar a la vez. Las demás abren en modo de lectura y
+pueden consultar, filtrar y exportar. **Tomar control** transfiere la edición a
+la pestaña actual; si la pestaña editora se cierra o deja de responder, otra
+recupera el control después de aproximadamente 15 segundos.
+
+## Identificación y edición múltiple
+
+**Identificación** permite asignar un nombre y coordinador al cronograma. La
+revisión aumenta con cada cambio operativo; navegar entre meses o aplicar
+filtros no la incrementa.
+
+Al seleccionar varias tarjetas se puede:
+
+- moverlas conservando la distancia relativa o reunirlas en una fecha;
+- cambiar el estado;
+- reemplazar el servicio;
+- reemplazar, agregar o quitar responsables;
+- reemplazar o vaciar la ciudad;
+- reemplazar, agregar o vaciar observaciones;
+- eliminarlas con confirmación.
+
+Las operaciones múltiples son atómicas: si alguna tarjeta quedaría inválida,
+no cambia ninguna. La última operación se puede deshacer.
 
 ## Actualizar el catálogo
 
