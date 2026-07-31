@@ -84,6 +84,7 @@ textarea:focus-visible,
 }
 
 .topbar {
+  position: relative;
   min-height: 56px;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -94,6 +95,21 @@ textarea:focus-visible,
   background: var(--green);
   box-shadow: 0 2px 10px rgba(25, 63, 29, 0.22);
   z-index: 30;
+}
+
+.beta-badge {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  z-index: 2;
+  padding: 2px 5px;
+  border: 1px solid #3c1900;
+  border-radius: 5px;
+  color: #3c1900;
+  background: #ffcf4a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
 .brand {
@@ -1122,6 +1138,10 @@ dialog::backdrop {
 
 .edit-scope-panel {
   background: var(--green-050);
+}
+
+.merge-note {
+  margin: 12px 20px 18px;
 }
 
 .edit-scope-panel label {

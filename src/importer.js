@@ -853,12 +853,26 @@ function cloneCatalogItems(items) {
   return items.map((item) => ({ ...item }));
 }
 
-function mergeKind(existing, incoming, fields) {
-  return mergeImportedItems(
+function mergeKind(existing, incoming, fields, now) {
+  const merged = mergeImportedItems(
     cloneCatalogItems(existing),
     incoming.map((item) => ({ ...item })),
     fields
   );
+  const existingByKey = new Map(existing.filter((item) => item.sourceKey).map((item) => [item.sourceKey, item]));
+  const incomingByKey = new Map(incoming.filter((item) => item.sourceKey).map((item) => [item.sourceKey, item]));
+  for (const item of merged) {
+    const source = incomingByKey.get(item.sourceKey);
+    const previous = existingByKey.get(item.sourceKey);
+    const changed = source && (
+      !previous ||
+      fields.some((field) => JSON.stringify(previous[field] ?? null) !== JSON.stringify(source[field] ?? null))
+    );
+    item.updatedAt = changed
+      ? now
+      : safeText(previous?.updatedAt, 80) || safeText(item.updatedAt, 80) || now;
+  }
+  return merged;
 }
 
 function normalizeNow(now) {
@@ -885,7 +899,8 @@ export function applyParsedImport(document, parsed, now = new Date().toISOString
   const clients = mergeKind(
     catalogArray(document, "clients"),
     incoming.clients,
-    SOURCE_FIELDS.clients
+    SOURCE_FIELDS.clients,
+    importedAt
   );
   const clientIdBySourceKey = new Map(
     clients
@@ -904,18 +919,21 @@ export function applyParsedImport(document, parsed, now = new Date().toISOString
     cities: mergeKind(
       catalogArray(document, "cities"),
       incoming.cities,
-      SOURCE_FIELDS.cities
+      SOURCE_FIELDS.cities,
+      importedAt
     ),
     clients,
     sites: mergeKind(
       catalogArray(document, "sites"),
       sites,
-      SOURCE_FIELDS.sites
+      SOURCE_FIELDS.sites,
+      importedAt
     ),
     responsibles: mergeKind(
       catalogArray(document, "responsibles"),
       incoming.responsibles,
-      SOURCE_FIELDS.responsibles
+      SOURCE_FIELDS.responsibles,
+      importedAt
     )
   };
 

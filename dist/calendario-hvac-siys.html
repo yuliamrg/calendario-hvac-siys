@@ -93,6 +93,7 @@ textarea:focus-visible,
 }
 
 .topbar {
+  position: relative;
   min-height: 56px;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -103,6 +104,21 @@ textarea:focus-visible,
   background: var(--green);
   box-shadow: 0 2px 10px rgba(25, 63, 29, 0.22);
   z-index: 30;
+}
+
+.beta-badge {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  z-index: 2;
+  padding: 2px 5px;
+  border: 1px solid #3c1900;
+  border-radius: 5px;
+  color: #3c1900;
+  background: #ffcf4a;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
 }
 
 .brand {
@@ -1133,6 +1149,10 @@ dialog::backdrop {
   background: var(--green-050);
 }
 
+.merge-note {
+  margin: 12px 20px 18px;
+}
+
 .edit-scope-panel label {
   display: grid;
   gap: 5px;
@@ -1574,6 +1594,7 @@ dialog::backdrop {
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
+      <span class="beta-badge" id="betaBadge" hidden>BETA</span>
       <div class="brand" aria-label="SIYS Sync">
         <img class="brand-mark" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IlNJWVMgU3luYyI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InN5bmMiIHgxPSIxMiIgeTE9IjExMiIgeDI9IjExNiIgeTI9IjE2IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzE0NTViZiIvPgogICAgICA8c3RvcCBvZmZzZXQ9Ii40OCIgc3RvcC1jb2xvcj0iIzA4NzliNiIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyZmM5YWUiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImhlYWQiIHgxPSIzNiIgeTE9IjM4IiB4Mj0iOTIiIHkyPSI2OCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjMjM1YWE5Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzBhMjg1ZiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHBhdGggZD0iTTIwIDU0YTQ3IDQ3IDAgMCAxIDgwLTI1IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjc3luYykiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPHBhdGggZD0ibTEwMiAxOCAzIDIyIDE3LTE0eiIgZmlsbD0iIzJmYzlhZSIvPgogIDxwYXRoIGQ9Ik0xMDggNzNhNDcgNDcgMCAwIDEtODEgMjciIGZpbGw9Im5vbmUiIHN0cm9rZT0idXJsKCNzeW5jKSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8cGF0aCBkPSJtMjUgMTExLTMtMjJMNSAxMDN6IiBmaWxsPSIjMTQ1NWJmIi8+CiAgPHJlY3QgeD0iMzEiIHk9IjMxIiB3aWR0aD0iNjYiIGhlaWdodD0iNjYiIHJ4PSIxNCIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjZGNlMmU4IiBzdHJva2Utd2lkdGg9IjMiLz4KICA8cGF0aCBkPSJNMzEgNTBhMTkgMTkgMCAwIDEgMTktMTloMjhhMTkgMTkgMCAwIDEgMTkgMTl2MTJIMzF6IiBmaWxsPSJ1cmwoI2hlYWQpIi8+CiAgPHBhdGggZD0iTTQ4IDI1djE3TTgwIDI1djE3IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMTAiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxwYXRoIGQ9Ik00OCAyNXYxN004MCAyNXYxNyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjM1YWE5IiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxnIGZpbGw9IiNjOGNkZDQiPgogICAgPHJlY3QgeD0iNDMiIHk9IjcwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIyIi8+CiAgICA8cmVjdCB4PSI1OSIgeT0iNzAiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgcng9IjIiLz4KICAgIDxyZWN0IHg9Ijc1IiB5PSI3MCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiByeD0iMiIvPgogICAgPHJlY3QgeD0iNDMiIHk9Ijg0IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIyIi8+CiAgICA8cmVjdCB4PSI1OSIgeT0iODQiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgcng9IjIiLz4KICA8L2c+CiAgPHJlY3QgeD0iNzUiIHk9Ijg0IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIyIiBmaWxsPSIjMTQ1NWJmIi8+Cjwvc3ZnPgo=" alt="">
         <span>
@@ -1595,6 +1616,7 @@ dialog::backdrop {
             <button class="menu-action" id="importProgrammingButton" type="button">Importar programación</button>
             <button class="menu-action" id="backupButton" type="button">Descargar respaldo JSON</button>
             <button class="menu-action" id="restoreButton" type="button">Restaurar respaldo JSON</button>
+            <button class="menu-action" id="mergeJsonButton" type="button">Añadir desde JSON</button>
             <button class="menu-action danger-text" id="resetDataButton" type="button">Reiniciar datos</button>
           </div>
         </details>
@@ -2116,6 +2138,23 @@ dialog::backdrop {
     </form>
   </dialog>
 
+  <dialog class="modal" id="mergeJsonDialog" aria-labelledby="mergeJsonDialogTitle">
+    <form id="mergeJsonForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Combinación segura</p><h2 id="mergeJsonDialogTitle">Añadir desde JSON</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="mergeJsonDialog" aria-label="Cerrar">×</button>
+      </header>
+      <div id="mergeJsonSummary"></div>
+      <div class="import-stat-grid" id="mergeJsonStats"></div>
+      <div class="warning-list" id="mergeJsonWarnings" hidden></div>
+      <p class="field-note merge-note">Los registros ausentes no se eliminan. En conflictos gana el registro con la fecha de actualización más reciente; en empate se conserva el actual.</p>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="mergeJsonDialog">Cancelar</button>
+        <button class="button primary" id="applyMergeJsonButton" type="submit">Añadir cambios</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog class="modal" id="programmingImportDialog" aria-labelledby="programmingImportDialogTitle">
     <form id="programmingImportForm" method="dialog">
       <header class="modal-header">
@@ -2173,6 +2212,7 @@ dialog::backdrop {
   <input id="baseFileInput" type="file" accept=".xlsx,.xls" hidden>
   <input id="programmingFileInput" type="file" accept=".xlsx,.xls" hidden>
   <input id="restoreFileInput" type="file" accept=".json,application/json" hidden>
+  <input id="mergeJsonFileInput" type="file" accept=".json,application/json" hidden>
 
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>
 
@@ -2422,8 +2462,8 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   </script>
   <script type="module">
-export const APP_VERSION = "0.5.0";
-export const SCHEMA_VERSION = 2;
+export const APP_VERSION = "0.6.0";
+export const SCHEMA_VERSION = 3;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
 export const SERVICE_TYPES = Object.freeze({
@@ -2896,6 +2936,7 @@ export function createActivitiesFromRange(
   const series = hasRange ? {
     id: seriesId,
     createdAt: now,
+    updatedAt: now,
     originalStart: input.date,
     originalEnd: endDate
   } : null;
@@ -3090,9 +3131,13 @@ export function extendActivity(
     document.series.push({
       id: seriesId,
       createdAt: now,
+      updatedAt: now,
       originalStart: source.date,
       originalEnd: targetDate
     });
+  } else {
+    const series = document.series.find((item) => item.id === seriesId);
+    if (series) series.updatedAt = now;
   }
   if (document.activities.some((item) => item.seriesId === seriesId && item.date === targetDate)) {
     throw new TypeError("Esta actividad ya tiene una tarjeta en la fecha de destino.");
@@ -3211,7 +3256,8 @@ export function deleteActivities(document, activityIds) {
 
 export function createBackupEnvelope(document, {
   exportedAt = new Date().toISOString(),
-  origin = "local"
+  origin = "local",
+  channel = "local"
 } = {}) {
   const clean = sanitizeDocument(document);
   return {
@@ -3220,6 +3266,7 @@ export function createBackupEnvelope(document, {
     exportedAt,
     appVersion: APP_VERSION,
     origin: safeText(origin, 120) || "local",
+    channel: ["local", "stable", "beta"].includes(channel) ? channel : "local",
     revision: clean.calendarMeta.revision,
     document: clean
   };
@@ -3234,6 +3281,7 @@ export function parseBackup(raw, today = todayInBogota()) {
       envelope: true,
       exportedAt: safeText(raw.exportedAt, 80) || null,
       origin: safeText(raw.origin, 120) || "desconocido",
+      channel: ["local", "stable", "beta"].includes(raw.channel) ? raw.channel : null,
       revision: Number.isSafeInteger(raw.revision) && raw.revision >= 0 ? raw.revision : 0,
       document: sanitizeDocument(raw.document, today)
     };
@@ -3243,6 +3291,7 @@ export function parseBackup(raw, today = todayInBogota()) {
     envelope: false,
     exportedAt: null,
     origin: "respaldo heredado",
+    channel: null,
     revision: document.calendarMeta.revision,
     document
   };
@@ -3435,10 +3484,14 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
     throw new RangeError("El respaldo fue creado por una versión más reciente de la herramienta.");
   }
   const base = createDefaultDocument(today);
+  const legacyUpdatedAt = safeText(raw.calendarMeta?.updatedAt, 80) || base.calendarMeta.updatedAt;
   const rawOverrides = Array.isArray(raw.holidayOverrides)
-    ? raw.holidayOverrides.map((item) => keepAllowed(item, [
-      "id", "date", "name", "reason", "type", "active", "createdAt", "action"
-    ]))
+    ? raw.holidayOverrides.map((item) => ({
+      ...keepAllowed(item, [
+        "id", "date", "name", "reason", "type", "active", "createdAt", "updatedAt", "action"
+      ]),
+      updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt
+    }))
     : [];
   const overrideIds = new Set();
   const activeDates = new Set();
@@ -3469,26 +3522,30 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
       updatedAt: safeText(raw.calendarMeta?.updatedAt, 80) || base.calendarMeta.updatedAt
     },
     catalog: {
-      cities: Array.isArray(raw.catalog?.cities) ? raw.catalog.cities.map((item) => keepAllowed(item, [
-        "id", "sourceKey", "name", "zone", "active", "source"
-      ])) : [],
+      cities: Array.isArray(raw.catalog?.cities) ? raw.catalog.cities.map((item) => ({
+        ...keepAllowed(item, ["id", "sourceKey", "name", "zone", "active", "source", "updatedAt"]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt
+      })) : [],
       clients: Array.isArray(raw.catalog?.clients) ? raw.catalog.clients.map((item) => ({
-        ...keepAllowed(item, ["id", "sourceKey", "name", "active", "source"]),
+        ...keepAllowed(item, ["id", "sourceKey", "name", "active", "source", "updatedAt"]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt,
         aliases: cleanStringArray(item?.aliases, 160)
       })) : [],
       sites: Array.isArray(raw.catalog?.sites) ? raw.catalog.sites.map((item) => ({
         ...keepAllowed(item, [
           "id", "sourceKey", "clientId", "name", "city", "zone", "shoppingCenter", "address",
-          "entryConditions", "requiresApp", "active", "source"
+          "entryConditions", "requiresApp", "active", "source", "updatedAt"
         ]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt,
         aliases: cleanStringArray(item?.aliases, 160),
         coverageHints: cleanCoverageHints(item?.coverageHints)
       })) : [],
       responsibles: Array.isArray(raw.catalog?.responsibles) ? raw.catalog.responsibles.map((item) => ({
         ...keepAllowed(item, [
           "id", "sourceKey", "name", "initials", "company", "responsibleType", "baseCity",
-          "group", "heights", "courses", "active", "source", "favorite"
+          "group", "heights", "courses", "active", "source", "favorite", "updatedAt"
         ]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt,
         coverage: cleanStringArray(item?.coverage, 160),
         aliases: cleanStringArray(item?.aliases, 160)
       })) : []
@@ -3503,8 +3560,11 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
       history: cleanHistory(item.history)
     })) : [],
     series: Array.isArray(raw.series) ? raw.series.map((item) => keepAllowed(item, [
-      "id", "createdAt", "originalStart", "originalEnd"
-    ])) : [],
+      "id", "createdAt", "updatedAt", "originalStart", "originalEnd"
+    ])).map((item) => ({
+      ...item,
+      updatedAt: safeText(item.updatedAt, 80) || legacyUpdatedAt
+    })) : [],
     settings: {
       ...base.settings,
       ...keepAllowed(raw.settings, [
@@ -3609,6 +3669,265 @@ export function buildMonthlyCsv(document, year, month) {
   ];
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   return "\uFEFF" + [header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+}
+
+function mergeComparable(record) {
+  if (!record || typeof record !== "object") return "";
+  const copy = structuredClone(record);
+  for (const field of ["id", "sourceKey", "createdAt", "updatedAt", "history"]) {
+    delete copy[field];
+  }
+  const canonical = (value) => {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.keys(value).sort().map((key) => [key, canonical(value[key])])
+      );
+    }
+    return value;
+  };
+  return JSON.stringify(canonical(copy));
+}
+
+function timestampValue(value) {
+  const parsed = Date.parse(String(value ?? ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mergeNaturalKey(collection, item) {
+  if (collection === "cities" || collection === "clients") {
+    return normalizeText(item.name);
+  }
+  if (collection === "sites") {
+    return [
+      item.clientId ?? "",
+      normalizeText(item.name),
+      normalizeText(item.city)
+    ].join("|");
+  }
+  if (collection === "responsibles") {
+    return [
+      normalizeText(item.name),
+      item.responsibleType ?? "",
+      normalizeText(item.company)
+    ].join("|");
+  }
+  if (collection === "holidayOverrides") {
+    return `${item.date}|${item.type ?? (item.action === "remove" ? "allow-scheduling" : "manual-closure")}`;
+  }
+  return "";
+}
+
+export function mergeBackupDocument(
+  currentRaw,
+  incomingRaw,
+  { now = new Date().toISOString() } = {}
+) {
+  const current = sanitizeDocument(currentRaw);
+  const incoming = sanitizeDocument(incomingRaw, current.settings.currentDate);
+  const document = structuredClone(current);
+  const counts = {
+    added: 0,
+    updated: 0,
+    skipped: 0,
+    conflicts: 0,
+    byCollection: {}
+  };
+  const warnings = [];
+  const details = [];
+  const maps = {
+    cities: new Map(),
+    clients: new Map(),
+    sites: new Map(),
+    responsibles: new Map(),
+    series: new Map()
+  };
+
+  const recordResult = (collection, result, label, reason = "") => {
+    counts[result] += 1;
+    counts.byCollection[collection] ??= { added: 0, updated: 0, skipped: 0, conflicts: 0 };
+    counts.byCollection[collection][result] += 1;
+    details.push({ collection, result, label: safeText(label, 240), reason: safeText(reason, 500) });
+  };
+
+  const mergeCollection = (
+    collection,
+    localItems,
+    incomingItems,
+    { transform = (item) => item, validate = () => null } = {}
+  ) => {
+    const mapping = maps[collection] ?? new Map();
+    for (const rawItem of incomingItems) {
+      const importedId = safeText(rawItem.id, 160);
+      const item = transform(structuredClone(rawItem));
+      const natural = mergeNaturalKey(collection, item);
+      let match = importedId
+        ? localItems.find((candidate) => candidate.id === importedId)
+        : null;
+      if (!match && item.sourceKey) {
+        match = localItems.find((candidate) => candidate.sourceKey === item.sourceKey);
+      }
+      if (!match && natural) {
+        match = localItems.find((candidate) => mergeNaturalKey(collection, candidate) === natural);
+      }
+      if (!match) {
+        match = localItems.find((candidate) => mergeComparable(candidate) === mergeComparable(item));
+      }
+
+      const validationError = validate(item, match);
+      if (validationError) {
+        recordResult(collection, "conflicts", item.name || item.date || importedId, validationError);
+        warnings.push(`${collection}: ${validationError}`);
+        continue;
+      }
+
+      if (!match) {
+        if (!item.id) item.id = makeId(collection.slice(0, -1) || "registro");
+        item.updatedAt = safeText(item.updatedAt, 80) || now;
+        localItems.push(item);
+        if (importedId) mapping.set(importedId, item.id);
+        recordResult(collection, "added", item.name || item.date || item.id);
+        continue;
+      }
+
+      if (importedId) mapping.set(importedId, match.id);
+      const candidate = { ...item, id: match.id };
+      if (mergeComparable(match) === mergeComparable(candidate)) {
+        recordResult(collection, "skipped", match.name || match.date || match.id, "Registro idéntico");
+        continue;
+      }
+      const incomingTime = timestampValue(item.updatedAt);
+      const currentTime = timestampValue(match.updatedAt);
+      if (incomingTime > currentTime) {
+        const index = localItems.indexOf(match);
+        localItems[index] = candidate;
+        recordResult(collection, "updated", match.name || match.date || match.id, "El registro importado es más reciente");
+      } else {
+        const reason = incomingTime === currentTime
+          ? "Misma fecha de actualización; se conservó el registro actual"
+          : "El registro actual es más reciente";
+        recordResult(collection, "conflicts", match.name || match.date || match.id, reason);
+      }
+    }
+    return mapping;
+  };
+
+  mergeCollection("cities", document.catalog.cities, incoming.catalog.cities);
+  mergeCollection("clients", document.catalog.clients, incoming.catalog.clients);
+  mergeCollection("sites", document.catalog.sites, incoming.catalog.sites, {
+    transform: (item) => ({
+      ...item,
+      clientId: maps.clients.get(item.clientId) ?? item.clientId
+    }),
+    validate: (item) => (
+      item.clientId && !document.catalog.clients.some((client) => client.id === item.clientId)
+        ? `No se encontró el cliente relacionado con la sede ${item.name || item.id}.`
+        : null
+    )
+  });
+  mergeCollection("responsibles", document.catalog.responsibles, incoming.catalog.responsibles);
+  mergeCollection("series", document.series, incoming.series);
+
+  mergeCollection(
+    "holidayOverrides",
+    document.holidayOverrides,
+    incoming.holidayOverrides,
+    {
+      validate: (item, match) => {
+        const collision = document.holidayOverrides.find((candidate) => (
+          candidate !== match &&
+          candidate.active !== false &&
+          item.active !== false &&
+          candidate.date === item.date
+        ));
+        return collision ? `Ya existe una excepción activa para ${item.date}.` : null;
+      }
+    }
+  );
+
+  const activityFingerprint = (activity) => mergeComparable({
+    ...activity,
+    seriesId: activity.seriesId ?? null,
+    responsibleIds: [...(activity.responsibleIds ?? [])].sort()
+  });
+  for (const rawActivity of incoming.activities) {
+    const importedId = safeText(rawActivity.id, 160);
+    const activity = {
+      ...structuredClone(rawActivity),
+      clientId: maps.clients.get(rawActivity.clientId) ?? rawActivity.clientId,
+      siteId: maps.sites.get(rawActivity.siteId) ?? rawActivity.siteId,
+      responsibleIds: (rawActivity.responsibleIds ?? []).map(
+        (id) => maps.responsibles.get(id) ?? id
+      ),
+      seriesId: maps.series.get(rawActivity.seriesId) ?? rawActivity.seriesId
+    };
+    let match = document.activities.find((candidate) => candidate.id === importedId);
+    if (!match) {
+      match = document.activities.find(
+        (candidate) => activityFingerprint(candidate) === activityFingerprint(activity)
+      );
+    }
+    const missing = [];
+    if (activity.clientId && !document.catalog.clients.some((item) => item.id === activity.clientId)) {
+      missing.push("cliente");
+    }
+    if (activity.siteId && !document.catalog.sites.some((item) => item.id === activity.siteId)) {
+      missing.push("sede");
+    }
+    if ((activity.responsibleIds ?? []).some(
+      (id) => !document.catalog.responsibles.some((item) => item.id === id)
+    )) {
+      missing.push("responsable");
+    }
+    if (activity.seriesId && !document.series.some((item) => item.id === activity.seriesId)) {
+      missing.push("serie");
+    }
+    const activityErrors = validateActivity(activity);
+    if (missing.length || activityErrors.length) {
+      const reason = [
+        missing.length ? `Faltan referencias: ${missing.join(", ")}` : "",
+        ...activityErrors
+      ].filter(Boolean).join(". ");
+      recordResult("activities", "conflicts", importedId || activity.date, reason);
+      warnings.push(`Actividad ${importedId || activity.date}: ${reason}`);
+      continue;
+    }
+    if (!match) {
+      document.activities.push(activity);
+      recordResult("activities", "added", activity.id);
+      continue;
+    }
+    if (activityFingerprint(match) === activityFingerprint(activity)) {
+      recordResult("activities", "skipped", match.id, "Actividad idéntica");
+      continue;
+    }
+    if (timestampValue(activity.updatedAt) > timestampValue(match.updatedAt)) {
+      const index = document.activities.indexOf(match);
+      document.activities[index] = { ...activity, id: match.id };
+      recordResult("activities", "updated", match.id, "La actividad importada es más reciente");
+    } else {
+      const reason = timestampValue(activity.updatedAt) === timestampValue(match.updatedAt)
+        ? "Misma fecha de actualización; se conservó la actividad actual"
+        : "La actividad actual es más reciente";
+      recordResult("activities", "conflicts", match.id, reason);
+    }
+  }
+
+  const usedSeries = new Set(document.activities.map((item) => item.seriesId).filter(Boolean));
+  document.series = document.series.filter((item) => usedSeries.has(item.id));
+  document.schemaVersion = SCHEMA_VERSION;
+  document.appVersion = APP_VERSION;
+  document.calendarMeta = structuredClone(current.calendarMeta);
+  document.settings = structuredClone(current.settings);
+  document.importMetadata = structuredClone(current.importMetadata);
+  document.audit = structuredClone(current.audit);
+
+  return {
+    document: sanitizeDocument(document, current.settings.currentDate),
+    counts,
+    warnings,
+    details
+  };
 }
 
 export function importDiff(existing, incoming, fields) {
@@ -4500,12 +4819,26 @@ function cloneCatalogItems(items) {
   return items.map((item) => ({ ...item }));
 }
 
-function mergeKind(existing, incoming, fields) {
-  return mergeImportedItems(
+function mergeKind(existing, incoming, fields, now) {
+  const merged = mergeImportedItems(
     cloneCatalogItems(existing),
     incoming.map((item) => ({ ...item })),
     fields
   );
+  const existingByKey = new Map(existing.filter((item) => item.sourceKey).map((item) => [item.sourceKey, item]));
+  const incomingByKey = new Map(incoming.filter((item) => item.sourceKey).map((item) => [item.sourceKey, item]));
+  for (const item of merged) {
+    const source = incomingByKey.get(item.sourceKey);
+    const previous = existingByKey.get(item.sourceKey);
+    const changed = source && (
+      !previous ||
+      fields.some((field) => JSON.stringify(previous[field] ?? null) !== JSON.stringify(source[field] ?? null))
+    );
+    item.updatedAt = changed
+      ? now
+      : safeText(previous?.updatedAt, 80) || safeText(item.updatedAt, 80) || now;
+  }
+  return merged;
 }
 
 function normalizeNow(now) {
@@ -4532,7 +4865,8 @@ export function applyParsedImport(document, parsed, now = new Date().toISOString
   const clients = mergeKind(
     catalogArray(document, "clients"),
     incoming.clients,
-    SOURCE_FIELDS.clients
+    SOURCE_FIELDS.clients,
+    importedAt
   );
   const clientIdBySourceKey = new Map(
     clients
@@ -4551,18 +4885,21 @@ export function applyParsedImport(document, parsed, now = new Date().toISOString
     cities: mergeKind(
       catalogArray(document, "cities"),
       incoming.cities,
-      SOURCE_FIELDS.cities
+      SOURCE_FIELDS.cities,
+      importedAt
     ),
     clients,
     sites: mergeKind(
       catalogArray(document, "sites"),
       sites,
-      SOURCE_FIELDS.sites
+      SOURCE_FIELDS.sites,
+      importedAt
     ),
     responsibles: mergeKind(
       catalogArray(document, "responsibles"),
       incoming.responsibles,
-      SOURCE_FIELDS.responsibles
+      SOURCE_FIELDS.responsibles,
+      importedAt
     )
   };
 
@@ -4813,7 +5150,14 @@ export function applyProgrammingImport(
 }
 
 
-const DATABASE_NAME = "calendario-hvac-siys";
+const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
+  ? "beta"
+  : location.protocol === "file:"
+    ? "local"
+    : "stable";
+const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
+  ? "calendario-hvac-siys-beta"
+  : "calendario-hvac-siys";
 const DATABASE_VERSION = 1;
 const DOCUMENT_STORE = "documents";
 const MAX_VISIBLE_CARDS = 3;
@@ -4849,6 +5193,7 @@ let drawerReturnFocus = null;
 let calendarFocusDate = null;
 let pendingImport = null;
 let pendingRestore = null;
+let pendingMerge = null;
 let pendingProgrammingImport = null;
 let dragContext = null;
 let pendingDrop = null;
@@ -4861,14 +5206,9 @@ const tabId = crypto.randomUUID();
 const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
 const EDIT_LOCK_STALE_MS = 15000;
-const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
-  ? "beta"
-  : location.protocol === "file:"
-    ? "local"
-    : "stable";
 const UI_PREFERENCES_KEY = `siys-sync-ui:${RUNTIME_CHANNEL}`;
 const editChannel = "BroadcastChannel" in window
-  ? new BroadcastChannel("calendario-hvac-siys-edit-lock")
+  ? new BroadcastChannel(`calendario-hvac-siys-edit-lock-${RUNTIME_CHANNEL}`)
   : null;
 
 function clone(value) {
@@ -5063,7 +5403,7 @@ function renderAccessMode() {
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
-    "calendarSettingsButton", "importProgrammingButton", "resetDataButton"
+    "calendarSettingsButton", "importProgrammingButton", "resetDataButton", "mergeJsonButton"
   ];
   for (const id of guardedIds) {
     if (dom[id]) dom[id].disabled = !hasEditControl;
@@ -5620,6 +5960,7 @@ function renderSelectionBar() {
 }
 
 function runtimeMode() {
+  if (RUNTIME_CHANNEL === "beta") return "GitHub Pages BETA";
   return location.protocol === "https:" && /\.github\.io$/i.test(location.hostname)
     ? "GitHub Pages"
     : location.protocol === "file:"
@@ -6674,7 +7015,8 @@ function handleCatalogSubmit(event) {
     id,
     sourceKey: itemId ? undefined : `manual:${id}`,
     active: dom.catalogActive.checked,
-    source: itemId ? undefined : "manual"
+    source: itemId ? undefined : "manual",
+    updatedAt: new Date().toISOString()
   };
   let collection;
   let next;
@@ -6792,7 +7134,8 @@ function handleHolidaySubmit(event) {
     name: safeText(dom.overrideName.value, 120),
     reason: safeText(dom.overrideReason.value, 500),
     active: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
   const errors = validateHolidayOverride(override);
   if (appDocument.holidayOverrides.some((item) => item.active !== false && item.date === override.date)) {
@@ -7014,7 +7357,8 @@ async function createBackup() {
   const fileIdentity = normalizeKey(appDocument.calendarMeta.coordinator || appDocument.calendarMeta.name) || "cronograma";
   const envelope = createBackupEnvelope(appDocument, {
     exportedAt: appDocument.settings.lastBackupAt,
-    origin: `${runtimeMode()} · ${location.origin}`
+    origin: `${runtimeMode()} · ${location.origin}`,
+    channel: RUNTIME_CHANNEL
   });
   downloadBlob(
     JSON.stringify(envelope, null, 2),
@@ -7340,6 +7684,74 @@ function handleRestoreSubmit(event) {
   showToast("Respaldo restaurado correctamente.", { undo: true });
 }
 
+function renderMergeJsonPreview(parsed, result, file) {
+  const summary = createElement("div", "detail-grid");
+  summary.append(detailItem("Archivo", file.name));
+  summary.append(detailItem("Origen", parsed.channel || parsed.origin || "Desconocido"));
+  summary.append(detailItem("Cronograma importado", parsed.document.calendarMeta.name));
+  summary.append(detailItem("Revisión importada", String(parsed.document.calendarMeta.revision)));
+  dom.mergeJsonSummary.replaceChildren(summary);
+
+  const stats = [
+    [result.counts.added, "Nuevos"],
+    [result.counts.updated, "Actualizados"],
+    [result.counts.skipped, "Sin cambios"],
+    [result.counts.conflicts, "Conflictos"]
+  ];
+  dom.mergeJsonStats.replaceChildren(...stats.map(([value, label]) => {
+    const stat = createElement("div", "import-stat");
+    stat.append(createElement("strong", "", String(value)), createElement("span", "", label));
+    return stat;
+  }));
+
+  const messages = [...result.warnings];
+  if (parsed.channel && parsed.channel !== RUNTIME_CHANNEL) {
+    messages.unshift(`El respaldo proviene del canal ${parsed.channel} y se añadirá al canal ${RUNTIME_CHANNEL}.`);
+  }
+  dom.mergeJsonWarnings.hidden = messages.length === 0;
+  dom.mergeJsonWarnings.replaceChildren(...messages.map((message) => createElement("p", "", message)));
+  dom.applyMergeJsonButton.disabled = result.counts.added + result.counts.updated === 0;
+}
+
+async function handleMergeJsonFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  if (file.size > 25 * 1024 * 1024) {
+    showToast("El archivo supera el límite de 25 MB.", { type: "error" });
+    return;
+  }
+  try {
+    const parsed = parseBackup(JSON.parse(await file.text()));
+    const result = mergeBackupDocument(appDocument, parsed.document);
+    pendingMerge = { parsed, result };
+    renderMergeJsonPreview(parsed, result, file);
+    openDialog("mergeJsonDialog");
+  } catch (error) {
+    pendingMerge = null;
+    showToast(`No se pudo preparar la combinación: ${error.message}`, { type: "error", duration: 9000 });
+  }
+}
+
+function handleMergeJsonSubmit(event) {
+  event.preventDefault();
+  if (!pendingMerge) return;
+  const { result } = pendingMerge;
+  try {
+    mutate(
+      "backup_merged",
+      `${result.counts.added} registros añadidos y ${result.counts.updated} actualizados desde JSON`,
+      () => {
+        appDocument = result.document;
+      }
+    );
+    pendingMerge = null;
+    closeDialog("mergeJsonDialog");
+  } catch (error) {
+    showToast(`La combinación no se aplicó: ${error.message}`, { type: "error" });
+  }
+}
+
 function renderImportPreview(preview, parsed, file) {
   const fileSummary = createElement("div");
   fileSummary.append(createElement("strong", "", file.name));
@@ -7495,6 +7907,7 @@ function initializeStaticOptions() {
     ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label))
   );
   dom.versionLabel.textContent = `Versión ${APP_VERSION} · festivos ${HOLIDAY_RULESET_VERSION}`;
+  dom.betaBadge.hidden = RUNTIME_CHANNEL !== "beta";
 }
 
 function bindEvents() {
@@ -7507,6 +7920,7 @@ function bindEvents() {
   dom.backupButton.addEventListener("click", createBackup);
   dom.backupBannerButton.addEventListener("click", createBackup);
   dom.restoreButton.addEventListener("click", () => dom.restoreFileInput.click());
+  dom.mergeJsonButton.addEventListener("click", () => dom.mergeJsonFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
   dom.exportImageButton.addEventListener("click", () => {
     exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
@@ -7618,10 +8032,12 @@ function bindEvents() {
   dom.bulkEditField.addEventListener("change", renderBulkEditControls);
   dom.bulkEditMode.addEventListener("change", renderBulkEditControls);
   dom.restoreForm.addEventListener("submit", handleRestoreSubmit);
+  dom.mergeJsonForm.addEventListener("submit", handleMergeJsonSubmit);
   dom.programmingImportForm.addEventListener("submit", handleProgrammingImportSubmit);
   dom.importForm.addEventListener("submit", handleImportSubmit);
   dom.baseFileInput.addEventListener("change", handleBaseFile);
   dom.restoreFileInput.addEventListener("change", handleRestoreFile);
+  dom.mergeJsonFileInput.addEventListener("change", handleMergeJsonFile);
   dom.programmingFileInput.addEventListener("change", handleProgrammingFile);
 
   for (const button of document.querySelectorAll("[data-close-dialog]")) {

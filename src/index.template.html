@@ -13,6 +13,7 @@
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
+      <span class="beta-badge" id="betaBadge" hidden>BETA</span>
       <div class="brand" aria-label="SIYS Sync">
         <img class="brand-mark" src="__SIYS_SYNC_ICON__" alt="">
         <span>
@@ -34,6 +35,7 @@
             <button class="menu-action" id="importProgrammingButton" type="button">Importar programación</button>
             <button class="menu-action" id="backupButton" type="button">Descargar respaldo JSON</button>
             <button class="menu-action" id="restoreButton" type="button">Restaurar respaldo JSON</button>
+            <button class="menu-action" id="mergeJsonButton" type="button">Añadir desde JSON</button>
             <button class="menu-action danger-text" id="resetDataButton" type="button">Reiniciar datos</button>
           </div>
         </details>
@@ -555,6 +557,23 @@
     </form>
   </dialog>
 
+  <dialog class="modal" id="mergeJsonDialog" aria-labelledby="mergeJsonDialogTitle">
+    <form id="mergeJsonForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Combinación segura</p><h2 id="mergeJsonDialogTitle">Añadir desde JSON</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="mergeJsonDialog" aria-label="Cerrar">×</button>
+      </header>
+      <div id="mergeJsonSummary"></div>
+      <div class="import-stat-grid" id="mergeJsonStats"></div>
+      <div class="warning-list" id="mergeJsonWarnings" hidden></div>
+      <p class="field-note merge-note">Los registros ausentes no se eliminan. En conflictos gana el registro con la fecha de actualización más reciente; en empate se conserva el actual.</p>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="mergeJsonDialog">Cancelar</button>
+        <button class="button primary" id="applyMergeJsonButton" type="submit">Añadir cambios</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog class="modal" id="programmingImportDialog" aria-labelledby="programmingImportDialogTitle">
     <form id="programmingImportForm" method="dialog">
       <header class="modal-header">
@@ -612,6 +631,7 @@
   <input id="baseFileInput" type="file" accept=".xlsx,.xls" hidden>
   <input id="programmingFileInput" type="file" accept=".xlsx,.xls" hidden>
   <input id="restoreFileInput" type="file" accept=".json,application/json" hidden>
+  <input id="mergeJsonFileInput" type="file" accept=".json,application/json" hidden>
 
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>
 

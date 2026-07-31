@@ -134,6 +134,27 @@ Al restaurar se muestran cronograma, coordinador, revisión y antigüedad. La
 restauración reemplaza el documento, no mezcla versiones, y conserva una copia
 de recuperación local. Se aceptan respaldos heredados de `v0.1.0`.
 
+### Añadir sin reemplazar
+
+**Datos > Añadir desde JSON** prepara una combinación y muestra nuevos,
+actualizados, registros idénticos y conflictos antes de guardar. La operación:
+
+- conserva el nombre, coordinador, filtros y mes del cronograma actual;
+- remapea clientes, sedes, responsables y series equivalentes;
+- nunca elimina registros porque no aparezcan en el archivo;
+- usa `updatedAt`: gana el más reciente y en empate se conserva el actual;
+- se guarda como una sola revisión y permite Deshacer.
+
+El respaldo identifica su canal `local`, `stable` o `beta`. Si se añade en otro
+canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
+
+### Estable y beta
+
+La raíz de GitHub Pages contiene la versión estable. `/beta/` permite probar la
+versión siguiente y muestra una insignia BETA. Ambos canales usan bases
+IndexedDB diferentes, incluso si se abren en pestañas del mismo navegador.
+Nunca se copian datos automáticamente entre ellos.
+
 ### Reiniciar el navegador
 
 En **Datos > Reiniciar datos**, escriba `REINICIAR`. SIYS Sync descarga un

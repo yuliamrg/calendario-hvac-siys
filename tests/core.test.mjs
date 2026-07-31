@@ -23,6 +23,7 @@ import {
   isNonWorkingDate,
   mondayOnOrAfter,
   monthGridDates,
+  mergeBackupDocument,
   moveActivities,
   normalizeFilterArray,
   parseBackup,
@@ -445,7 +446,7 @@ test("el CSV mensual separa nómina y contratistas", () => {
   assert.equal(buildMonthlyCsv(doc, 2026, 8).split("\r\n").length, 1);
 });
 
-test("un documento heredado migra al esquema 2 sin perder actividades", () => {
+test("un documento heredado migra al esquema vigente sin perder actividades", () => {
   const legacy = createDefaultDocument("2026-07-01", "2026-07-01T00:00:00.000Z");
   delete legacy.calendarMeta;
   legacy.schemaVersion = 1;
@@ -480,17 +481,120 @@ test("el respaldo versionado conserva metadatos y admite el formato heredado", (
   doc.calendarMeta.revision = 7;
   const envelope = createBackupEnvelope(doc, {
     exportedAt: "2026-07-30T12:00:00.000Z",
-    origin: "archivo local"
+    origin: "archivo local",
+    channel: "beta"
   });
   assert.equal(envelope.appVersion, APP_VERSION);
   assert.equal(envelope.revision, 7);
   assert.equal(envelope.document.calendarMeta.name, "Cronograma Eje Cafetero");
+  assert.equal(envelope.channel, "beta");
   const parsed = parseBackup(envelope);
   assert.equal(parsed.envelope, true);
   assert.equal(parsed.document.calendarMeta.coordinator, "Coordinación Uno");
+  assert.equal(parsed.channel, "beta");
   const legacy = parseBackup(doc);
   assert.equal(legacy.envelope, false);
   assert.equal(legacy.document.calendarMeta.revision, 7);
+});
+
+test("el esquema 2 migra registros maestros con updatedAt de respaldo", () => {
+  const legacy = createDefaultDocument("2026-07-01", "2026-07-01T00:00:00.000Z");
+  legacy.schemaVersion = 2;
+  legacy.calendarMeta.updatedAt = "2026-07-02T03:00:00.000Z";
+  legacy.catalog.clients.push({ id: "c1", name: "Cliente heredado" });
+  legacy.series.push({
+    id: "serie1",
+    createdAt: "2026-07-01T00:00:00.000Z",
+    originalStart: "2026-07-01",
+    originalEnd: "2026-07-02"
+  });
+  const migrated = sanitizeDocument(legacy);
+  assert.equal(migrated.schemaVersion, 3);
+  assert.equal(migrated.catalog.clients[0].updatedAt, legacy.calendarMeta.updatedAt);
+  assert.equal(migrated.series[0].updatedAt, legacy.calendarMeta.updatedAt);
+});
+
+test("añadir JSON remapea referencias y gana el registro más reciente", () => {
+  const current = createDefaultDocument("2026-07-01", "2026-07-01T00:00:00.000Z");
+  current.catalog.clients.push({
+    id: "cliente_local",
+    sourceKey: "cliente:uno",
+    name: "Cliente Uno",
+    active: true,
+    updatedAt: "2026-07-01T00:00:00.000Z"
+  });
+  current.catalog.sites.push({
+    id: "sede_local",
+    sourceKey: "sede:uno",
+    clientId: "cliente_local",
+    name: "Sede Principal",
+    city: "Pereira",
+    active: true,
+    updatedAt: "2026-07-01T00:00:00.000Z"
+  });
+  const incoming = createDefaultDocument("2026-08-01", "2026-08-01T00:00:00.000Z");
+  incoming.calendarMeta.name = "No debe reemplazar el cronograma actual";
+  incoming.catalog.clients.push({
+    id: "cliente_remoto",
+    sourceKey: "cliente:uno",
+    name: "Cliente Uno actualizado",
+    active: true,
+    updatedAt: "2026-08-01T00:00:00.000Z"
+  });
+  incoming.catalog.sites.push({
+    id: "sede_remota",
+    sourceKey: "sede:uno",
+    clientId: "cliente_remoto",
+    name: "Sede Principal",
+    city: "Pereira",
+    active: true,
+    updatedAt: "2026-08-01T00:00:00.000Z"
+  });
+  incoming.activities.push({
+    id: "actividad_remota",
+    seriesId: null,
+    date: "2026-08-05",
+    clientId: "cliente_remoto",
+    siteId: "sede_remota",
+    city: "Pereira",
+    responsibleIds: [],
+    serviceType: "preventive",
+    status: "scheduled",
+    observations: "Importada",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    updatedAt: "2026-08-01T00:00:00.000Z",
+    completedAt: null,
+    history: []
+  });
+  const result = mergeBackupDocument(current, incoming);
+  assert.equal(result.document.calendarMeta.name, current.calendarMeta.name);
+  assert.equal(result.document.catalog.clients.length, 1);
+  assert.equal(result.document.catalog.clients[0].id, "cliente_local");
+  assert.equal(result.document.catalog.clients[0].name, "Cliente Uno actualizado");
+  assert.equal(result.document.activities[0].clientId, "cliente_local");
+  assert.equal(result.document.activities[0].siteId, "sede_local");
+  assert.equal(result.counts.updated, 1);
+  assert.equal(result.counts.skipped, 1);
+  assert.equal(result.counts.added, 1);
+});
+
+test("añadir JSON no elimina ausentes y conserva el actual en empate o si es más nuevo", () => {
+  const current = createDefaultDocument("2026-07-01", "2026-07-01T00:00:00.000Z");
+  current.catalog.clients.push(
+    { id: "c1", name: "Conservar", active: true, updatedAt: "2026-08-02T00:00:00.000Z" },
+    { id: "c2", name: "Ausente", active: true, updatedAt: "2026-08-02T00:00:00.000Z" }
+  );
+  const incoming = createDefaultDocument("2026-07-01", "2026-07-01T00:00:00.000Z");
+  incoming.catalog.clients.push({
+    id: "c1",
+    name: "Intento antiguo",
+    active: true,
+    updatedAt: "2026-08-01T00:00:00.000Z"
+  });
+  const result = mergeBackupDocument(current, incoming);
+  assert.equal(result.document.catalog.clients.length, 2);
+  assert.equal(result.document.catalog.clients.find((item) => item.id === "c1").name, "Conservar");
+  assert.equal(result.counts.conflicts, 1);
 });
 
 test("la edición múltiple aplica modos operativos y deja historial", () => {

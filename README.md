@@ -14,6 +14,14 @@ datos se guardan en el navegador que abre el sitio y no se sincronizan. La
 versión local y la versión Pages usan almacenamientos separados; el respaldo
 JSON permite trasladar la programación entre ambas.
 
+GitHub Pages ofrece dos canales:
+
+- estable: `https://yuliamrg.github.io/calendario-hvac-siys/`;
+- beta: `https://yuliamrg.github.io/calendario-hvac-siys/beta/`.
+
+Cada canal tiene su propia IndexedDB. Los datos sólo pasan de uno a otro
+mediante un archivo JSON elegido por el usuario.
+
 ## Primer uso
 
 1. Abra `dist/calendario-hvac-siys.html`.
@@ -72,6 +80,11 @@ automáticamente.
 **Reiniciar datos** descarga primero un respaldo y exige escribir
 `REINICIAR`. La operación limpia el cronograma y su recuperación en ese
 navegador, sin afectar otros perfiles u orígenes.
+
+**Restaurar respaldo JSON** reemplaza el documento completo. **Añadir desde
+JSON** combina catálogos, actividades, series y excepciones sin eliminar
+registros ausentes. El registro con `updatedAt` más reciente gana; en empate se
+conserva el actual y la vista previa informa el conflicto.
 
 La sección **Datos locales del navegador** indica si el navegador concedió
 persistencia al origen. Esta protección reduce el riesgo de liberación

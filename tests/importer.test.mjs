@@ -345,6 +345,7 @@ test("applyParsedImport mezcla sin borrar y preserva ajustes e ids locales", () 
   assert.equal(mergedHomecenter.active, false);
   assert.deepEqual(mergedHomecenter.aliases, ["HC"]);
   assert.equal(mergedHomecenter.color, "#123456");
+  assert.equal(mergedHomecenter.updatedAt, "2026-07-30T15:00:00.000Z");
   assert.ok(applied.catalog.clients.some((item) => item.id === "cliente_faltante"));
 
   const homecenterSites = applied.catalog.sites.filter(
@@ -363,6 +364,7 @@ test("applyParsedImport mezcla sin borrar y preserva ajustes e ids locales", () 
   assert.deepEqual(mergedResponsible.coverage, ["Manizales"]);
   assert.equal(mergedResponsible.favorite, true);
   assert.equal(mergedResponsible.color, "#abcdef");
+  assert.equal(mergedResponsible.updatedAt, "2026-07-30T15:00:00.000Z");
 
   assert.equal(document.catalog.clients[0].name, "Homecenter anterior");
   assert.equal(document.catalog.responsibles[0].group, "grupo anterior");
