@@ -163,3 +163,11 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   contexto limpio.
 - La Base Operativa conservó SHA-256
   `365E634EF865770B8C61D196C2C6ED7A46BEAA9045E32161AED44D09443C579A`.
+- Implementación PR #19, aceptación PR #20 y promoción PR #21; todos con CI
+  aprobado y sin solicitudes de red.
+- Etiqueta `v0.9.0`; estable y beta coinciden con `dist/index.html` por
+  SHA-256
+  `20D60DB304A16BC843DA7479A0FF613ADCAE4CA800014FDE078EC333921B4491`.
+- Smoke final estable: persistencia tras recarga, segunda pestaña en lectura,
+  orígenes separados, copia portable, restauración limpia, temas y PNG
+  aprobados.
