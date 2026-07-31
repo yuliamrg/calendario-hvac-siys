@@ -30,7 +30,11 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
     "Ampliar",
     "REINICIAR",
     "Añadir desde JSON",
-    "beta"
+    "beta",
+    "Tema",
+    "Oscuro",
+    "Sistema",
+    "impresión"
   ]) {
     assert.match(manual, new RegExp(required, "i"));
   }
