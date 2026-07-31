@@ -73,10 +73,10 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 ### Versión 0.7.0 — modo oscuro
 
-- [ ] Implementar temas Claro, Oscuro y Sistema.
-- [ ] Persistir el tema fuera del documento operativo.
-- [ ] Adaptar calendario, tarjetas, formularios, exportación e impresión.
-- [ ] Verificar contraste, accesibilidad y regresiones.
+- [x] Implementar temas Claro, Oscuro y Sistema.
+- [x] Persistir el tema fuera del documento operativo.
+- [x] Adaptar calendario, tarjetas, formularios, exportación e impresión.
+- [x] Verificar contraste, accesibilidad y regresiones.
 - [ ] Etiquetar y promover `v0.7.0`.
 
 ### Versión 0.8.0 — responsive
@@ -104,3 +104,8 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   Smoke aislado: bases estable/beta separadas, combinación JSON aplicada y
   deshecha, respaldo portable, restauración limpia y cero solicitudes de red
   después de cargar.
+- v0.7.0: PR #12, 40 pruebas, CI y despliegue dual aprobados. Estable conservó
+  v0.6.0 y `/beta/` publicó v0.7.0. Smoke local en Chrome y Edge: tema oscuro
+  persistente sin cambiar la revisión, Sistema detectado en entorno oscuro,
+  PNG oscuro válido, impresión clara, cero solicitudes de red e inspección
+  visual aprobada.

@@ -115,6 +115,22 @@ def main() -> None:
             beta_page.locator("#activityForm button[type=submit]").click()
             wait_saved(beta_page)
             assert len(get_state(beta_page)["activities"]) == 1
+            beta_revision = get_state(beta_page)["calendarMeta"]["revision"]
+            click_menu_action(beta_page, "themeButton")
+            beta_page.locator('input[name="themeMode"][value="dark"]').check()
+            beta_page.locator("#themeForm button[type=submit]").click()
+            expect(beta_page.locator("html")).to_have_attribute("data-theme", "dark")
+            assert get_state(beta_page)["calendarMeta"]["revision"] == beta_revision
+            beta_theme_page = context.new_page()
+            beta_theme_page.goto(args.beta_url, wait_until="load")
+            wait_ready(beta_theme_page)
+            expect(beta_theme_page.locator("html")).to_have_attribute("data-theme", "dark")
+            beta_theme_page.close()
+            with beta_page.expect_download() as image_download:
+                click_menu_action(beta_page, "exportImageButton")
+            beta_image = artifact_dir / "beta-dark.png"
+            image_download.value.save_as(str(beta_image))
+            assert beta_image.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
             if args.merge_fixture:
                 beta_page.set_input_files("#mergeJsonFileInput", str(args.merge_fixture.resolve()))
                 expect(beta_page.locator("#mergeJsonDialog")).to_be_visible()
@@ -132,6 +148,12 @@ def main() -> None:
             assert stable_after_beta and len(stable_after_beta["activities"]) == 1
             assert stable_after_beta["activities"][0]["id"] == activity_id
             beta_page.close()
+            system_context = browser.new_context(locale="es-CO", color_scheme="dark")
+            system_page = system_context.new_page()
+            system_page.goto(args.beta_url, wait_until="load")
+            wait_ready(system_page)
+            expect(system_page.locator("html")).to_have_attribute("data-theme", "dark")
+            system_context.close()
 
         second_page = context.new_page()
         second_page.goto(args.url, wait_until="load")
@@ -191,6 +213,9 @@ def main() -> None:
         "localOriginSeparated": True,
         "jsonPortable": True,
         "cleanContextRestore": True,
+        "betaThemePersistent": bool(args.beta_url),
+        "systemThemeDetected": bool(args.beta_url),
+        "darkPngExported": bool(args.beta_url),
         "networkRequestsAfterLoad": 0,
         "artifacts": str(artifact_dir.resolve())
     }, ensure_ascii=False, indent=2))
