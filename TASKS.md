@@ -51,16 +51,16 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 ### Versión 0.5.0 — experiencia, marca y operaciones
 
-- [ ] Implementar la marca SIYS Sync, logo y favicon autocontenidos.
-- [ ] Compactar la cabecera y agrupar acciones secundarias.
-- [ ] Permitir ocultar el banco y darle scroll independiente.
-- [ ] Abrir una actividad al pulsar el fondo de un día.
-- [ ] Tratar una caída en la misma fecha como operación nula.
-- [ ] Preguntar Mover, Duplicar, Ampliar o Cancelar al arrastrar una tarjeta.
-- [ ] Enlazar días ampliados mediante `seriesId` sin repetir IDs.
-- [ ] Permitir editar un día o los datos comunes de toda la actividad.
-- [ ] Descargar respaldo y reiniciar los datos persistentes de forma segura.
-- [ ] Ejecutar pruebas, actualizar documentación y etiquetar `v0.5.0`.
+- [x] Implementar la marca SIYS Sync, logo y favicon autocontenidos.
+- [x] Compactar la cabecera y agrupar acciones secundarias.
+- [x] Permitir ocultar el banco y darle scroll independiente.
+- [x] Abrir una actividad al pulsar el fondo de un día.
+- [x] Tratar una caída en la misma fecha como operación nula.
+- [x] Preguntar Mover, Duplicar, Ampliar o Cancelar al arrastrar una tarjeta.
+- [x] Enlazar días ampliados mediante `seriesId` sin repetir IDs.
+- [x] Permitir editar un día o los datos comunes de toda la actividad.
+- [x] Descargar respaldo y reiniciar los datos persistentes de forma segura.
+- [x] Ejecutar pruebas, actualizar documentación y etiquetar `v0.5.0`.
 
 ### Versión 0.6.0 — combinación JSON y canales
 
@@ -91,3 +91,11 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 - [ ] Auditar requisitos, datos heredados, canales, documentación y Git.
 - [ ] Confirmar estable en `v0.8.0`, beta operativa y worktree limpio.
+
+## Evidencia del Goal
+
+- v0.5.0: PR #7, 37 pruebas, CI y Pages aprobados; producción coincide con
+  `dist/index.html` por SHA-256
+  `229E9E94E8A462D2337D437218CD74F943528A3F2699D5B44C6374874443EDE8`.
+  Aceptación interactiva: cabecera de 56 px, banco colapsable con scroll,
+  creación por día, menús, favicon y consola sin errores.
