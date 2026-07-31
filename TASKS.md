@@ -27,9 +27,20 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 ## Fase 3 — Distribución (`v0.4.0`)
 
-- [ ] Crear el repositorio público `yuliamrg/calendario-hvac-siys`.
-- [ ] Publicar el historial y las etiquetas sin datos operativos.
-- [ ] Incorporar integración continua y auditoría autocontenida.
-- [ ] Desplegar GitHub Pages desde `main` mediante GitHub Actions.
-- [ ] Verificar persistencia local, separación de orígenes y portabilidad JSON.
+- [x] Crear el repositorio público `yuliamrg/calendario-hvac-siys`.
+- [x] Publicar el historial y las etiquetas sin datos operativos.
+- [x] Incorporar integración continua y auditoría autocontenida.
+- [x] Desplegar GitHub Pages desde `main` mediante GitHub Actions.
+- [x] Verificar persistencia local, separación de orígenes y portabilidad JSON.
 - [ ] Ejecutar la auditoría final y etiquetar `v0.4.0`.
+
+## Evidencia de cierre
+
+- Fase 1: commit `43c8e43`, etiqueta `v0.2.0`, PR #1, 26 pruebas,
+  respaldo real `v0.1.0` migrado y Chrome/Edge aprobados.
+- Fase 2: commit `72ce6d8`, etiqueta `v0.3.0`, PR #2, 34 pruebas,
+  XLSX reabierto/importado, PNG validado y Chrome/Edge aprobados.
+- Fase 3: PR #3, CI aprobado y despliegue Pages aprobado en
+  `https://yuliamrg.github.io/calendario-hvac-siys/`.
+- Producción: persistencia tras recarga, segunda pestaña en lectura, separación
+  `https://`/`file://`, portabilidad JSON y restauración en contexto limpio.
