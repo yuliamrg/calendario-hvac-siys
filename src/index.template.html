@@ -51,6 +51,7 @@
           <div class="action-menu-panel">
             <button class="menu-action" id="holidayButton" type="button">Festivos y ajustes</button>
             <button class="menu-action" id="calendarSettingsButton" type="button">Identificación</button>
+            <button class="menu-action" id="themeButton" type="button">Tema: Sistema</button>
             <button class="menu-action" id="helpButton" type="button">Ayuda y privacidad</button>
           </div>
         </details>
@@ -311,6 +312,25 @@
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="resetDataDialog">Cancelar</button>
         <button class="button danger" type="submit">Descargar respaldo y reiniciar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="themeDialog" aria-labelledby="themeDialogTitle">
+    <form id="themeForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Apariencia</p><h2 id="themeDialogTitle">Tema de SIYS Sync</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="themeDialog" aria-label="Cerrar">×</button>
+      </header>
+      <fieldset class="theme-options">
+        <legend>Selecciona el tema</legend>
+        <label class="radio-row"><input name="themeMode" type="radio" value="light"><span>Claro</span></label>
+        <label class="radio-row"><input name="themeMode" type="radio" value="dark"><span>Oscuro</span></label>
+        <label class="radio-row"><input name="themeMode" type="radio" value="system"><span>Usar configuración del sistema</span></label>
+      </fieldset>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="themeDialog">Cancelar</button>
+        <button class="button primary" type="submit">Aplicar tema</button>
       </footer>
     </form>
   </dialog>

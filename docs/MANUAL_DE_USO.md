@@ -165,6 +165,18 @@ vacío para no reintroducir información anterior.
 
 ## 8. Solución de problemas
 
+### Apariencia
+
+En **Configuración > Tema** puede elegir **Claro**, **Oscuro** o **Sistema**.
+Sistema sigue la preferencia de Chrome, Edge o Windows y reacciona si esta
+cambia mientras la aplicación está abierta. La elección se guarda únicamente
+como preferencia visual del canal actual: no aumenta la revisión, no entra en
+respaldos JSON y no se mezcla entre local, estable y beta.
+
+La exportación PNG respeta el tema que esté activo. La impresión siempre usa
+una presentación clara para conservar legibilidad y ahorrar tinta, aunque la
+interfaz esté en modo oscuro.
+
 - **No guarda:** descargue JSON inmediatamente, compruebe que IndexedDB esté
   habilitado y que el navegador tenga espacio.
 - **Sólo lectura:** cierre la pestaña editora o use **Tomar control** después de

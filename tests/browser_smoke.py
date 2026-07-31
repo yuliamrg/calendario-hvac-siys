@@ -167,6 +167,26 @@ def launch_and_check(
     assert identified_state["calendarMeta"]["coordinator"] == "Coordinación QA"
     assert identified_state["calendarMeta"]["revision"] == 1
 
+    click_menu_action(page, "themeButton")
+    page.locator('input[name="themeMode"][value="dark"]').check()
+    page.locator("#themeForm button[type=submit]").click()
+    expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+    assert get_state(page)["calendarMeta"]["revision"] == 1
+    theme_page = context.new_page()
+    theme_page.goto(html_path.as_uri(), wait_until="load")
+    theme_page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
+    expect(theme_page.locator("html")).to_have_attribute("data-theme", "dark")
+    assert get_state(theme_page)["calendarMeta"]["revision"] == 1
+    theme_page.close()
+    page.screenshot(path=str(artifact_dir / f"{channel}-dark-theme.png"), full_page=True)
+
+    system_context = browser.new_context(locale="es-CO", color_scheme="dark")
+    system_page = system_context.new_page()
+    system_page.goto(html_path.as_uri(), wait_until="load")
+    system_page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
+    expect(system_page.locator("html")).to_have_attribute("data-theme", "dark")
+    system_context.close()
+
     before_hash = file_hash(base_path)
     page.set_input_files("#baseFileInput", str(base_path))
     expect(page.locator("#importDialog")).to_be_visible(timeout=20_000)

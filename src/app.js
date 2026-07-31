@@ -109,6 +109,7 @@ const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
 const EDIT_LOCK_STALE_MS = 15000;
 const UI_PREFERENCES_KEY = `siys-sync-ui:${RUNTIME_CHANNEL}`;
+const systemThemeQuery = window.matchMedia?.("(prefers-color-scheme: dark)") ?? null;
 const editChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(`calendario-hvac-siys-edit-lock-${RUNTIME_CHANNEL}`)
   : null;
@@ -143,6 +144,37 @@ function toggleCatalog() {
   const collapsed = !document.body.classList.contains("catalog-collapsed");
   updateUiPreferences({ catalogCollapsed: collapsed });
   applyCatalogPreference();
+}
+
+function themePreference() {
+  const value = readUiPreferences().theme;
+  return ["light", "dark", "system"].includes(value) ? value : "system";
+}
+
+function applyThemePreference() {
+  const preference = themePreference();
+  const resolved = preference === "system"
+    ? systemThemeQuery?.matches ? "dark" : "light"
+    : preference;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.style.colorScheme = resolved;
+  const labels = { light: "Claro", dark: "Oscuro", system: "Sistema" };
+  if (dom.themeButton) dom.themeButton.textContent = `Tema: ${labels[preference]}`;
+}
+
+function openThemeDialog() {
+  const radio = dom.themeForm.querySelector(`input[name="themeMode"][value="${themePreference()}"]`);
+  if (radio) radio.checked = true;
+  openDialog("themeDialog");
+}
+
+function handleThemeSubmit(event) {
+  event.preventDefault();
+  const selected = dom.themeForm.querySelector('input[name="themeMode"]:checked')?.value ?? "system";
+  updateUiPreferences({ theme: selected });
+  applyThemePreference();
+  closeDialog("themeDialog");
+  showToast(`Tema ${selected === "system" ? "del sistema" : selected === "dark" ? "oscuro" : "claro"} aplicado.`);
 }
 
 function createElement(tagName, className = "", text = "") {
@@ -2294,6 +2326,7 @@ async function handleResetDataSubmit(event) {
     if (dom.resetPreferences.checked) {
       localStorage.removeItem(UI_PREFERENCES_KEY);
       applyCatalogPreference();
+      applyThemePreference();
     }
     if (storageAvailable) await replaceCurrentDocument(clone(appDocument));
     editChannel?.postMessage({ type: "data-reset", ownerId: tabId });
@@ -2335,6 +2368,18 @@ function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color 
 
 async function exportCurrentMonthImage() {
   const { year, month } = currentMonthParts();
+  const darkExport = document.documentElement.dataset.theme === "dark";
+  const palette = darkExport
+    ? {
+        page: "#101713", header: "#315f35", headerText: "#f4faf5", headerSubtle: "#d7ead9",
+        meta: "#c4cec6", weekday: "#27352b", day: "#1b241e", nonWorking: "#3a281f",
+        outside: "#151c17", grid: "#465247", text: "#edf4ee", secondary: "#c1ccc3", holiday: "#ffc196"
+      }
+    : {
+        page: "#f5f7f3", header: "#4f7d32", headerText: "#ffffff", headerSubtle: "#eaf2e6",
+        meta: "#465148", weekday: "#e4ebe0", day: "#ffffff", nonWorking: "#fff0e7",
+        outside: "#eef1ed", grid: "#cfd8cf", text: "#1e2a21", secondary: "#566057", holiday: "#9a4e1e"
+      };
   const dates = monthGridDates(year, month);
   const maps = lookupMaps();
   const filtered = appDocument.activities.filter((activity) =>
@@ -2360,24 +2405,24 @@ async function exportCurrentMonthImage() {
   canvas.height = logicalHeight * scale;
   const context = canvas.getContext("2d");
   context.scale(scale, scale);
-  context.fillStyle = "#f5f7f3";
+  context.fillStyle = palette.page;
   context.fillRect(0, 0, logicalWidth, logicalHeight);
-  context.fillStyle = "#4f7d32";
+  context.fillStyle = palette.header;
   context.fillRect(0, 0, logicalWidth, 112);
-  canvasText(context, appDocument.calendarMeta.name, 34, 48, 1050, { font: "30px Arial", color: "#fff", bold: true });
-  canvasText(context, appDocument.calendarMeta.coordinator || "Sin coordinador registrado", 34, 82, 1050, { font: "18px Arial", color: "#eaf2e6" });
-  canvasText(context, formatMonthTitle(year, month), 1250, 60, 390, { font: "28px Arial", color: "#fff", bold: true });
+  canvasText(context, appDocument.calendarMeta.name, 34, 48, 1050, { font: "30px Arial", color: palette.headerText, bold: true });
+  canvasText(context, appDocument.calendarMeta.coordinator || "Sin coordinador registrado", 34, 82, 1050, { font: "18px Arial", color: palette.headerSubtle });
+  canvasText(context, formatMonthTitle(year, month), 1250, 60, 390, { font: "28px Arial", color: palette.headerText, bold: true });
   const filterLabels = [...dom.filterChips.querySelectorAll(".filter-chip")].map((chip) => chip.textContent.replace(/ ×$/, ""));
   if (appDocument.settings.filters.query) filterLabels.unshift(`Búsqueda: ${appDocument.settings.filters.query}`);
-  canvasText(context, filterLabels.length ? `Filtros: ${filterLabels.join(" · ")}` : "Vista completa", 34, 142, 1250, { font: "17px Arial", color: "#465148" });
-  canvasText(context, `Generado ${timestampLabel(new Date().toISOString())}`, 1290, 142, 350, { font: "15px Arial", color: "#69736b" });
+  canvasText(context, filterLabels.length ? `Filtros: ${filterLabels.join(" · ")}` : "Vista completa", 34, 142, 1250, { font: "17px Arial", color: palette.meta });
+  canvasText(context, `Generado ${timestampLabel(new Date().toISOString())}`, 1290, 142, 350, { font: "15px Arial", color: palette.meta });
 
   const columnWidth = logicalWidth / 7;
   const weekdays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-  context.fillStyle = "#e4ebe0";
+  context.fillStyle = palette.weekday;
   context.fillRect(0, headerHeight, logicalWidth, weekdayHeight);
   weekdays.forEach((label, index) => {
-    canvasText(context, label, index * columnWidth + 14, headerHeight + 31, columnWidth - 28, { font: "18px Arial", bold: true });
+    canvasText(context, label, index * columnWidth + 14, headerHeight + 31, columnWidth - 28, { font: "18px Arial", color: palette.text, bold: true });
   });
   const holidayMap = holidayMapForYears([...new Set(dates.map((date) => Number(date.slice(0, 4))))], appDocument.holidayOverrides);
   let y = headerHeight + weekdayHeight;
@@ -2387,32 +2432,32 @@ async function exportCurrentMonthImage() {
       const date = dates[week * 7 + dayIndex];
       const x = dayIndex * columnWidth;
       const holiday = holidayMap.get(date);
-      context.fillStyle = dayOfWeek(date) === 0 || holiday ? "#fff0e7" : "#ffffff";
-      if (Number(date.slice(5, 7)) !== month) context.fillStyle = "#eef1ed";
+      context.fillStyle = dayOfWeek(date) === 0 || holiday ? palette.nonWorking : palette.day;
+      if (Number(date.slice(5, 7)) !== month) context.fillStyle = palette.outside;
       context.fillRect(x, y, columnWidth, height);
-      context.strokeStyle = "#cfd8cf";
+      context.strokeStyle = palette.grid;
       context.strokeRect(x, y, columnWidth, height);
-      canvasText(context, String(Number(date.slice(8, 10))), x + 12, y + 28, 40, { font: "18px Arial", bold: true });
-      if (holiday) canvasText(context, holiday.name, x + 48, y + 27, columnWidth - 60, { font: "13px Arial", color: "#9a4e1e" });
+      canvasText(context, String(Number(date.slice(8, 10))), x + 12, y + 28, 40, { font: "18px Arial", color: palette.text, bold: true });
+      if (holiday) canvasText(context, holiday.name, x + 48, y + 27, columnWidth - 60, { font: "13px Arial", color: palette.holiday });
       let cardY = y + 42;
       for (const activity of byDate.get(date) ?? []) {
         const client = maps.clients.get(activity.clientId);
         const site = maps.sites.get(activity.siteId);
         const visual = responsibleVisualClass(activity, maps);
         const colors = visual === "contractor"
-          ? ["#fff0e4", "#ed7d31"]
+          ? [darkExport ? "#4a3022" : "#fff0e4", "#ed7d31"]
           : visual === "mixed"
-            ? ["#f7eee6", "#8e6651"]
+            ? [darkExport ? "#3c3029" : "#f7eee6", "#a87c63"]
             : visual === "unassigned"
-              ? ["#f0f1ef", "#8b928b"]
-              : ["#e6f1ef", "#477d77"];
+              ? [darkExport ? "#303630" : "#f0f1ef", "#8b928b"]
+              : [darkExport ? "#223b38" : "#e6f1ef", "#58a29a"];
         context.globalAlpha = ["completed", "cancelled"].includes(activity.status) ? 0.55 : 1;
         context.fillStyle = colors[0];
         context.fillRect(x + 8, cardY, columnWidth - 16, 46);
         context.fillStyle = colors[1];
         context.fillRect(x + 8, cardY, 5, 46);
-        canvasText(context, client?.name || SERVICE_TYPES[activity.serviceType], x + 20, cardY + 18, columnWidth - 36, { font: "14px Arial", bold: true });
-        canvasText(context, `${site?.name || activity.city || ""} · ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 37, columnWidth - 36, { font: "12px Arial", color: "#566057" });
+        canvasText(context, client?.name || SERVICE_TYPES[activity.serviceType], x + 20, cardY + 18, columnWidth - 36, { font: "14px Arial", color: palette.text, bold: true });
+        canvasText(context, `${site?.name || activity.city || ""} · ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 37, columnWidth - 36, { font: "12px Arial", color: palette.secondary });
         context.globalAlpha = 1;
         cardY += 54;
       }
@@ -2835,6 +2880,8 @@ function bindEvents() {
   });
   dom.helpButton.addEventListener("click", () => openDialog("helpDialog"));
   dom.calendarSettingsButton.addEventListener("click", openCalendarSettingsDialog);
+  dom.themeButton.addEventListener("click", openThemeDialog);
+  dom.themeForm.addEventListener("submit", handleThemeSubmit);
   dom.resetDataButton.addEventListener("click", openResetDataDialog);
   dom.resetDataForm.addEventListener("submit", handleResetDataSubmit);
   dom.dropMoveButton.addEventListener("click", () => applyPendingDrop("move"));
@@ -2971,6 +3018,9 @@ function bindEvents() {
       openActivityDialog({ date: appDocument.settings.currentDate });
     }
   });
+  systemThemeQuery?.addEventListener("change", () => {
+    if (themePreference() === "system") applyThemePreference();
+  });
   window.addEventListener("beforeunload", () => {
     if (saveTimer && storageAvailable) {
       clearTimeout(saveTimer);
@@ -3018,6 +3068,7 @@ async function initialize() {
   initializeStaticOptions();
   bindEvents();
   applyCatalogPreference();
+  applyThemePreference();
   appDocument = await loadInitialDocument();
   if (storageAvailable) {
     await initializeEditLock();

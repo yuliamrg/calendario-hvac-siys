@@ -1,5 +1,20 @@
 # Historial de cambios
 
+## [0.7.0] - 2026-07-30
+
+### Añadido
+
+- Temas Claro, Oscuro y Sistema con respuesta en vivo a la preferencia del
+  navegador.
+- Preferencia visual separada por canal y excluida del documento operativo.
+- Exportación PNG acorde con el tema activo.
+
+### Accesibilidad
+
+- Colores oscuros específicos para calendario, tarjetas, formularios,
+  diálogos y estados de interacción.
+- Impresión forzada a presentación clara.
+
 ## [0.6.0] - 2026-07-30
 
 ### Añadido
