@@ -52,3 +52,6 @@ La auditoría falla si detecta:
 5. Esperar CI y despliegue Pages.
 6. Ejecutar el smoke test sobre la URL de producción.
 7. Crear la etiqueta de versión únicamente después del smoke de producción.
+
+El smoke reproducible está en `tests/pages_smoke.py` y recibe `--url`,
+`--local-html` y una carpeta opcional `--artifacts`.
