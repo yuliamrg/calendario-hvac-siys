@@ -148,7 +148,7 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 - [x] Limitar la cabecera móvil a Nueva actividad, Ver mes y Más.
 - [x] Agrupar Banco, Gestionar, Compartir y Configuración dentro de Más.
 - [x] Ejecutar aceptación final local y en Pages.
-- [ ] Etiquetar y promover `v0.9.0` a estable.
+- [x] Etiquetar y promover `v0.9.0` a estable.
 
 ### Evidencia de aceptación `v0.9.0`
 
