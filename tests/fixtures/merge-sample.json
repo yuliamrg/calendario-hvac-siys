@@ -1,0 +1,52 @@
+{
+  "format": "calendario-hvac-siys-backup",
+  "formatVersion": 1,
+  "exportedAt": "2026-07-30T18:00:00.000Z",
+  "appVersion": "0.6.0",
+  "origin": "prueba automatizada",
+  "channel": "local",
+  "revision": 1,
+  "document": {
+    "schemaVersion": 3,
+    "appVersion": "0.6.0",
+    "calendarMeta": {
+      "id": "fixture",
+      "name": "Fixture de combinación",
+      "coordinator": "QA",
+      "revision": 1,
+      "createdAt": "2026-07-30T18:00:00.000Z",
+      "updatedAt": "2026-07-30T18:00:00.000Z"
+    },
+    "catalog": {
+      "cities": [],
+      "clients": [],
+      "sites": [],
+      "responsibles": []
+    },
+    "activities": [
+      {
+        "id": "actividad_fixture_merge",
+        "seriesId": null,
+        "date": "2026-07-30",
+        "clientId": null,
+        "siteId": null,
+        "city": null,
+        "responsibleIds": [],
+        "serviceType": "administrative",
+        "status": "scheduled",
+        "observations": "QA combinación JSON",
+        "createdAt": "2026-07-30T18:00:00.000Z",
+        "updatedAt": "2026-07-30T18:00:00.000Z",
+        "completedAt": null,
+        "history": []
+      }
+    ],
+    "series": [],
+    "settings": {
+      "currentDate": "2026-07-30",
+      "filters": {}
+    },
+    "holidayOverrides": [],
+    "audit": []
+  }
+}

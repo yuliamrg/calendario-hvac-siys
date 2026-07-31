@@ -64,12 +64,12 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 ### Versión 0.6.0 — combinación JSON y canales
 
-- [ ] Añadir JSON con vista previa sin reemplazar el cronograma actual.
-- [ ] Migrar el documento de esquema 2 a esquema 3.
-- [ ] Resolver equivalencias y conflictos por `updatedAt`.
-- [ ] Aislar IndexedDB entre estable y beta.
-- [ ] Publicar simultáneamente estable y `/beta/`.
-- [ ] Ejecutar pruebas, actualizar documentación y etiquetar `v0.6.0`.
+- [x] Añadir JSON con vista previa sin reemplazar el cronograma actual.
+- [x] Migrar el documento de esquema 2 a esquema 3.
+- [x] Resolver equivalencias y conflictos por `updatedAt`.
+- [x] Aislar IndexedDB entre estable y beta.
+- [x] Publicar simultáneamente estable y `/beta/`.
+- [x] Ejecutar pruebas, actualizar documentación y etiquetar `v0.6.0`.
 
 ### Versión 0.7.0 — modo oscuro
 
@@ -99,3 +99,8 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   `229E9E94E8A462D2337D437218CD74F943528A3F2699D5B44C6374874443EDE8`.
   Aceptación interactiva: cabecera de 56 px, banco colapsable con scroll,
   creación por día, menús, favicon y consola sin errores.
+- v0.6.0: PR #9, 40 pruebas, CI y despliegue dual aprobados. Estable conservó
+  v0.5.0 durante la prueba beta; `/beta/` coincidió con el HTML v0.6.0.
+  Smoke aislado: bases estable/beta separadas, combinación JSON aplicada y
+  deshecha, respaldo portable, restauración limpia y cero solicitudes de red
+  después de cargar.
