@@ -32,7 +32,7 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 - [x] Incorporar integración continua y auditoría autocontenida.
 - [x] Desplegar GitHub Pages desde `main` mediante GitHub Actions.
 - [x] Verificar persistencia local, separación de orígenes y portabilidad JSON.
-- [ ] Ejecutar la auditoría final y etiquetar `v0.4.0`.
+- [x] Ejecutar la auditoría final y etiquetar `v0.4.0`.
 
 ## Evidencia de cierre
 
@@ -44,3 +44,5 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   `https://yuliamrg.github.io/calendario-hvac-siys/`.
 - Producción: persistencia tras recarga, segunda pestaña en lectura, separación
   `https://`/`file://`, portabilidad JSON y restauración en contexto limpio.
+- Cierre: PR #4 conserva el smoke reproducible; PR #5 prueba y persiste la
+  recuperación desde `recovery` cuando `current` está corrupto.
