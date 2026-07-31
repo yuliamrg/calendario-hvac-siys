@@ -115,6 +115,7 @@
             <h2>Catálogo</h2>
           </div>
           <button class="icon-button" id="newCatalogButton" type="button" aria-label="Agregar registro al catálogo">＋</button>
+          <button class="icon-button mobile-only" id="closeCatalogMobileButton" type="button" aria-label="Cerrar banco de tarjetas">×</button>
         </div>
         <div class="segmented" role="tablist" aria-label="Tipo de catálogo">
           <button class="segment active" id="sitesTab" type="button" role="tab" aria-selected="true" data-tab="sites">Clientes y sedes</button>
@@ -145,6 +146,17 @@
           <div>Domingo</div>
         </div>
         <div class="calendar-grid" id="calendarGrid" data-testid="calendar-grid"></div>
+        <section class="mobile-agenda" id="mobileAgenda" aria-labelledby="mobileAgendaTitle">
+          <header class="mobile-agenda-header">
+            <div>
+              <p class="eyebrow">Agenda seleccionada</p>
+              <h2 id="mobileAgendaTitle">Día</h2>
+              <p id="mobileAgendaMeta"></p>
+            </div>
+            <button class="button primary" id="mobileAgendaAddButton" type="button">＋ Agregar</button>
+          </header>
+          <div class="mobile-agenda-list" id="mobileAgendaList"></div>
+        </section>
       </section>
 
       <aside class="detail-drawer" id="detailDrawer" aria-labelledby="drawerTitle" aria-hidden="true" inert>
@@ -295,6 +307,26 @@
       </div>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="dropActionDialog">Cancelar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="activityDateActionDialog" aria-labelledby="activityDateActionDialogTitle">
+    <form id="activityDateActionForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Alternativa táctil</p><h2 id="activityDateActionDialogTitle">Organizar actividad</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="activityDateActionDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p id="activityDateActionSummary"></p>
+      <label><span>Fecha de destino</span><input id="activityDateActionDate" type="date" required></label>
+      <div class="warning-list" id="activityDateActionWarning" hidden></div>
+      <div class="drop-actions">
+        <button class="button primary" id="touchMoveButton" type="button">Mover</button>
+        <button class="button" id="touchDuplicateButton" type="button">Duplicar</button>
+        <button class="button" id="touchExtendButton" type="button">Ampliar</button>
+      </div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="activityDateActionDialog">Cancelar</button>
       </footer>
     </form>
   </dialog>
@@ -626,6 +658,7 @@
         <li>Arrastra un cliente o sede a una fecha, o usa <strong>Nueva actividad</strong>.</li>
         <li>Haz clic en una tarjeta para ver todos sus datos y cambiar su estado.</li>
         <li>Usa la casilla de cada tarjeta para seleccionar y mover varias a la vez.</li>
+        <li>En pantalla táctil, usa <strong>Mover · Duplicar · Ampliar</strong> desde el detalle.</li>
         <li>Combina filtros de ciudad, cliente, sede, responsable, servicio y estado.</li>
         <li>Descarga la vista filtrada como PNG o usa la plantilla Excel para una carga masiva.</li>
         <li>Descarga un respaldo JSON con regularidad.</li>

@@ -52,6 +52,11 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
 - Al arrastrar una tarjeta a otro día puede **Mover**, **Duplicar** o
   **Ampliar**. Ampliar conserva tarjetas diarias independientes, pero enlaza
   sus datos comunes. Soltar en el mismo día no genera cambios.
+- En teléfono y tablet vertical, el mes compacto se complementa con una agenda
+  del día. El detalle ofrece alternativas táctiles para Mover, Duplicar,
+  Ampliar, Editar y Cambiar estado sin depender del arrastre.
+- En tablet horizontal y escritorio se conserva el tablero completo; los temas
+  Claro, Oscuro y Sistema funcionan en todos los tamaños.
 - El banco se puede ocultar y tiene desplazamiento propio.
 - Domingos y festivos se excluyen inicialmente de los rangos; la vista previa
   permite incluir fechas específicas.

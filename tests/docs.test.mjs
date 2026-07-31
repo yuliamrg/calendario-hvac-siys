@@ -34,7 +34,10 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
     "Tema",
     "Oscuro",
     "Sistema",
-    "impresión"
+    "impresión",
+    "Teléfonos y tabletas",
+    "alternativas táctiles",
+    "899 px"
   ]) {
     assert.match(manual, new RegExp(required, "i"));
   }

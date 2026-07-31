@@ -99,6 +99,8 @@ let pendingMerge = null;
 let pendingProgrammingImport = null;
 let dragContext = null;
 let pendingDrop = null;
+let pendingTouchActivityId = null;
+let mobileAgendaDate = null;
 let undoSnapshot = null;
 let forcedRangeDates = new Set();
 let storageAvailable = true;
@@ -110,6 +112,7 @@ const EDIT_LOCK_HEARTBEAT_MS = 5000;
 const EDIT_LOCK_STALE_MS = 15000;
 const UI_PREFERENCES_KEY = `siys-sync-ui:${RUNTIME_CHANNEL}`;
 const systemThemeQuery = window.matchMedia?.("(prefers-color-scheme: dark)") ?? null;
+const compactLayoutQuery = window.matchMedia?.("(max-width: 899px)") ?? null;
 const editChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(`calendario-hvac-siys-edit-lock-${RUNTIME_CHANNEL}`)
   : null;
@@ -134,13 +137,25 @@ function updateUiPreferences(patch) {
 }
 
 function applyCatalogPreference() {
+  if (compactLayoutQuery?.matches) {
+    const open = document.body.classList.contains("catalog-mobile-open");
+    dom.toggleCatalogButton.setAttribute("aria-expanded", String(open));
+    dom.toggleCatalogButton.textContent = open ? "Cerrar banco" : "Banco";
+    return;
+  }
   const collapsed = readUiPreferences().catalogCollapsed === true;
+  document.body.classList.remove("catalog-mobile-open");
   document.body.classList.toggle("catalog-collapsed", collapsed);
   dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
   dom.toggleCatalogButton.textContent = collapsed ? "Mostrar banco" : "Ocultar banco";
 }
 
 function toggleCatalog() {
+  if (compactLayoutQuery?.matches) {
+    document.body.classList.toggle("catalog-mobile-open");
+    applyCatalogPreference();
+    return;
+  }
   const collapsed = !document.body.classList.contains("catalog-collapsed");
   updateUiPreferences({ catalogCollapsed: collapsed });
   applyCatalogPreference();
@@ -1131,6 +1146,38 @@ function buildActivityCard(activity, maps) {
   return card;
 }
 
+function selectMobileAgendaDate(date) {
+  mobileAgendaDate = date;
+  appDocument.settings.currentDate = date;
+  renderCalendar();
+  scheduleSave();
+}
+
+function renderMobileAgenda(date, items, maps, holiday) {
+  mobileAgendaDate = date;
+  dom.mobileAgendaTitle.textContent = formatDisplayDate(date, { weekday: "long" });
+  dom.mobileAgendaMeta.textContent = [
+    holiday?.name,
+    `${items.length} actividad${items.length === 1 ? "" : "es"} visible${items.length === 1 ? "" : "s"}`
+  ].filter(Boolean).join(" · ");
+  dom.mobileAgendaAddButton.disabled = !hasEditControl;
+  const fragment = document.createDocumentFragment();
+  if (!items.length) {
+    const empty = createElement("div", "mobile-agenda-empty");
+    empty.append(
+      createElement("strong", "", "No hay actividades en este día"),
+      createElement("p", "", "Selecciona otra fecha o agrega una nueva actividad.")
+    );
+    fragment.append(empty);
+  }
+  for (const activity of items) {
+    const card = buildActivityCard(activity, maps);
+    card.draggable = false;
+    fragment.append(card);
+  }
+  dom.mobileAgendaList.replaceChildren(fragment);
+}
+
 function renderCalendar() {
   const { year, month } = currentMonthParts();
   dom.monthTitle.textContent = formatMonthTitle(year, month);
@@ -1160,6 +1207,11 @@ function renderCalendar() {
       ? appDocument.settings.currentDate
       : gridDates.find((date) => Number(date.slice(5, 7)) === month) ?? gridDates[0];
   calendarFocusDate = preferredFocusDate;
+  const agendaDate = gridDates.includes(mobileAgendaDate)
+    ? mobileAgendaDate
+    : gridDates.includes(appDocument.settings.currentDate)
+      ? appDocument.settings.currentDate
+      : preferredFocusDate;
   for (const date of gridDates) {
     const day = Number(date.slice(8, 10));
     const weekday = dayOfWeek(date);
@@ -1173,6 +1225,7 @@ function renderCalendar() {
     if (weekday === 0) cell.classList.add("sunday");
     if (holiday?.occurrences?.length || holiday?.manualClosure) cell.classList.add("holiday");
     if (date === today) cell.classList.add("today");
+    if (date === agendaDate) cell.classList.add("agenda-selected");
 
     const header = createElement("div", "day-header");
     const number = createElement("button", "day-number", String(day));
@@ -1219,6 +1272,12 @@ function renderCalendar() {
 
     const cardContainer = createElement("div", "day-cards");
     const items = activitiesByDate.get(date) ?? [];
+    if (items.length) {
+      const count = createElement("span", "mobile-day-count", String(items.length));
+      count.title = `${items.length} actividad${items.length === 1 ? "" : "es"}`;
+      count.setAttribute("aria-label", count.title);
+      header.append(count);
+    }
     for (const activity of items.slice(0, MAX_VISIBLE_CARDS)) {
       cardContainer.append(buildActivityCard(activity, maps));
     }
@@ -1241,13 +1300,27 @@ function renderCalendar() {
     });
     cell.addEventListener("drop", (event) => handleCalendarDrop(event, date, holidays));
     cell.addEventListener("click", (event) => {
-      if (!hasEditControl) return;
       if (event.target.closest("button, input, .activity-card")) return;
+      if (compactLayoutQuery?.matches) {
+        selectMobileAgendaDate(date);
+        return;
+      }
+      if (!hasEditControl) return;
       openActivityDialog({ date });
     });
     fragment.append(cell);
   }
   dom.calendarGrid.replaceChildren(fragment);
+  if (compactLayoutQuery?.matches) {
+    renderMobileAgenda(
+      agendaDate,
+      activitiesByDate.get(agendaDate) ?? [],
+      maps,
+      holidays.get(agendaDate)
+    );
+  } else {
+    dom.mobileAgendaList.replaceChildren();
+  }
 }
 
 function handleCalendarDrop(event, date, holidayMap) {
@@ -1327,6 +1400,55 @@ function applyPendingDrop(action) {
   } catch (error) {
     showToast(error.message, { type: "error" });
   }
+}
+
+function updateActivityDateActionWarning() {
+  const activity = appDocument.activities.find((item) => item.id === pendingTouchActivityId);
+  const date = dom.activityDateActionDate.value;
+  if (!activity || !date) return;
+  const sameDate = activity.date === date;
+  dom.touchMoveButton.disabled = sameDate;
+  dom.touchExtendButton.disabled = sameDate;
+  const holidays = holidayMapForYears([Number(date.slice(0, 4))], appDocument.holidayOverrides);
+  const holiday = holidays.get(date);
+  if (sameDate) {
+    dom.activityDateActionWarning.textContent = "La fecha elegida ya pertenece a esta tarjeta. Puedes duplicarla, pero mover o ampliar no haría cambios.";
+    dom.activityDateActionWarning.hidden = false;
+  } else if (isNonWorkingDate(date, holidays)) {
+    dom.activityDateActionWarning.textContent = holiday?.name
+      ? `${holiday.name}. La operación requiere una decisión manual.`
+      : "La fecha elegida es domingo. La operación requiere una decisión manual.";
+    dom.activityDateActionWarning.hidden = false;
+  } else {
+    dom.activityDateActionWarning.hidden = true;
+  }
+}
+
+function openActivityDateActionDialog(activityId) {
+  const activity = appDocument.activities.find((item) => item.id === activityId);
+  if (!activity || !hasEditControl) return;
+  pendingTouchActivityId = activityId;
+  dom.activityDateActionSummary.textContent = `Actividad del ${formatDisplayDate(activity.date)}. Elige otra fecha y luego Mover, Duplicar o Ampliar.`;
+  dom.activityDateActionDate.value = addDaysISO(activity.date, 1);
+  updateActivityDateActionWarning();
+  openDialog("activityDateActionDialog");
+}
+
+function applyTouchDateAction(action) {
+  const activity = appDocument.activities.find((item) => item.id === pendingTouchActivityId);
+  const date = dom.activityDateActionDate.value;
+  if (!activity || !date) return;
+  const holidayMap = holidayMapForYears([Number(date.slice(0, 4))], appDocument.holidayOverrides);
+  pendingDrop = {
+    type: "activity",
+    activityIds: [activity.id],
+    anchorId: activity.id,
+    date,
+    holidayMap
+  };
+  pendingTouchActivityId = null;
+  closeDialog("activityDateActionDialog");
+  applyPendingDrop(action);
 }
 
 function toggleActivitySelection(activityId, force) {
@@ -1424,13 +1546,13 @@ function renderActivityDrawer(activityId) {
   const edit = createElement("button", "button small", "Editar tarjeta");
   edit.type = "button";
   edit.addEventListener("click", () => openActivityDialog({ activityId }));
-  const duplicate = createElement("button", "button small", "Duplicar");
-  duplicate.type = "button";
-  duplicate.addEventListener("click", () => openActivityDialog({ duplicateId: activityId, date: activity.date }));
+  const organize = createElement("button", "button small", "Mover · Duplicar · Ampliar");
+  organize.type = "button";
+  organize.addEventListener("click", () => openActivityDateActionDialog(activityId));
   const remove = createElement("button", "button small ghost", "Eliminar");
   remove.type = "button";
   remove.addEventListener("click", () => deleteActivity(activityId));
-  actions.append(edit, duplicate, remove);
+  actions.append(edit, organize, remove);
   body.append(actions);
 
   const statusEditor = createElement("div", "detail-item");
@@ -2825,6 +2947,7 @@ function changeVisibleMonth(delta) {
   const { year, month } = currentMonthParts();
   const date = new Date(Date.UTC(year, month - 1 + delta, 1));
   appDocument.settings.currentDate = toISODate(date);
+  mobileAgendaDate = appDocument.settings.currentDate;
   renderCalendar();
   renderHolidayDialogIfOpen();
   scheduleSave();
@@ -2863,6 +2986,14 @@ function bindEvents() {
   }));
   dom.importBaseButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.toggleCatalogButton.addEventListener("click", toggleCatalog);
+  dom.closeCatalogMobileButton.addEventListener("click", () => {
+    document.body.classList.remove("catalog-mobile-open");
+    applyCatalogPreference();
+    dom.toggleCatalogButton.focus();
+  });
+  dom.mobileAgendaAddButton.addEventListener("click", () => openActivityDialog({
+    date: mobileAgendaDate || appDocument.settings.currentDate || todayInBogota()
+  }));
   dom.emptyImportButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.backupButton.addEventListener("click", createBackup);
   dom.backupBannerButton.addEventListener("click", createBackup);
@@ -2887,6 +3018,11 @@ function bindEvents() {
   dom.dropMoveButton.addEventListener("click", () => applyPendingDrop("move"));
   dom.dropDuplicateButton.addEventListener("click", () => applyPendingDrop("duplicate"));
   dom.dropExtendButton.addEventListener("click", () => applyPendingDrop("extend"));
+  dom.activityDateActionForm.addEventListener("submit", (event) => event.preventDefault());
+  dom.activityDateActionDate.addEventListener("change", updateActivityDateActionWarning);
+  dom.touchMoveButton.addEventListener("click", () => applyTouchDateAction("move"));
+  dom.touchDuplicateButton.addEventListener("click", () => applyTouchDateAction("duplicate"));
+  dom.touchExtendButton.addEventListener("click", () => applyTouchDateAction("extend"));
   dom.calendarSettingsForm.addEventListener("submit", handleCalendarSettingsSubmit);
   dom.requestPersistenceButton.addEventListener("click", requestStoragePersistence);
   dom.takeControlButton.addEventListener("click", async () => {
@@ -2908,6 +3044,7 @@ function bindEvents() {
   dom.nextMonthButton.addEventListener("click", () => changeVisibleMonth(1));
   dom.todayButton.addEventListener("click", () => {
     appDocument.settings.currentDate = todayInBogota();
+    mobileAgendaDate = appDocument.settings.currentDate;
     renderCalendar();
     scheduleSave();
   });
@@ -3020,6 +3157,11 @@ function bindEvents() {
   });
   systemThemeQuery?.addEventListener("change", () => {
     if (themePreference() === "system") applyThemePreference();
+  });
+  compactLayoutQuery?.addEventListener("change", () => {
+    document.body.classList.remove("catalog-mobile-open");
+    applyCatalogPreference();
+    renderCalendar();
   });
   window.addEventListener("beforeunload", () => {
     if (saveTimer && storageAvailable) {
