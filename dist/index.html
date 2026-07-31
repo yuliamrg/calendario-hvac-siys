@@ -4826,6 +4826,20 @@ function writeStoredDocument(documentSnapshot) {
   });
 }
 
+function replaceCurrentDocument(documentSnapshot) {
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
+    transaction.objectStore(DOCUMENT_STORE).put({
+      key: "current",
+      savedAt: new Date().toISOString(),
+      document: documentSnapshot
+    });
+    transaction.oncomplete = resolve;
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error ?? new Error("No se pudo restaurar la copia recuperable."));
+  });
+}
+
 function scheduleSave({ immediate = false } = {}) {
   if (!storageAvailable || !hasEditControl) return Promise.resolve();
   setSaveIndicator("saving", "Guardando…");
@@ -7195,6 +7209,7 @@ async function loadInitialDocument() {
         const recovery = await readStoredDocument("recovery");
         if (recovery) {
           const recovered = sanitizeDocument(recovery);
+          await replaceCurrentDocument(recovered);
           showToast("Se recuperó la copia anterior porque el último guardado no era válido.", {
             duration: 9000
           });
