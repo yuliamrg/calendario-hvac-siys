@@ -28,7 +28,9 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
     "respaldo",
     "SIYS Sync",
     "Ampliar",
-    "REINICIAR"
+    "REINICIAR",
+    "Añadir desde JSON",
+    "beta"
   ]) {
     assert.match(manual, new RegExp(required, "i"));
   }

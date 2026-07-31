@@ -28,6 +28,7 @@ import {
   importDiff,
   isNonWorkingDate,
   makeId,
+  mergeBackupDocument,
   monthGridDates,
   moveActivities,
   normalizeKey,
@@ -51,7 +52,14 @@ import {
   parseProgrammingWorkbook
 } from "./importer.js";
 
-const DATABASE_NAME = "calendario-hvac-siys";
+const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
+  ? "beta"
+  : location.protocol === "file:"
+    ? "local"
+    : "stable";
+const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
+  ? "calendario-hvac-siys-beta"
+  : "calendario-hvac-siys";
 const DATABASE_VERSION = 1;
 const DOCUMENT_STORE = "documents";
 const MAX_VISIBLE_CARDS = 3;
@@ -87,6 +95,7 @@ let drawerReturnFocus = null;
 let calendarFocusDate = null;
 let pendingImport = null;
 let pendingRestore = null;
+let pendingMerge = null;
 let pendingProgrammingImport = null;
 let dragContext = null;
 let pendingDrop = null;
@@ -99,14 +108,9 @@ const tabId = crypto.randomUUID();
 const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
 const EDIT_LOCK_STALE_MS = 15000;
-const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
-  ? "beta"
-  : location.protocol === "file:"
-    ? "local"
-    : "stable";
 const UI_PREFERENCES_KEY = `siys-sync-ui:${RUNTIME_CHANNEL}`;
 const editChannel = "BroadcastChannel" in window
-  ? new BroadcastChannel("calendario-hvac-siys-edit-lock")
+  ? new BroadcastChannel(`calendario-hvac-siys-edit-lock-${RUNTIME_CHANNEL}`)
   : null;
 
 function clone(value) {
@@ -301,7 +305,7 @@ function renderAccessMode() {
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
-    "calendarSettingsButton", "importProgrammingButton", "resetDataButton"
+    "calendarSettingsButton", "importProgrammingButton", "resetDataButton", "mergeJsonButton"
   ];
   for (const id of guardedIds) {
     if (dom[id]) dom[id].disabled = !hasEditControl;
@@ -858,6 +862,7 @@ function renderSelectionBar() {
 }
 
 function runtimeMode() {
+  if (RUNTIME_CHANNEL === "beta") return "GitHub Pages BETA";
   return location.protocol === "https:" && /\.github\.io$/i.test(location.hostname)
     ? "GitHub Pages"
     : location.protocol === "file:"
@@ -1912,7 +1917,8 @@ function handleCatalogSubmit(event) {
     id,
     sourceKey: itemId ? undefined : `manual:${id}`,
     active: dom.catalogActive.checked,
-    source: itemId ? undefined : "manual"
+    source: itemId ? undefined : "manual",
+    updatedAt: new Date().toISOString()
   };
   let collection;
   let next;
@@ -2030,7 +2036,8 @@ function handleHolidaySubmit(event) {
     name: safeText(dom.overrideName.value, 120),
     reason: safeText(dom.overrideReason.value, 500),
     active: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
   const errors = validateHolidayOverride(override);
   if (appDocument.holidayOverrides.some((item) => item.active !== false && item.date === override.date)) {
@@ -2252,7 +2259,8 @@ async function createBackup() {
   const fileIdentity = normalizeKey(appDocument.calendarMeta.coordinator || appDocument.calendarMeta.name) || "cronograma";
   const envelope = createBackupEnvelope(appDocument, {
     exportedAt: appDocument.settings.lastBackupAt,
-    origin: `${runtimeMode()} · ${location.origin}`
+    origin: `${runtimeMode()} · ${location.origin}`,
+    channel: RUNTIME_CHANNEL
   });
   downloadBlob(
     JSON.stringify(envelope, null, 2),
@@ -2578,6 +2586,74 @@ function handleRestoreSubmit(event) {
   showToast("Respaldo restaurado correctamente.", { undo: true });
 }
 
+function renderMergeJsonPreview(parsed, result, file) {
+  const summary = createElement("div", "detail-grid");
+  summary.append(detailItem("Archivo", file.name));
+  summary.append(detailItem("Origen", parsed.channel || parsed.origin || "Desconocido"));
+  summary.append(detailItem("Cronograma importado", parsed.document.calendarMeta.name));
+  summary.append(detailItem("Revisión importada", String(parsed.document.calendarMeta.revision)));
+  dom.mergeJsonSummary.replaceChildren(summary);
+
+  const stats = [
+    [result.counts.added, "Nuevos"],
+    [result.counts.updated, "Actualizados"],
+    [result.counts.skipped, "Sin cambios"],
+    [result.counts.conflicts, "Conflictos"]
+  ];
+  dom.mergeJsonStats.replaceChildren(...stats.map(([value, label]) => {
+    const stat = createElement("div", "import-stat");
+    stat.append(createElement("strong", "", String(value)), createElement("span", "", label));
+    return stat;
+  }));
+
+  const messages = [...result.warnings];
+  if (parsed.channel && parsed.channel !== RUNTIME_CHANNEL) {
+    messages.unshift(`El respaldo proviene del canal ${parsed.channel} y se añadirá al canal ${RUNTIME_CHANNEL}.`);
+  }
+  dom.mergeJsonWarnings.hidden = messages.length === 0;
+  dom.mergeJsonWarnings.replaceChildren(...messages.map((message) => createElement("p", "", message)));
+  dom.applyMergeJsonButton.disabled = result.counts.added + result.counts.updated === 0;
+}
+
+async function handleMergeJsonFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  if (file.size > 25 * 1024 * 1024) {
+    showToast("El archivo supera el límite de 25 MB.", { type: "error" });
+    return;
+  }
+  try {
+    const parsed = parseBackup(JSON.parse(await file.text()));
+    const result = mergeBackupDocument(appDocument, parsed.document);
+    pendingMerge = { parsed, result };
+    renderMergeJsonPreview(parsed, result, file);
+    openDialog("mergeJsonDialog");
+  } catch (error) {
+    pendingMerge = null;
+    showToast(`No se pudo preparar la combinación: ${error.message}`, { type: "error", duration: 9000 });
+  }
+}
+
+function handleMergeJsonSubmit(event) {
+  event.preventDefault();
+  if (!pendingMerge) return;
+  const { result } = pendingMerge;
+  try {
+    mutate(
+      "backup_merged",
+      `${result.counts.added} registros añadidos y ${result.counts.updated} actualizados desde JSON`,
+      () => {
+        appDocument = result.document;
+      }
+    );
+    pendingMerge = null;
+    closeDialog("mergeJsonDialog");
+  } catch (error) {
+    showToast(`La combinación no se aplicó: ${error.message}`, { type: "error" });
+  }
+}
+
 function renderImportPreview(preview, parsed, file) {
   const fileSummary = createElement("div");
   fileSummary.append(createElement("strong", "", file.name));
@@ -2733,6 +2809,7 @@ function initializeStaticOptions() {
     ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label))
   );
   dom.versionLabel.textContent = `Versión ${APP_VERSION} · festivos ${HOLIDAY_RULESET_VERSION}`;
+  dom.betaBadge.hidden = RUNTIME_CHANNEL !== "beta";
 }
 
 function bindEvents() {
@@ -2745,6 +2822,7 @@ function bindEvents() {
   dom.backupButton.addEventListener("click", createBackup);
   dom.backupBannerButton.addEventListener("click", createBackup);
   dom.restoreButton.addEventListener("click", () => dom.restoreFileInput.click());
+  dom.mergeJsonButton.addEventListener("click", () => dom.mergeJsonFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
   dom.exportImageButton.addEventListener("click", () => {
     exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
@@ -2856,10 +2934,12 @@ function bindEvents() {
   dom.bulkEditField.addEventListener("change", renderBulkEditControls);
   dom.bulkEditMode.addEventListener("change", renderBulkEditControls);
   dom.restoreForm.addEventListener("submit", handleRestoreSubmit);
+  dom.mergeJsonForm.addEventListener("submit", handleMergeJsonSubmit);
   dom.programmingImportForm.addEventListener("submit", handleProgrammingImportSubmit);
   dom.importForm.addEventListener("submit", handleImportSubmit);
   dom.baseFileInput.addEventListener("change", handleBaseFile);
   dom.restoreFileInput.addEventListener("change", handleRestoreFile);
+  dom.mergeJsonFileInput.addEventListener("change", handleMergeJsonFile);
   dom.programmingFileInput.addEventListener("change", handleProgrammingFile);
 
   for (const button of document.querySelectorAll("[data-close-dialog]")) {

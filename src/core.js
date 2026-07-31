@@ -1,5 +1,5 @@
-export const APP_VERSION = "0.5.0";
-export const SCHEMA_VERSION = 2;
+export const APP_VERSION = "0.6.0";
+export const SCHEMA_VERSION = 3;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
 export const SERVICE_TYPES = Object.freeze({
@@ -472,6 +472,7 @@ export function createActivitiesFromRange(
   const series = hasRange ? {
     id: seriesId,
     createdAt: now,
+    updatedAt: now,
     originalStart: input.date,
     originalEnd: endDate
   } : null;
@@ -666,9 +667,13 @@ export function extendActivity(
     document.series.push({
       id: seriesId,
       createdAt: now,
+      updatedAt: now,
       originalStart: source.date,
       originalEnd: targetDate
     });
+  } else {
+    const series = document.series.find((item) => item.id === seriesId);
+    if (series) series.updatedAt = now;
   }
   if (document.activities.some((item) => item.seriesId === seriesId && item.date === targetDate)) {
     throw new TypeError("Esta actividad ya tiene una tarjeta en la fecha de destino.");
@@ -787,7 +792,8 @@ export function deleteActivities(document, activityIds) {
 
 export function createBackupEnvelope(document, {
   exportedAt = new Date().toISOString(),
-  origin = "local"
+  origin = "local",
+  channel = "local"
 } = {}) {
   const clean = sanitizeDocument(document);
   return {
@@ -796,6 +802,7 @@ export function createBackupEnvelope(document, {
     exportedAt,
     appVersion: APP_VERSION,
     origin: safeText(origin, 120) || "local",
+    channel: ["local", "stable", "beta"].includes(channel) ? channel : "local",
     revision: clean.calendarMeta.revision,
     document: clean
   };
@@ -810,6 +817,7 @@ export function parseBackup(raw, today = todayInBogota()) {
       envelope: true,
       exportedAt: safeText(raw.exportedAt, 80) || null,
       origin: safeText(raw.origin, 120) || "desconocido",
+      channel: ["local", "stable", "beta"].includes(raw.channel) ? raw.channel : null,
       revision: Number.isSafeInteger(raw.revision) && raw.revision >= 0 ? raw.revision : 0,
       document: sanitizeDocument(raw.document, today)
     };
@@ -819,6 +827,7 @@ export function parseBackup(raw, today = todayInBogota()) {
     envelope: false,
     exportedAt: null,
     origin: "respaldo heredado",
+    channel: null,
     revision: document.calendarMeta.revision,
     document
   };
@@ -1011,10 +1020,14 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
     throw new RangeError("El respaldo fue creado por una versión más reciente de la herramienta.");
   }
   const base = createDefaultDocument(today);
+  const legacyUpdatedAt = safeText(raw.calendarMeta?.updatedAt, 80) || base.calendarMeta.updatedAt;
   const rawOverrides = Array.isArray(raw.holidayOverrides)
-    ? raw.holidayOverrides.map((item) => keepAllowed(item, [
-      "id", "date", "name", "reason", "type", "active", "createdAt", "action"
-    ]))
+    ? raw.holidayOverrides.map((item) => ({
+      ...keepAllowed(item, [
+        "id", "date", "name", "reason", "type", "active", "createdAt", "updatedAt", "action"
+      ]),
+      updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt
+    }))
     : [];
   const overrideIds = new Set();
   const activeDates = new Set();
@@ -1045,26 +1058,30 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
       updatedAt: safeText(raw.calendarMeta?.updatedAt, 80) || base.calendarMeta.updatedAt
     },
     catalog: {
-      cities: Array.isArray(raw.catalog?.cities) ? raw.catalog.cities.map((item) => keepAllowed(item, [
-        "id", "sourceKey", "name", "zone", "active", "source"
-      ])) : [],
+      cities: Array.isArray(raw.catalog?.cities) ? raw.catalog.cities.map((item) => ({
+        ...keepAllowed(item, ["id", "sourceKey", "name", "zone", "active", "source", "updatedAt"]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt
+      })) : [],
       clients: Array.isArray(raw.catalog?.clients) ? raw.catalog.clients.map((item) => ({
-        ...keepAllowed(item, ["id", "sourceKey", "name", "active", "source"]),
+        ...keepAllowed(item, ["id", "sourceKey", "name", "active", "source", "updatedAt"]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt,
         aliases: cleanStringArray(item?.aliases, 160)
       })) : [],
       sites: Array.isArray(raw.catalog?.sites) ? raw.catalog.sites.map((item) => ({
         ...keepAllowed(item, [
           "id", "sourceKey", "clientId", "name", "city", "zone", "shoppingCenter", "address",
-          "entryConditions", "requiresApp", "active", "source"
+          "entryConditions", "requiresApp", "active", "source", "updatedAt"
         ]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt,
         aliases: cleanStringArray(item?.aliases, 160),
         coverageHints: cleanCoverageHints(item?.coverageHints)
       })) : [],
       responsibles: Array.isArray(raw.catalog?.responsibles) ? raw.catalog.responsibles.map((item) => ({
         ...keepAllowed(item, [
           "id", "sourceKey", "name", "initials", "company", "responsibleType", "baseCity",
-          "group", "heights", "courses", "active", "source", "favorite"
+          "group", "heights", "courses", "active", "source", "favorite", "updatedAt"
         ]),
+        updatedAt: safeText(item?.updatedAt, 80) || legacyUpdatedAt,
         coverage: cleanStringArray(item?.coverage, 160),
         aliases: cleanStringArray(item?.aliases, 160)
       })) : []
@@ -1079,8 +1096,11 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
       history: cleanHistory(item.history)
     })) : [],
     series: Array.isArray(raw.series) ? raw.series.map((item) => keepAllowed(item, [
-      "id", "createdAt", "originalStart", "originalEnd"
-    ])) : [],
+      "id", "createdAt", "updatedAt", "originalStart", "originalEnd"
+    ])).map((item) => ({
+      ...item,
+      updatedAt: safeText(item.updatedAt, 80) || legacyUpdatedAt
+    })) : [],
     settings: {
       ...base.settings,
       ...keepAllowed(raw.settings, [
@@ -1185,6 +1205,265 @@ export function buildMonthlyCsv(document, year, month) {
   ];
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   return "\uFEFF" + [header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+}
+
+function mergeComparable(record) {
+  if (!record || typeof record !== "object") return "";
+  const copy = structuredClone(record);
+  for (const field of ["id", "sourceKey", "createdAt", "updatedAt", "history"]) {
+    delete copy[field];
+  }
+  const canonical = (value) => {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.keys(value).sort().map((key) => [key, canonical(value[key])])
+      );
+    }
+    return value;
+  };
+  return JSON.stringify(canonical(copy));
+}
+
+function timestampValue(value) {
+  const parsed = Date.parse(String(value ?? ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mergeNaturalKey(collection, item) {
+  if (collection === "cities" || collection === "clients") {
+    return normalizeText(item.name);
+  }
+  if (collection === "sites") {
+    return [
+      item.clientId ?? "",
+      normalizeText(item.name),
+      normalizeText(item.city)
+    ].join("|");
+  }
+  if (collection === "responsibles") {
+    return [
+      normalizeText(item.name),
+      item.responsibleType ?? "",
+      normalizeText(item.company)
+    ].join("|");
+  }
+  if (collection === "holidayOverrides") {
+    return `${item.date}|${item.type ?? (item.action === "remove" ? "allow-scheduling" : "manual-closure")}`;
+  }
+  return "";
+}
+
+export function mergeBackupDocument(
+  currentRaw,
+  incomingRaw,
+  { now = new Date().toISOString() } = {}
+) {
+  const current = sanitizeDocument(currentRaw);
+  const incoming = sanitizeDocument(incomingRaw, current.settings.currentDate);
+  const document = structuredClone(current);
+  const counts = {
+    added: 0,
+    updated: 0,
+    skipped: 0,
+    conflicts: 0,
+    byCollection: {}
+  };
+  const warnings = [];
+  const details = [];
+  const maps = {
+    cities: new Map(),
+    clients: new Map(),
+    sites: new Map(),
+    responsibles: new Map(),
+    series: new Map()
+  };
+
+  const recordResult = (collection, result, label, reason = "") => {
+    counts[result] += 1;
+    counts.byCollection[collection] ??= { added: 0, updated: 0, skipped: 0, conflicts: 0 };
+    counts.byCollection[collection][result] += 1;
+    details.push({ collection, result, label: safeText(label, 240), reason: safeText(reason, 500) });
+  };
+
+  const mergeCollection = (
+    collection,
+    localItems,
+    incomingItems,
+    { transform = (item) => item, validate = () => null } = {}
+  ) => {
+    const mapping = maps[collection] ?? new Map();
+    for (const rawItem of incomingItems) {
+      const importedId = safeText(rawItem.id, 160);
+      const item = transform(structuredClone(rawItem));
+      const natural = mergeNaturalKey(collection, item);
+      let match = importedId
+        ? localItems.find((candidate) => candidate.id === importedId)
+        : null;
+      if (!match && item.sourceKey) {
+        match = localItems.find((candidate) => candidate.sourceKey === item.sourceKey);
+      }
+      if (!match && natural) {
+        match = localItems.find((candidate) => mergeNaturalKey(collection, candidate) === natural);
+      }
+      if (!match) {
+        match = localItems.find((candidate) => mergeComparable(candidate) === mergeComparable(item));
+      }
+
+      const validationError = validate(item, match);
+      if (validationError) {
+        recordResult(collection, "conflicts", item.name || item.date || importedId, validationError);
+        warnings.push(`${collection}: ${validationError}`);
+        continue;
+      }
+
+      if (!match) {
+        if (!item.id) item.id = makeId(collection.slice(0, -1) || "registro");
+        item.updatedAt = safeText(item.updatedAt, 80) || now;
+        localItems.push(item);
+        if (importedId) mapping.set(importedId, item.id);
+        recordResult(collection, "added", item.name || item.date || item.id);
+        continue;
+      }
+
+      if (importedId) mapping.set(importedId, match.id);
+      const candidate = { ...item, id: match.id };
+      if (mergeComparable(match) === mergeComparable(candidate)) {
+        recordResult(collection, "skipped", match.name || match.date || match.id, "Registro idéntico");
+        continue;
+      }
+      const incomingTime = timestampValue(item.updatedAt);
+      const currentTime = timestampValue(match.updatedAt);
+      if (incomingTime > currentTime) {
+        const index = localItems.indexOf(match);
+        localItems[index] = candidate;
+        recordResult(collection, "updated", match.name || match.date || match.id, "El registro importado es más reciente");
+      } else {
+        const reason = incomingTime === currentTime
+          ? "Misma fecha de actualización; se conservó el registro actual"
+          : "El registro actual es más reciente";
+        recordResult(collection, "conflicts", match.name || match.date || match.id, reason);
+      }
+    }
+    return mapping;
+  };
+
+  mergeCollection("cities", document.catalog.cities, incoming.catalog.cities);
+  mergeCollection("clients", document.catalog.clients, incoming.catalog.clients);
+  mergeCollection("sites", document.catalog.sites, incoming.catalog.sites, {
+    transform: (item) => ({
+      ...item,
+      clientId: maps.clients.get(item.clientId) ?? item.clientId
+    }),
+    validate: (item) => (
+      item.clientId && !document.catalog.clients.some((client) => client.id === item.clientId)
+        ? `No se encontró el cliente relacionado con la sede ${item.name || item.id}.`
+        : null
+    )
+  });
+  mergeCollection("responsibles", document.catalog.responsibles, incoming.catalog.responsibles);
+  mergeCollection("series", document.series, incoming.series);
+
+  mergeCollection(
+    "holidayOverrides",
+    document.holidayOverrides,
+    incoming.holidayOverrides,
+    {
+      validate: (item, match) => {
+        const collision = document.holidayOverrides.find((candidate) => (
+          candidate !== match &&
+          candidate.active !== false &&
+          item.active !== false &&
+          candidate.date === item.date
+        ));
+        return collision ? `Ya existe una excepción activa para ${item.date}.` : null;
+      }
+    }
+  );
+
+  const activityFingerprint = (activity) => mergeComparable({
+    ...activity,
+    seriesId: activity.seriesId ?? null,
+    responsibleIds: [...(activity.responsibleIds ?? [])].sort()
+  });
+  for (const rawActivity of incoming.activities) {
+    const importedId = safeText(rawActivity.id, 160);
+    const activity = {
+      ...structuredClone(rawActivity),
+      clientId: maps.clients.get(rawActivity.clientId) ?? rawActivity.clientId,
+      siteId: maps.sites.get(rawActivity.siteId) ?? rawActivity.siteId,
+      responsibleIds: (rawActivity.responsibleIds ?? []).map(
+        (id) => maps.responsibles.get(id) ?? id
+      ),
+      seriesId: maps.series.get(rawActivity.seriesId) ?? rawActivity.seriesId
+    };
+    let match = document.activities.find((candidate) => candidate.id === importedId);
+    if (!match) {
+      match = document.activities.find(
+        (candidate) => activityFingerprint(candidate) === activityFingerprint(activity)
+      );
+    }
+    const missing = [];
+    if (activity.clientId && !document.catalog.clients.some((item) => item.id === activity.clientId)) {
+      missing.push("cliente");
+    }
+    if (activity.siteId && !document.catalog.sites.some((item) => item.id === activity.siteId)) {
+      missing.push("sede");
+    }
+    if ((activity.responsibleIds ?? []).some(
+      (id) => !document.catalog.responsibles.some((item) => item.id === id)
+    )) {
+      missing.push("responsable");
+    }
+    if (activity.seriesId && !document.series.some((item) => item.id === activity.seriesId)) {
+      missing.push("serie");
+    }
+    const activityErrors = validateActivity(activity);
+    if (missing.length || activityErrors.length) {
+      const reason = [
+        missing.length ? `Faltan referencias: ${missing.join(", ")}` : "",
+        ...activityErrors
+      ].filter(Boolean).join(". ");
+      recordResult("activities", "conflicts", importedId || activity.date, reason);
+      warnings.push(`Actividad ${importedId || activity.date}: ${reason}`);
+      continue;
+    }
+    if (!match) {
+      document.activities.push(activity);
+      recordResult("activities", "added", activity.id);
+      continue;
+    }
+    if (activityFingerprint(match) === activityFingerprint(activity)) {
+      recordResult("activities", "skipped", match.id, "Actividad idéntica");
+      continue;
+    }
+    if (timestampValue(activity.updatedAt) > timestampValue(match.updatedAt)) {
+      const index = document.activities.indexOf(match);
+      document.activities[index] = { ...activity, id: match.id };
+      recordResult("activities", "updated", match.id, "La actividad importada es más reciente");
+    } else {
+      const reason = timestampValue(activity.updatedAt) === timestampValue(match.updatedAt)
+        ? "Misma fecha de actualización; se conservó la actividad actual"
+        : "La actividad actual es más reciente";
+      recordResult("activities", "conflicts", match.id, reason);
+    }
+  }
+
+  const usedSeries = new Set(document.activities.map((item) => item.seriesId).filter(Boolean));
+  document.series = document.series.filter((item) => usedSeries.has(item.id));
+  document.schemaVersion = SCHEMA_VERSION;
+  document.appVersion = APP_VERSION;
+  document.calendarMeta = structuredClone(current.calendarMeta);
+  document.settings = structuredClone(current.settings);
+  document.importMetadata = structuredClone(current.importMetadata);
+  document.audit = structuredClone(current.audit);
+
+  return {
+    document: sanitizeDocument(document, current.settings.currentDate),
+    counts,
+    warnings,
+    details
+  };
 }
 
 export function importDiff(existing, incoming, fields) {

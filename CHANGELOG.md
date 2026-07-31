@@ -1,5 +1,21 @@
 # Historial de cambios
 
+## [0.6.0] - 2026-07-30
+
+### Añadido
+
+- Operación **Añadir desde JSON** con vista previa, resolución por fecha y
+  aplicación atómica deshacible.
+- Esquema 3 con `updatedAt` por registro maestro, serie y excepción.
+- Canal beta en `/beta/`, aislado de la versión estable mediante IndexedDB.
+- Publicación dual: estable desde una etiqueta fijada y beta desde `main`.
+
+### Compatibilidad
+
+- Los documentos de esquema 1 y 2 se migran automáticamente.
+- Restaurar JSON continúa reemplazando el cronograma; añadir JSON nunca elimina
+  registros por ausencia.
+
 ## [0.5.0] - 2026-07-30
 
 ### Añadido

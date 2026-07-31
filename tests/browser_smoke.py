@@ -118,6 +118,7 @@ def launch_and_check(
         "calendarSettingsDialog",
         "dropActionDialog",
         "resetDataDialog",
+        "mergeJsonDialog",
         "helpDialog",
     ):
         labelled_by = page.locator(f"#{dialog_id}").get_attribute("aria-labelledby")
@@ -161,7 +162,7 @@ def launch_and_check(
     page.locator("#calendarSettingsForm button[type=submit]").click()
     wait_saved(page)
     identified_state = get_state(page)
-    assert identified_state["schemaVersion"] == 2
+    assert identified_state["schemaVersion"] == 3
     assert identified_state["calendarMeta"]["name"] == "Cronograma automatizado"
     assert identified_state["calendarMeta"]["coordinator"] == "Coordinación QA"
     assert identified_state["calendarMeta"]["revision"] == 1
@@ -561,7 +562,7 @@ def launch_and_check(
     wait_ready_state = page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
     assert wait_ready_state
     recovered_state = get_state(page)
-    assert recovered_state["schemaVersion"] == 2
+    assert recovered_state["schemaVersion"] == 3
     assert recovered_state["appVersion"] != "corrupta"
     assert recovered_state["calendarMeta"]["name"] == "Cronograma recuperado QA"
 

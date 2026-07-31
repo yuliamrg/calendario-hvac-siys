@@ -12,7 +12,10 @@ def get_state(page) -> dict | None:
     return page.evaluate(
         """
         async () => new Promise((resolve, reject) => {
-          const request = indexedDB.open("calendario-hvac-siys", 1);
+          const databaseName = location.pathname.includes("/beta/")
+            ? "calendario-hvac-siys-beta"
+            : "calendario-hvac-siys";
+          const request = indexedDB.open(databaseName, 1);
           request.onerror = () => reject(request.error);
           request.onsuccess = () => {
             const db = request.result;
@@ -44,6 +47,7 @@ def click_menu_action(page, button_id: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
+    parser.add_argument("--beta-url")
     parser.add_argument("--local-html", required=True, type=Path)
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
@@ -77,6 +81,8 @@ def main() -> None:
         page.on("request", lambda request: requests_after_load.append(request.url))
         expect(page.locator("#storageStatusTitle")).to_have_text("Datos guardados solamente en este navegador")
         expect(page.locator("#storageStatusText")).to_contain_text("Modo GitHub Pages")
+        if "/beta/" in args.url:
+            expect(page.locator("#betaBadge")).to_be_visible()
 
         page.locator("#newActivityButton").click()
         page.fill("#activityDate", "2026-07-30")
@@ -93,6 +99,25 @@ def main() -> None:
         requests_after_load.clear()
         persisted = get_state(page)
         assert persisted and persisted["activities"][0]["id"] == activity_id
+
+        if args.beta_url:
+            beta_page = context.new_page()
+            beta_page.goto(args.beta_url, wait_until="load")
+            wait_ready(beta_page)
+            expect(beta_page.locator("#betaBadge")).to_be_visible()
+            beta_state = get_state(beta_page)
+            assert not beta_state or len(beta_state["activities"]) == 0
+            beta_page.locator("#newActivityButton").click()
+            beta_page.fill("#activityDate", "2026-07-31")
+            beta_page.select_option("#activityServiceType", "administrative")
+            beta_page.fill("#activityObservations", "Persistencia BETA aislada")
+            beta_page.locator("#activityForm button[type=submit]").click()
+            wait_saved(beta_page)
+            assert len(get_state(beta_page)["activities"]) == 1
+            stable_after_beta = get_state(page)
+            assert stable_after_beta and len(stable_after_beta["activities"]) == 1
+            assert stable_after_beta["activities"][0]["id"] == activity_id
+            beta_page.close()
 
         second_page = context.new_page()
         second_page.goto(args.url, wait_until="load")
