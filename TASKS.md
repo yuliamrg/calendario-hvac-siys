@@ -81,10 +81,10 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 ### Versión 0.8.0 — responsive
 
-- [ ] Implementar tablero de escritorio, tablet y mes con agenda móvil.
-- [ ] Proporcionar alternativas táctiles a arrastrar y soltar.
-- [ ] Adaptar banco, cabecera, formularios y diálogos.
-- [ ] Verificar tamaños, orientaciones, zoom y exportación.
+- [x] Implementar tablero de escritorio, tablet y mes con agenda móvil.
+- [x] Proporcionar alternativas táctiles a arrastrar y soltar.
+- [x] Adaptar banco, cabecera, formularios y diálogos.
+- [x] Verificar tamaños, orientaciones, zoom y exportación.
 - [ ] Etiquetar y promover `v0.8.0`.
 
 ### Cierre del Goal
@@ -109,3 +109,9 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   persistente sin cambiar la revisión, Sistema detectado en entorno oscuro,
   PNG oscuro válido, impresión clara, cero solicitudes de red e inspección
   visual aprobada.
+- v0.8.0: PR #15, 40 pruebas y CI aprobados. Estable conservó v0.7.0 y
+  `/beta/` publicó v0.8.0. Smoke local y en Pages en 320×640, 390×844,
+  844×390, 768×1024, 1024×768 y 1440×900: sin desbordamiento horizontal,
+  agenda compacta o tablero según orientación, banco lateral y flujo táctil
+  Mover/Duplicar/Ampliar verificados. Chrome y Edge sin regresiones ni
+  solicitudes de red después de cargar.
