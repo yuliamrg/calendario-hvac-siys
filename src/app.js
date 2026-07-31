@@ -705,8 +705,10 @@ function renderBackupReminder() {
 }
 
 async function renderStorageStatus() {
+  const mode = runtimeMode();
+  dom.storageStatusTitle.textContent = "Datos guardados solamente en este navegador";
   if (!navigator.storage) {
-    dom.storageStatusText.textContent = "El navegador no informa el estado de protección. Mantén respaldos JSON frecuentes.";
+    dom.storageStatusText.textContent = `Modo ${mode}. El navegador no informa el estado de protección. Mantén respaldos JSON frecuentes.`;
     dom.requestPersistenceButton.hidden = true;
     return;
   }
@@ -720,15 +722,12 @@ async function renderStorageStatus() {
     const usageLabel = quota
       ? ` Uso aproximado: ${(used / 1024 / 1024).toFixed(1)} MB de ${(quota / 1024 / 1024).toFixed(0)} MB.`
       : "";
-    dom.storageStatusTitle.textContent = persisted
-      ? "Almacenamiento protegido por el navegador"
-      : "Datos locales del navegador";
     dom.storageStatusText.textContent = persisted
-      ? `El navegador concedió persistencia para este origen.${usageLabel}`
-      : `El navegador puede liberar estos datos bajo presión de espacio.${usageLabel} El respaldo JSON sigue siendo la copia portable.`;
+      ? `Modo ${mode}. El navegador concedió persistencia para este origen.${usageLabel}`
+      : `Modo ${mode}. El navegador puede liberar estos datos bajo presión de espacio.${usageLabel} El respaldo JSON sigue siendo la copia portable.`;
     dom.requestPersistenceButton.hidden = Boolean(persisted) || typeof navigator.storage.persist !== "function";
   } catch {
-    dom.storageStatusText.textContent = "No fue posible comprobar la protección. El respaldo JSON sigue siendo la copia portable.";
+    dom.storageStatusText.textContent = `Modo ${mode}. No fue posible comprobar la protección. El respaldo JSON sigue siendo la copia portable.`;
     dom.requestPersistenceButton.hidden = true;
   }
 }

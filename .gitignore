@@ -24,3 +24,8 @@ calendarios muestra/
 *.tmp
 *.bak
 *.backup.json
+calendario-hvac-*.json
+programacion-hvac-*.csv
+cronograma-hvac-*.png
+plantilla-programacion-hvac*.xlsx
+programacion-importar*.xlsx

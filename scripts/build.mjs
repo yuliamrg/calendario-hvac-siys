@@ -12,7 +12,8 @@ const paths = {
   license: resolve(root, "vendor", "LICENSE.txt"),
   notice: resolve(root, "vendor", "NOTICE.txt"),
   outputDir: resolve(root, "dist"),
-  output: resolve(root, "dist", "calendario-hvac-siys.html")
+  output: resolve(root, "dist", "calendario-hvac-siys.html"),
+  pagesOutput: resolve(root, "dist", "index.html")
 };
 
 const [template, css, core, importer, app, vendor, license, notice] = await Promise.all([
@@ -83,12 +84,16 @@ if (remainingMarkers.length || networkDependency) {
 }
 
 await mkdir(paths.outputDir, { recursive: true });
-await writeFile(paths.output, html, "utf8");
+await Promise.all([
+  writeFile(paths.output, html, "utf8"),
+  writeFile(paths.pagesOutput, html, "utf8")
+]);
 
 const size = Buffer.byteLength(html);
 console.log(JSON.stringify({
   status: "ok",
   output: paths.output,
+  pagesOutput: paths.pagesOutput,
   bytes: size,
   selfContained: true
 }, null, 2));

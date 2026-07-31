@@ -9,6 +9,11 @@ No requiere instalación, servidor ni conexión a internet. Se abre con doble
 clic en Chrome o Microsoft Edge y guarda la información en el perfil local del
 navegador mediante IndexedDB.
 
+También puede abrirse desde GitHub Pages. Esa opción sigue siendo estática: los
+datos se guardan en el navegador que abre el sitio y no se sincronizan. La
+versión local y la versión Pages usan almacenamientos separados; el respaldo
+JSON permite trasladar la programación entre ambas.
+
 ## Primer uso
 
 1. Abra `dist/calendario-hvac-siys.html`.
@@ -102,6 +107,7 @@ Requiere Node.js 20 o superior sólo para reconstruir el entregable:
 ```powershell
 npm test
 npm run build
+npm run audit
 ```
 
 El HTML incorpora localmente SheetJS Community Edition 0.20.3 para leer
@@ -113,3 +119,4 @@ Documentación:
 - [Manual completo](docs/MANUAL_DE_USO.md)
 - [Guía de Base Operativa](docs/BASE_OPERATIVA.md)
 - [Historial de cambios](CHANGELOG.md)
+- [Distribución y GitHub Pages](docs/DISTRIBUCION.md)
