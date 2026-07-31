@@ -4,6 +4,7 @@ import {
   ACTIVITY_STATUSES,
   APP_VERSION,
   SCHEMA_VERSION,
+  activityMatchesFilters,
   addDaysISO,
   applyBulkEdit,
   applyStatus,
@@ -21,6 +22,7 @@ import {
   mondayOnOrAfter,
   monthGridDates,
   moveActivities,
+  normalizeFilterArray,
   parseBackup,
   sanitizeDocument,
   startOfMondayWeek
@@ -495,4 +497,47 @@ test("la eliminación múltiple exige IDs existentes y devuelve lo eliminado", (
   assert.deepEqual(removed.map((item) => item.id), ["a1", "a3"]);
   assert.deepEqual(doc.activities.map((item) => item.id), ["a2"]);
   assert.throws(() => deleteActivities(doc, ["missing"]), /no existen/);
+});
+
+test("los filtros permiten OR dentro de una categoría y AND entre categorías", () => {
+  const maps = {
+    clients: new Map([["c1", { name: "Cliente Uno" }], ["c2", { name: "Cliente Dos" }]]),
+    sites: new Map([["s1", { name: "Sede Centro" }], ["s2", { name: "Sede Norte" }]]),
+    responsibles: new Map([["r1", { name: "Ana" }], ["r2", { name: "Carlos" }]])
+  };
+  const activities = [
+    { clientId: "c1", siteId: "s1", city: "Pereira", responsibleIds: ["r1"], serviceType: "preventive", status: "scheduled", observations: "" },
+    { clientId: "c2", siteId: "s2", city: "Armenia", responsibleIds: ["r2"], serviceType: "corrective", status: "completed", observations: "" }
+  ];
+  const filters = {
+    query: "",
+    cities: ["Pereira", "Armenia"],
+    clients: ["c1"],
+    sites: [],
+    responsibles: [],
+    serviceTypes: ["preventive", "emergency"],
+    statuses: []
+  };
+  assert.equal(activityMatchesFilters(activities[0], filters, maps), true);
+  assert.equal(activityMatchesFilters(activities[1], filters, maps), false);
+  filters.query = "ana";
+  assert.equal(activityMatchesFilters(activities[0], filters, maps), true);
+  filters.query = "norte";
+  assert.equal(activityMatchesFilters(activities[0], filters, maps), false);
+});
+
+test("la migración transforma filtros simples heredados en selecciones múltiples", () => {
+  assert.deepEqual(normalizeFilterArray(undefined, "completed"), ["completed"]);
+  assert.deepEqual(normalizeFilterArray(undefined, "all"), []);
+  const legacy = createDefaultDocument("2026-07-30");
+  legacy.settings.filters = {
+    query: "",
+    status: "completed",
+    serviceType: "preventive",
+    responsible: "r1"
+  };
+  const migrated = sanitizeDocument(legacy);
+  assert.deepEqual(migrated.settings.filters.statuses, ["completed"]);
+  assert.deepEqual(migrated.settings.filters.serviceTypes, ["preventive"]);
+  assert.deepEqual(migrated.settings.filters.responsibles, ["r1"]);
 });

@@ -7,6 +7,7 @@ import {
   SERVICE_TYPES,
   STATUS_SCOPES,
   SCHEMA_VERSION,
+  activityMatchesFilters,
   activityIdsForScope,
   addDaysISO,
   applyBulkEdit,
@@ -28,6 +29,7 @@ import {
   monthGridDates,
   moveActivities,
   normalizeKey,
+  normalizeFilterArray,
   normalizeText,
   parseISODate,
   parseBackup,
@@ -39,9 +41,12 @@ import {
   validateHolidayOverride
 } from "./core.js";
 import {
+  PROGRAMMING_COLUMNS,
+  applyProgrammingImport,
   applyParsedImport,
   buildImportPreview,
-  parseBaseWorkbook
+  parseBaseWorkbook,
+  parseProgrammingWorkbook
 } from "./importer.js";
 
 const DATABASE_NAME = "calendario-hvac-siys";
@@ -80,6 +85,7 @@ let drawerReturnFocus = null;
 let calendarFocusDate = null;
 let pendingImport = null;
 let pendingRestore = null;
+let pendingProgrammingImport = null;
 let dragContext = null;
 let undoSnapshot = null;
 let forcedRangeDates = new Set();
@@ -258,7 +264,7 @@ function renderAccessMode() {
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
-    "calendarSettingsButton"
+    "calendarSettingsButton", "importProgrammingButton"
   ];
   for (const id of guardedIds) {
     if (dom[id]) dom[id].disabled = !hasEditControl;
@@ -545,13 +551,8 @@ function activitySearchText(activity, maps = lookupMaps()) {
   ].filter(Boolean).join(" "));
 }
 
-function activityMatchesFilters(activity, maps) {
-  const filters = appDocument.settings.filters;
-  if (filters.status !== "all" && activity.status !== filters.status) return false;
-  if (filters.serviceType !== "all" && activity.serviceType !== filters.serviceType) return false;
-  if (filters.responsible !== "all" && !activity.responsibleIds.includes(filters.responsible)) return false;
-  const query = normalizeText(filters.query);
-  return !query || activitySearchText(activity, maps).includes(query);
+function matchesActivityFilters(activity, maps, filters = appDocument.settings.filters) {
+  return activityMatchesFilters(activity, filters, maps);
 }
 
 function responsibleVisualClass(activity, maps) {
@@ -566,33 +567,124 @@ function responsibleVisualClass(activity, maps) {
 }
 
 function renderFilters() {
-  const currentStatus = appDocument.settings.filters.status;
-  const currentService = appDocument.settings.filters.serviceType;
-  const currentResponsible = appDocument.settings.filters.responsible;
-  setChildren(
-    dom.statusFilter,
-    option("all", "Todos los estados"),
-    ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label))
-  );
-  setChildren(
-    dom.serviceFilter,
-    option("all", "Todos los servicios"),
-    ...Object.entries(SERVICE_TYPES).map(([value, label]) => option(value, label))
-  );
-  setChildren(
-    dom.responsibleFilter,
-    option("all", "Todos los responsables"),
-    ...appDocument.catalog.responsibles
-      .filter((item) => item.active !== false)
-      .sort((a, b) => a.name.localeCompare(b.name, "es"))
-      .map((item) => option(item.id, item.name))
-  );
-  dom.statusFilter.value = Object.hasOwn(ACTIVITY_STATUSES, currentStatus) ? currentStatus : "all";
-  dom.serviceFilter.value = Object.hasOwn(SERVICE_TYPES, currentService) ? currentService : "all";
-  dom.responsibleFilter.value = appDocument.catalog.responsibles.some((item) => item.id === currentResponsible)
-    ? currentResponsible
-    : "all";
   dom.globalSearch.value = appDocument.settings.filters.query ?? "";
+  const definitions = filterDefinitions();
+  const chips = document.createDocumentFragment();
+  let count = 0;
+  for (const definition of definitions) {
+    const selected = normalizeFilterArray(appDocument.settings.filters[definition.key]);
+    count += selected.length;
+    for (const value of selected) {
+      const label = definition.options.find((item) => item.value === value)?.label ?? value;
+      const chip = createElement("button", "filter-chip", `${definition.singular}: ${label} ×`);
+      chip.type = "button";
+      chip.addEventListener("click", () => {
+        appDocument.settings.filters[definition.key] = selected.filter((item) => item !== value);
+        renderAll();
+        scheduleSave();
+      });
+      chips.append(chip);
+    }
+  }
+  dom.filterChips.replaceChildren(chips);
+  dom.filterCount.textContent = String(count);
+  dom.clearFiltersButton.hidden = count === 0 && !appDocument.settings.filters.query;
+}
+
+function filterDefinitions() {
+  const uniqueCities = [...new Set([
+    ...appDocument.catalog.cities.map((item) => item.name),
+    ...appDocument.catalog.sites.map((item) => item.city),
+    ...appDocument.activities.map((item) => item.city)
+  ].filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  return [
+    { key: "cities", title: "Ciudades", singular: "Ciudad", options: uniqueCities.map((value) => ({ value, label: value })) },
+    {
+      key: "clients", title: "Clientes", singular: "Cliente",
+      options: appDocument.catalog.clients.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
+    },
+    {
+      key: "sites", title: "Sedes", singular: "Sede",
+      options: appDocument.catalog.sites.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
+    },
+    {
+      key: "responsibles", title: "Responsables", singular: "Responsable",
+      options: appDocument.catalog.responsibles.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
+    },
+    {
+      key: "serviceTypes", title: "Tipos de servicio", singular: "Servicio",
+      options: Object.entries(SERVICE_TYPES).map(([value, label]) => ({ value, label }))
+    },
+    {
+      key: "statuses", title: "Estados", singular: "Estado",
+      options: Object.entries(ACTIVITY_STATUSES).map(([value, label]) => ({ value, label }))
+    }
+  ].map((definition) => ({
+    ...definition,
+    options: definition.options.sort((a, b) => a.label.localeCompare(b.label, "es"))
+  }));
+}
+
+function renderFilterDialog() {
+  const maps = lookupMaps();
+  const fragment = document.createDocumentFragment();
+  for (const definition of filterDefinitions()) {
+    const section = createElement("fieldset", "filter-group");
+    section.append(createElement("legend", "", definition.title));
+    const selected = new Set(normalizeFilterArray(appDocument.settings.filters[definition.key]));
+    for (const item of definition.options) {
+      const candidateFilters = clone(appDocument.settings.filters);
+      candidateFilters[definition.key] = [item.value];
+      const matches = appDocument.activities.filter((activity) =>
+        matchesActivityFilters(activity, maps, candidateFilters)
+      ).length;
+      const label = createElement("label", "check-row");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = `filter-${definition.key}`;
+      input.value = item.value;
+      input.checked = selected.has(item.value);
+      input.disabled = matches === 0 && !input.checked;
+      label.append(input, createElement("span", "", `${item.label} (${matches})`));
+      section.append(label);
+    }
+    if (!definition.options.length) section.append(createElement("p", "field-note", "Sin opciones disponibles."));
+    fragment.append(section);
+  }
+  dom.filterGrid.replaceChildren(fragment);
+}
+
+function openFilterDialog() {
+  renderFilterDialog();
+  openDialog("filterDialog");
+}
+
+function clearAllFilters({ close = false } = {}) {
+  appDocument.settings.filters = {
+    ...appDocument.settings.filters,
+    query: "",
+    cities: [],
+    clients: [],
+    sites: [],
+    responsibles: [],
+    serviceTypes: [],
+    statuses: []
+  };
+  if (close) closeDialog("filterDialog");
+  renderAll();
+  scheduleSave();
+}
+
+function handleFilterSubmit(event) {
+  event.preventDefault();
+  for (const definition of filterDefinitions()) {
+    appDocument.settings.filters[definition.key] = [
+      ...dom.filterGrid.querySelectorAll(`input[name="filter-${definition.key}"]:checked`)
+    ].map((input) => input.value);
+  }
+  closeDialog("filterDialog");
+  renderAll();
+  scheduleSave();
 }
 
 function renderBackupReminder() {
@@ -936,7 +1028,7 @@ function renderCalendar() {
   const maps = lookupMaps();
   const activitiesByDate = new Map();
   for (const activity of appDocument.activities) {
-    if (!activityMatchesFilters(activity, maps)) continue;
+    if (!matchesActivityFilters(activity, maps)) continue;
     const items = activitiesByDate.get(activity.date) ?? [];
     items.push(activity);
     activitiesByDate.set(activity.date, items);
@@ -2023,6 +2115,219 @@ function exportCurrentMonthCsv() {
   showToast(`CSV de ${formatMonthTitle(year, month)} descargado.`);
 }
 
+function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
+  context.font = `${bold ? "700 " : ""}${font}`;
+  context.fillStyle = color;
+  const value = safeText(text, 500);
+  if (context.measureText(value).width <= maxWidth) {
+    context.fillText(value, x, y);
+    return value;
+  }
+  let shortened = value;
+  while (shortened.length > 1 && context.measureText(`${shortened}…`).width > maxWidth) {
+    shortened = shortened.slice(0, -1);
+  }
+  context.fillText(`${shortened}…`, x, y);
+  return shortened;
+}
+
+async function exportCurrentMonthImage() {
+  const { year, month } = currentMonthParts();
+  const dates = monthGridDates(year, month);
+  const maps = lookupMaps();
+  const filtered = appDocument.activities.filter((activity) =>
+    dates.includes(activity.date) && matchesActivityFilters(activity, maps)
+  );
+  const byDate = new Map();
+  for (const activity of filtered) {
+    const list = byDate.get(activity.date) ?? [];
+    list.push(activity);
+    byDate.set(activity.date, list);
+  }
+  const weekHeights = Array.from({ length: 6 }, (_, week) => {
+    const maxCards = Math.max(...dates.slice(week * 7, week * 7 + 7).map((date) => byDate.get(date)?.length ?? 0));
+    return Math.max(150, 62 + maxCards * 54);
+  });
+  const logicalWidth = 1680;
+  const headerHeight = 180;
+  const weekdayHeight = 48;
+  const logicalHeight = headerHeight + weekdayHeight + weekHeights.reduce((sum, value) => sum + value, 0) + 40;
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = logicalWidth * scale;
+  canvas.height = logicalHeight * scale;
+  const context = canvas.getContext("2d");
+  context.scale(scale, scale);
+  context.fillStyle = "#f5f7f3";
+  context.fillRect(0, 0, logicalWidth, logicalHeight);
+  context.fillStyle = "#4f7d32";
+  context.fillRect(0, 0, logicalWidth, 112);
+  canvasText(context, appDocument.calendarMeta.name, 34, 48, 1050, { font: "30px Arial", color: "#fff", bold: true });
+  canvasText(context, appDocument.calendarMeta.coordinator || "Sin coordinador registrado", 34, 82, 1050, { font: "18px Arial", color: "#eaf2e6" });
+  canvasText(context, formatMonthTitle(year, month), 1250, 60, 390, { font: "28px Arial", color: "#fff", bold: true });
+  const filterLabels = [...dom.filterChips.querySelectorAll(".filter-chip")].map((chip) => chip.textContent.replace(/ ×$/, ""));
+  if (appDocument.settings.filters.query) filterLabels.unshift(`Búsqueda: ${appDocument.settings.filters.query}`);
+  canvasText(context, filterLabels.length ? `Filtros: ${filterLabels.join(" · ")}` : "Vista completa", 34, 142, 1250, { font: "17px Arial", color: "#465148" });
+  canvasText(context, `Generado ${timestampLabel(new Date().toISOString())}`, 1290, 142, 350, { font: "15px Arial", color: "#69736b" });
+
+  const columnWidth = logicalWidth / 7;
+  const weekdays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  context.fillStyle = "#e4ebe0";
+  context.fillRect(0, headerHeight, logicalWidth, weekdayHeight);
+  weekdays.forEach((label, index) => {
+    canvasText(context, label, index * columnWidth + 14, headerHeight + 31, columnWidth - 28, { font: "18px Arial", bold: true });
+  });
+  const holidayMap = holidayMapForYears([...new Set(dates.map((date) => Number(date.slice(0, 4))))], appDocument.holidayOverrides);
+  let y = headerHeight + weekdayHeight;
+  for (let week = 0; week < 6; week += 1) {
+    const height = weekHeights[week];
+    for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+      const date = dates[week * 7 + dayIndex];
+      const x = dayIndex * columnWidth;
+      const holiday = holidayMap.get(date);
+      context.fillStyle = dayOfWeek(date) === 0 || holiday ? "#fff0e7" : "#ffffff";
+      if (Number(date.slice(5, 7)) !== month) context.fillStyle = "#eef1ed";
+      context.fillRect(x, y, columnWidth, height);
+      context.strokeStyle = "#cfd8cf";
+      context.strokeRect(x, y, columnWidth, height);
+      canvasText(context, String(Number(date.slice(8, 10))), x + 12, y + 28, 40, { font: "18px Arial", bold: true });
+      if (holiday) canvasText(context, holiday.name, x + 48, y + 27, columnWidth - 60, { font: "13px Arial", color: "#9a4e1e" });
+      let cardY = y + 42;
+      for (const activity of byDate.get(date) ?? []) {
+        const client = maps.clients.get(activity.clientId);
+        const site = maps.sites.get(activity.siteId);
+        const visual = responsibleVisualClass(activity, maps);
+        const colors = visual === "contractor"
+          ? ["#fff0e4", "#ed7d31"]
+          : visual === "mixed"
+            ? ["#f7eee6", "#8e6651"]
+            : visual === "unassigned"
+              ? ["#f0f1ef", "#8b928b"]
+              : ["#e6f1ef", "#477d77"];
+        context.globalAlpha = ["completed", "cancelled"].includes(activity.status) ? 0.55 : 1;
+        context.fillStyle = colors[0];
+        context.fillRect(x + 8, cardY, columnWidth - 16, 46);
+        context.fillStyle = colors[1];
+        context.fillRect(x + 8, cardY, 5, 46);
+        canvasText(context, client?.name || SERVICE_TYPES[activity.serviceType], x + 20, cardY + 18, columnWidth - 36, { font: "14px Arial", bold: true });
+        canvasText(context, `${site?.name || activity.city || ""} · ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 37, columnWidth - 36, { font: "12px Arial", color: "#566057" });
+        context.globalAlpha = 1;
+        cardY += 54;
+      }
+    }
+    y += height;
+  }
+  const blob = await new Promise((resolve, reject) =>
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
+  );
+  const fileMonth = `${year}-${String(month).padStart(2, "0")}`;
+  downloadBlob(blob, "image/png", `cronograma-hvac-${normalizeKey(appDocument.calendarMeta.name)}-${fileMonth}.png`);
+  appendAudit("png_exported", `Vista filtrada exportada: ${fileMonth}`);
+  scheduleSave();
+  showToast(`Imagen de ${formatMonthTitle(year, month)} descargada.`);
+}
+
+function downloadProgrammingTemplate() {
+  const workbook = XLSX.utils.book_new();
+  const example = [
+    PROGRAMMING_COLUMNS,
+    [
+      todayInBogota(), todayInBogota(), "Ejemplo Cliente", "Ejemplo Sede", "Pereira",
+      "Responsable Uno; Responsable Dos", SERVICE_TYPES.preventive,
+      ACTIVITY_STATUSES.scheduled, "Fila de ejemplo: reemplazar o eliminar", "No"
+    ]
+  ];
+  const catalogRows = [
+    ["Tipo", "Cliente", "Sede", "Ciudad", "Responsable", "Clasificación"],
+    ...appDocument.catalog.sites.map((site) => {
+      const client = appDocument.catalog.clients.find((item) => item.id === site.clientId);
+      return ["Sede", client?.name ?? "", site.name, site.city ?? "", "", ""];
+    }),
+    ...appDocument.catalog.responsibles.map((responsible) => [
+      "Responsable", "", "", responsible.baseCity ?? "", responsible.name,
+      RESPONSIBLE_TYPES[responsible.responsibleType] ?? responsible.responsibleType
+    ])
+  ];
+  const instructions = [
+    ["Plantilla de programación HVAC SI&S"],
+    ["Una fila crea una actividad; un rango crea tarjetas independientes enlazadas."],
+    ["Los nombres de cliente, sede y responsables deben coincidir exactamente con Catalogos."],
+    ["Separe varios responsables con punto y coma (;)."],
+    [`TipoServicio: ${Object.values(SERVICE_TYPES).join(" | ")}`],
+    [`Estado: ${Object.values(ACTIVITY_STATUSES).join(" | ")}`],
+    ["Cliente y Sede pueden quedar vacíos solamente para Administrativo."],
+    ["IncluirNoLaborables acepta Sí/No. Por defecto domingos y festivos se omiten."],
+    ["La importación no crea registros faltantes del catálogo."]
+  ];
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(example), "Programacion");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(catalogRows), "Catalogos");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(instructions), "Instrucciones");
+  const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  downloadBlob(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla-programacion-hvac.xlsx");
+  showToast("Plantilla Excel descargada.");
+}
+
+function renderProgrammingImportPreview(preview, file) {
+  dom.programmingImportSummary.textContent = `${file.name} · ${(file.size / 1024).toFixed(1)} KB`;
+  const stats = [
+    [preview.counts.valid, "Filas válidas"],
+    [preview.counts.errors, "Filas con error"],
+    [preview.counts.duplicates, "Duplicadas"],
+    [preview.counts.omitted, "Fechas no laborables omitidas"]
+  ];
+  dom.programmingImportStats.replaceChildren(...stats.map(([count, label]) => {
+    const element = createElement("div", "import-stat");
+    element.append(createElement("strong", "", String(count)), createElement("span", "", label));
+    return element;
+  }));
+  const messages = [
+    ...preview.warnings.map((item) => item.message),
+    ...preview.rows.flatMap((row) => [
+      ...row.errors.map((message) => `Fila ${row.rowNumber}: ${message}`),
+      ...row.warnings.map((message) => `Fila ${row.rowNumber}: ${message}`)
+    ])
+  ];
+  dom.programmingImportWarnings.hidden = messages.length === 0;
+  dom.programmingImportWarnings.replaceChildren(...messages.map((message) => createElement("p", "", message)));
+  showFormErrors(dom.programmingImportErrors, preview.structuralErrors);
+  dom.includeDuplicatesLabel.hidden = preview.counts.duplicates === 0;
+  dom.includeProgrammingDuplicates.checked = false;
+  dom.applyProgrammingImportButton.disabled = preview.structuralErrors.length > 0 || preview.counts.valid === 0;
+}
+
+async function handleProgrammingFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  try {
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", raw: true, cellDates: true });
+    const preview = parseProgrammingWorkbook(workbook, appDocument);
+    pendingProgrammingImport = preview;
+    renderProgrammingImportPreview(preview, file);
+    openDialog("programmingImportDialog");
+  } catch (error) {
+    showToast(`No se pudo analizar la programación: ${error.message}`, { type: "error", duration: 9000 });
+  }
+}
+
+function handleProgrammingImportSubmit(event) {
+  event.preventDefault();
+  if (!pendingProgrammingImport) return;
+  try {
+    const includeDuplicates = dom.includeProgrammingDuplicates.checked;
+    const count = pendingProgrammingImport.rows.filter((row) =>
+      !row.errors.length && (includeDuplicates || !row.duplicate)
+    ).length;
+    mutate("programming_imported", `${count} filas de programación importadas`, () => {
+      appDocument = applyProgrammingImport(appDocument, pendingProgrammingImport, { includeDuplicates }).document;
+    });
+    pendingProgrammingImport = null;
+    closeDialog("programmingImportDialog");
+  } catch (error) {
+    showFormErrors(dom.programmingImportErrors, [error.message]);
+  }
+}
+
 async function handleRestoreFile(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
@@ -2246,6 +2551,11 @@ function bindEvents() {
   dom.backupBannerButton.addEventListener("click", createBackup);
   dom.restoreButton.addEventListener("click", () => dom.restoreFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
+  dom.exportImageButton.addEventListener("click", () => {
+    exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
+  });
+  dom.programmingTemplateButton.addEventListener("click", downloadProgrammingTemplate);
+  dom.importProgrammingButton.addEventListener("click", () => dom.programmingFileInput.click());
   dom.holidayButton.addEventListener("click", () => {
     renderHolidayDialog();
     openDialog("holidayDialog");
@@ -2277,9 +2587,10 @@ function bindEvents() {
     scheduleSave();
   });
   dom.globalSearch.addEventListener("input", () => updateFilter("query", dom.globalSearch.value));
-  dom.statusFilter.addEventListener("change", () => updateFilter("status", dom.statusFilter.value));
-  dom.serviceFilter.addEventListener("change", () => updateFilter("serviceType", dom.serviceFilter.value));
-  dom.responsibleFilter.addEventListener("change", () => updateFilter("responsible", dom.responsibleFilter.value));
+  dom.filterButton.addEventListener("click", openFilterDialog);
+  dom.filterForm.addEventListener("submit", handleFilterSubmit);
+  dom.clearFiltersButton.addEventListener("click", () => clearAllFilters());
+  dom.clearFiltersDialogButton.addEventListener("click", () => clearAllFilters({ close: true }));
   dom.catalogSearch.addEventListener("input", renderCatalog);
   dom.sitesTab.addEventListener("click", () => {
     catalogTab = "sites";
@@ -2345,9 +2656,11 @@ function bindEvents() {
   dom.bulkEditField.addEventListener("change", renderBulkEditControls);
   dom.bulkEditMode.addEventListener("change", renderBulkEditControls);
   dom.restoreForm.addEventListener("submit", handleRestoreSubmit);
+  dom.programmingImportForm.addEventListener("submit", handleProgrammingImportSubmit);
   dom.importForm.addEventListener("submit", handleImportSubmit);
   dom.baseFileInput.addEventListener("change", handleBaseFile);
   dom.restoreFileInput.addEventListener("change", handleRestoreFile);
+  dom.programmingFileInput.addEventListener("change", handleProgrammingFile);
 
   for (const button of document.querySelectorAll("[data-close-dialog]")) {
     button.addEventListener("click", () => closeDialog(button.dataset.closeDialog));

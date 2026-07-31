@@ -17,13 +17,13 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 ## Fase 2 — Productividad, importación y documentación (`v0.3.0`)
 
-- [ ] Añadir filtros multiselección combinables.
-- [ ] Exportar el mes filtrado como imagen PNG.
-- [ ] Generar y descargar la plantilla Excel de programación.
-- [ ] Importar programación Excel con vista previa, validación y Deshacer.
-- [ ] Publicar manual completo, guía de Base Operativa y CHANGELOG.
-- [ ] Verificar escenarios unitarios y de navegador.
-- [ ] Documentar y etiquetar `v0.3.0`.
+- [x] Añadir filtros multiselección combinables.
+- [x] Exportar el mes filtrado como imagen PNG.
+- [x] Generar y descargar la plantilla Excel de programación.
+- [x] Importar programación Excel con vista previa, validación y Deshacer.
+- [x] Publicar manual completo, guía de Base Operativa y CHANGELOG.
+- [x] Verificar escenarios unitarios y de navegador.
+- [x] Documentar y etiquetar `v0.3.0`.
 
 ## Fase 3 — Distribución (`v0.4.0`)
 

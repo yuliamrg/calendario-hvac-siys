@@ -30,6 +30,9 @@
         <button class="icon-button" id="backupButton" type="button" title="Descargar respaldo JSON" aria-label="Descargar respaldo JSON">⇩</button>
         <button class="icon-button" id="restoreButton" type="button" title="Restaurar respaldo JSON" aria-label="Restaurar respaldo JSON">⇧</button>
         <button class="icon-button" id="exportCsvButton" type="button" title="Exportar mes a CSV" aria-label="Exportar mes a CSV">CSV</button>
+        <button class="icon-button" id="exportImageButton" type="button" title="Exportar vista como imagen" aria-label="Exportar vista como imagen">PNG</button>
+        <button class="button small ghost" id="programmingTemplateButton" type="button">Plantilla</button>
+        <button class="button small ghost" id="importProgrammingButton" type="button">Importar programación</button>
         <button class="icon-button" id="holidayButton" type="button" title="Festivos y ajustes" aria-label="Festivos y ajustes">◉</button>
         <button class="icon-button" id="helpButton" type="button" title="Ayuda y privacidad" aria-label="Ayuda y privacidad">?</button>
         <button class="button small ghost" id="calendarSettingsButton" type="button">Identificación</button>
@@ -79,25 +82,10 @@
           <span aria-hidden="true">⌕</span>
           <input id="globalSearch" type="search" placeholder="Buscar cliente, sede, ciudad…" autocomplete="off">
         </label>
-        <label>
-          <span class="visually-hidden">Filtrar por estado</span>
-          <select id="statusFilter" aria-label="Filtrar por estado">
-            <option value="all">Todos los estados</option>
-          </select>
-        </label>
-        <label>
-          <span class="visually-hidden">Filtrar por servicio</span>
-          <select id="serviceFilter" aria-label="Filtrar por servicio">
-            <option value="all">Todos los servicios</option>
-          </select>
-        </label>
-        <label>
-          <span class="visually-hidden">Filtrar por responsable</span>
-          <select id="responsibleFilter" aria-label="Filtrar por responsable">
-            <option value="all">Todos los responsables</option>
-          </select>
-        </label>
+        <button class="button small" id="filterButton" type="button">Filtros <span id="filterCount">0</span></button>
+        <button class="button small ghost" id="clearFiltersButton" type="button" hidden>Limpiar</button>
       </div>
+      <div class="filter-chips" id="filterChips" aria-live="polite"></div>
     </section>
 
     <main class="workspace">
@@ -250,6 +238,21 @@
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="activityDialog">Cancelar</button>
         <button class="button primary" id="saveActivityButton" type="submit" value="default" data-testid="save-activity">Guardar actividad</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal filter-modal" id="filterDialog" aria-labelledby="filterDialogTitle">
+    <form id="filterForm" method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Vista del calendario</p><h2 id="filterDialogTitle">Filtros combinables</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="filterDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="field-note">Dentro de cada categoría se acepta cualquiera de los valores seleccionados; entre categorías deben cumplirse todos.</p>
+      <div class="filter-grid" id="filterGrid"></div>
+      <footer class="modal-footer">
+        <button class="button ghost" id="clearFiltersDialogButton" type="button">Limpiar todo</button>
+        <button class="button primary" type="submit">Aplicar filtros</button>
       </footer>
     </form>
   </dialog>
@@ -481,6 +484,27 @@
     </form>
   </dialog>
 
+  <dialog class="modal" id="programmingImportDialog" aria-labelledby="programmingImportDialogTitle">
+    <form id="programmingImportForm" method="dialog">
+      <header class="modal-header">
+        <div><p class="eyebrow">Carga masiva</p><h2 id="programmingImportDialogTitle">Importar programación</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="programmingImportDialog" aria-label="Cerrar">×</button>
+      </header>
+      <div id="programmingImportSummary"></div>
+      <div class="import-stat-grid" id="programmingImportStats"></div>
+      <div class="warning-list" id="programmingImportWarnings" hidden></div>
+      <div class="form-errors" id="programmingImportErrors" role="alert" hidden></div>
+      <label class="check-row" id="includeDuplicatesLabel" hidden>
+        <input id="includeProgrammingDuplicates" type="checkbox">
+        <span>Incluir filas detectadas como duplicadas</span>
+      </label>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="programmingImportDialog">Cancelar</button>
+        <button class="button primary" id="applyProgrammingImportButton" type="submit">Importar actividades válidas</button>
+      </footer>
+    </form>
+  </dialog>
+
   <dialog class="modal compact-modal" id="helpDialog" aria-labelledby="helpDialogTitle">
     <header class="modal-header">
       <div><p class="eyebrow">Guía rápida</p><h2 id="helpDialogTitle">Cómo usar el calendario</h2></div>
@@ -492,6 +516,8 @@
         <li>Arrastra un cliente o sede a una fecha, o usa <strong>Nueva actividad</strong>.</li>
         <li>Haz clic en una tarjeta para ver todos sus datos y cambiar su estado.</li>
         <li>Usa la casilla de cada tarjeta para seleccionar y mover varias a la vez.</li>
+        <li>Combina filtros de ciudad, cliente, sede, responsable, servicio y estado.</li>
+        <li>Descarga la vista filtrada como PNG o usa la plantilla Excel para una carga masiva.</li>
         <li>Descarga un respaldo JSON con regularidad.</li>
       </ol>
       <div class="privacy-note">
@@ -513,6 +539,7 @@
   </dialog>
 
   <input id="baseFileInput" type="file" accept=".xlsx,.xls" hidden>
+  <input id="programmingFileInput" type="file" accept=".xlsx,.xls" hidden>
   <input id="restoreFileInput" type="file" accept=".json,application/json" hidden>
 
   <div class="toast-region" id="toastRegion" role="status" aria-live="polite"></div>

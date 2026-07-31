@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.2.0";
+export const APP_VERSION = "0.3.0";
 export const SCHEMA_VERSION = 2;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -414,9 +414,12 @@ export function createDefaultDocument(today = todayInBogota(), now = new Date().
       holidayRuleSetVersion: HOLIDAY_RULESET_VERSION,
       filters: {
         query: "",
-        status: "all",
-        serviceType: "all",
-        responsible: "all"
+        cities: [],
+        clients: [],
+        sites: [],
+        responsibles: [],
+        serviceTypes: [],
+        statuses: []
       }
     },
     holidayOverrides: [],
@@ -738,6 +741,44 @@ function cleanStringArray(value, maxLength = 160, maxItems = 200) {
   return [...new Set(cleaned)];
 }
 
+export function normalizeFilterArray(value, legacyValue = null) {
+  if (Array.isArray(value)) return cleanStringArray(value, 160, 500);
+  const legacy = safeText(legacyValue, 160);
+  return legacy && legacy !== "all" ? [legacy] : [];
+}
+
+export function activityMatchesFilters(activity, filters, maps) {
+  const selected = {
+    cities: normalizeFilterArray(filters?.cities),
+    clients: normalizeFilterArray(filters?.clients),
+    sites: normalizeFilterArray(filters?.sites),
+    responsibles: normalizeFilterArray(filters?.responsibles),
+    serviceTypes: normalizeFilterArray(filters?.serviceTypes),
+    statuses: normalizeFilterArray(filters?.statuses)
+  };
+  if (selected.cities.length && !selected.cities.includes(activity.city ?? "")) return false;
+  if (selected.clients.length && !selected.clients.includes(activity.clientId ?? "")) return false;
+  if (selected.sites.length && !selected.sites.includes(activity.siteId ?? "")) return false;
+  if (selected.responsibles.length && !selected.responsibles.some((id) => activity.responsibleIds?.includes(id))) return false;
+  if (selected.serviceTypes.length && !selected.serviceTypes.includes(activity.serviceType)) return false;
+  if (selected.statuses.length && !selected.statuses.includes(activity.status)) return false;
+  const query = normalizeText(filters?.query);
+  if (!query) return true;
+  const client = maps?.clients?.get(activity.clientId);
+  const site = maps?.sites?.get(activity.siteId);
+  const responsibles = (activity.responsibleIds ?? []).map((id) => maps?.responsibles?.get(id)?.name ?? "");
+  return normalizeText([
+    client?.name,
+    site?.name,
+    site?.shoppingCenter,
+    activity.city,
+    SERVICE_TYPES[activity.serviceType],
+    ACTIVITY_STATUSES[activity.status],
+    activity.observations,
+    ...responsibles
+  ].filter(Boolean).join(" ")).includes(query);
+}
+
 function cleanSafeCount(value) {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
     ? value
@@ -947,7 +988,22 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
       holidayRuleSetVersion: HOLIDAY_RULESET_VERSION,
       filters: {
         ...base.settings.filters,
-        ...keepAllowed(raw.settings?.filters, ["query", "status", "serviceType", "responsible"])
+        query: safeText(raw.settings?.filters?.query, 500),
+        cities: normalizeFilterArray(raw.settings?.filters?.cities),
+        clients: normalizeFilterArray(raw.settings?.filters?.clients),
+        sites: normalizeFilterArray(raw.settings?.filters?.sites),
+        responsibles: normalizeFilterArray(
+          raw.settings?.filters?.responsibles,
+          raw.settings?.filters?.responsible
+        ),
+        serviceTypes: normalizeFilterArray(
+          raw.settings?.filters?.serviceTypes,
+          raw.settings?.filters?.serviceType
+        ),
+        statuses: normalizeFilterArray(
+          raw.settings?.filters?.statuses,
+          raw.settings?.filters?.status
+        )
       }
     },
     holidayOverrides: rawOverrides,

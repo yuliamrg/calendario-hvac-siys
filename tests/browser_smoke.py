@@ -4,9 +4,11 @@ import argparse
 import hashlib
 import json
 import re
+import struct
 import tempfile
 from pathlib import Path
 
+from openpyxl import load_workbook
 from playwright.sync_api import Page, expect, sync_playwright
 
 
@@ -99,11 +101,13 @@ def launch_and_check(
         "activityDialog",
         "catalogDialog",
         "importDialog",
+        "filterDialog",
         "holidayDialog",
         "bulkMoveDialog",
         "bulkStatusDialog",
         "bulkEditDialog",
         "restoreDialog",
+        "programmingImportDialog",
         "calendarSettingsDialog",
         "helpDialog",
     ):
@@ -442,6 +446,54 @@ def launch_and_check(
     expect(page.locator("#restoreDialog")).not_to_be_visible()
     wait_saved(page)
     assert len(get_state(page)["activities"]) == len(backup_document["activities"])
+
+    with page.expect_download() as download_info:
+        page.locator("#programmingTemplateButton").click()
+    template_path = artifact_dir / "plantilla-programacion-hvac.xlsx"
+    download_info.value.save_as(str(template_path))
+    workbook = load_workbook(template_path)
+    assert workbook.sheetnames == ["Programacion", "Catalogos", "Instrucciones"]
+    programming_sheet = workbook["Programacion"]
+    assert [cell.value for cell in programming_sheet[1]] == [
+        "FechaInicio", "FechaFin", "Cliente", "Sede", "Ciudad", "Responsables",
+        "TipoServicio", "Estado", "Observaciones", "IncluirNoLaborables",
+    ]
+    programming_sheet.delete_rows(2, programming_sheet.max_row)
+    programming_sheet.append([
+        "2026-07-31", "2026-07-31", client["name"], site["name"], site["city"],
+        payroll["name"], "Mantenimiento preventivo", "Programada",
+        "Importada desde plantilla", "No",
+    ])
+    import_path = artifact_dir / "programacion-importar.xlsx"
+    workbook.save(import_path)
+    count_before_programming_import = len(get_state(page)["activities"])
+    page.set_input_files("#programmingFileInput", str(import_path))
+    expect(page.locator("#programmingImportDialog")).to_be_visible()
+    expect(page.locator("#programmingImportStats")).to_contain_text("Filas válidas")
+    page.locator("#programmingImportForm button[type=submit]").click()
+    wait_saved(page)
+    imported_state = get_state(page)
+    assert len(imported_state["activities"]) == count_before_programming_import + 1
+    assert any(
+        activity["observations"] == "Importada desde plantilla"
+        for activity in imported_state["activities"]
+    )
+
+    page.locator("#filterButton").click()
+    city_filters = page.locator('input[name="filter-cities"]:not(:disabled)')
+    assert city_filters.count() >= 1
+    city_filters.nth(0).check()
+    page.locator("#filterForm button[type=submit]").click()
+    expect(page.locator("#filterCount")).to_have_text("1")
+    with page.expect_download() as download_info:
+        page.locator("#exportImageButton").click()
+    png_path = artifact_dir / "cronograma-filtrado.png"
+    download_info.value.save_as(str(png_path))
+    png_data = png_path.read_bytes()
+    assert png_data[:8] == b"\x89PNG\r\n\x1a\n"
+    width, height = struct.unpack(">II", png_data[16:24])
+    assert width >= 2000
+    assert height >= 1000
 
     page.screenshot(path=str(artifact_dir / f"{channel}-full.png"), full_page=True)
     assert not page_errors, page_errors
