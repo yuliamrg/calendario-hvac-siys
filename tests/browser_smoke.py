@@ -489,11 +489,50 @@ def launch_and_check(
         page.locator("#exportImageButton").click()
     png_path = artifact_dir / "cronograma-filtrado.png"
     download_info.value.save_as(str(png_path))
+    wait_saved(page)
     png_data = png_path.read_bytes()
     assert png_data[:8] == b"\x89PNG\r\n\x1a\n"
     width, height = struct.unpack(">II", png_data[16:24])
     assert width >= 2000
     assert height >= 1000
+
+    page.evaluate(
+        """
+        async () => new Promise((resolve, reject) => {
+          const request = indexedDB.open("calendario-hvac-siys", 1);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction("documents", "readwrite");
+            const store = tx.objectStore("documents");
+            const getCurrent = store.get("current");
+            getCurrent.onsuccess = () => {
+              const recoveryDocument = structuredClone(getCurrent.result.document);
+              recoveryDocument.calendarMeta.name = "Cronograma recuperado QA";
+              store.put({
+                key: "recovery",
+                savedAt: new Date().toISOString(),
+                document: recoveryDocument
+              });
+              store.put({
+              key: "current",
+              savedAt: new Date().toISOString(),
+              document: { schemaVersion: 999, appVersion: "corrupta" }
+              });
+            };
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+          };
+        })
+        """
+    )
+    page.reload(wait_until="load")
+    wait_ready_state = page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
+    assert wait_ready_state
+    recovered_state = get_state(page)
+    assert recovered_state["schemaVersion"] == 2
+    assert recovered_state["appVersion"] != "corrupta"
+    assert recovered_state["calendarMeta"]["name"] == "Cronograma recuperado QA"
 
     page.screenshot(path=str(artifact_dir / f"{channel}-full.png"), full_page=True)
     assert not page_errors, page_errors
