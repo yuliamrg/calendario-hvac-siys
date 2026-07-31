@@ -85,7 +85,7 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 - [x] Proporcionar alternativas táctiles a arrastrar y soltar.
 - [x] Adaptar banco, cabecera, formularios y diálogos.
 - [x] Verificar tamaños, orientaciones, zoom y exportación.
-- [ ] Etiquetar y promover `v0.8.0`.
+- [x] Etiquetar y promover `v0.8.0`.
 
 ### Cierre del Goal
 
