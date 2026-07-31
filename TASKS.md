@@ -89,8 +89,8 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
 ### Cierre del Goal
 
-- [ ] Auditar requisitos, datos heredados, canales, documentación y Git.
-- [ ] Confirmar estable en `v0.8.0`, beta operativa y worktree limpio.
+- [x] Auditar requisitos, datos heredados, canales, documentación y Git.
+- [x] Confirmar estable en `v0.8.0`, beta operativa y worktree limpio.
 
 ## Evidencia del Goal
 
@@ -115,3 +115,10 @@ versiones se construyen de forma acumulativa sobre `v0.1.0`.
   agenda compacta o tablero según orientación, banco lateral y flujo táctil
   Mover/Duplicar/Ampliar verificados. Chrome y Edge sin regresiones ni
   solicitudes de red después de cargar.
+- Auditoría final: etiquetas consecutivas v0.1.0–v0.8.0, PR abiertas: 0,
+  CI y Pages aprobados, repositorio limpio y 34 archivos trazados sin
+  prohibidos ni APIs de red. `dist/index.html`, estable y beta coinciden por
+  SHA-256:
+  `F15AD98A6BFC2B6D69566F7DC1C01558A8E0FF7A82843B606A34272421AE4B3A`.
+  Smoke final estable: seis viewports, persistencia tras recarga, segunda
+  pestaña en lectura, orígenes separados, JSON portable, temas y PNG válidos.
