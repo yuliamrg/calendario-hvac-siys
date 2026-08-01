@@ -85,3 +85,30 @@ test("la guía de Base Operativa enumera hojas y exclusiones de privacidad", () 
     assert.match(guide, new RegExp(excluded, "i"));
   }
 });
+
+test("los criterios de diseño documentan la evolución beta y sus puertas de promoción", () => {
+  const criteriaPath = resolve(root, "docs", "CRITERIOS_DE_DISENO.md");
+  assert.equal(existsSync(criteriaPath), true);
+  const criteria = readFileSync(criteriaPath, "utf8");
+  for (const required of [
+    "Criterios de diseño",
+    "versión beta",
+    "Tokens de referencia",
+    "Responsive",
+    "Accesibilidad e interacción",
+    "Puertas de promoción beta → estable",
+    "85/100",
+    "seis viewports"
+  ]) {
+    assert.match(criteria, new RegExp(required, "i"));
+  }
+});
+
+test("el contrato visual beta permanece aislado del canal estable", () => {
+  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
+  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  assert.match(css, /html\[data-channel="beta"\]/);
+  assert.match(app, /document\.documentElement\.dataset\.channel = "beta"/);
+  assert.match(app, /if \(RUNTIME_CHANNEL !== "beta"\) return;/);
+  assert.match(app, /aria-controls/, "La beta debe documentar la relación pestaña/panel");
+});

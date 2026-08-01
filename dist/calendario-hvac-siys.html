@@ -2288,6 +2288,53 @@ html[data-theme="dark"] dialog::backdrop {
   }
 }
 
+/* Beta design pilot: these rules are activated only when the runtime URL is
+   /beta/. The stable channel keeps the approved v0.9 visual contract. */
+html[data-channel="beta"] {
+  --beta-card-title-size: 11px;
+  --beta-card-meta-size: 10px;
+  --beta-card-min-height: 36px;
+}
+
+html[data-channel="beta"] .activity-card {
+  min-height: var(--beta-card-min-height);
+  padding: 5px 6px 5px 5px;
+}
+
+html[data-channel="beta"] .activity-copy strong {
+  font-size: var(--beta-card-title-size);
+}
+
+html[data-channel="beta"] .activity-copy small {
+  font-size: var(--beta-card-meta-size);
+}
+
+html[data-channel="beta"] .catalog-list[role="tabpanel"]:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+html[data-channel="beta"] .storage-banner.compact-status {
+  min-height: 26px;
+  font-size: 10px;
+}
+
+@media (max-width: 899px) {
+  html[data-channel="beta"] .backup-banner,
+  html[data-channel="beta"] .access-banner {
+    padding-block: 6px;
+  }
+
+  html[data-channel="beta"] .backup-banner div,
+  html[data-channel="beta"] .access-banner div {
+    line-height: 1.25;
+  }
+
+  html[data-channel="beta"] .mobile-agenda-list .activity-card {
+    min-height: 56px;
+  }
+}
+
 @media print {
   @page {
     size: landscape;
@@ -6894,6 +6941,24 @@ function runtimeMode() {
       : "servidor local";
 }
 
+function updateBetaCatalogSemantics() {
+  if (RUNTIME_CHANNEL !== "beta") return;
+  const activeTab = catalogTab === "sites" ? dom.sitesTab : dom.responsiblesTab;
+  dom.catalogList.setAttribute("aria-labelledby", activeTab.id);
+}
+
+function applyBetaDesignContract() {
+  if (RUNTIME_CHANNEL !== "beta") return;
+  document.documentElement.dataset.channel = "beta";
+  document.querySelector(".segmented[role=\"tablist\"]")?.setAttribute("aria-orientation", "horizontal");
+  dom.catalogList.setAttribute("role", "tabpanel");
+  dom.catalogList.setAttribute("tabindex", "0");
+  for (const tab of [dom.sitesTab, dom.responsiblesTab]) {
+    tab.setAttribute("aria-controls", "catalogList");
+  }
+  updateBetaCatalogSemantics();
+}
+
 function renderCalendarIdentity() {
   const coordinator = appDocument.calendarMeta.coordinator;
   dom.calendarIdentity.textContent = coordinator
@@ -6919,6 +6984,7 @@ function renderCatalog() {
   dom.responsiblesTab.classList.toggle("active", catalogTab === "responsibles");
   dom.sitesTab.setAttribute("aria-selected", String(catalogTab === "sites"));
   dom.responsiblesTab.setAttribute("aria-selected", String(catalogTab === "responsibles"));
+  updateBetaCatalogSemantics();
   dom.dragHint.textContent = catalogTab === "sites"
     ? "Arrastra un cliente o una sede hasta un día."
     : "Los colores distinguen nómina y contratistas.";
@@ -9237,6 +9303,7 @@ async function loadInitialDocument() {
 
 async function initialize() {
   initializeStaticOptions();
+  applyBetaDesignContract();
   bindEvents();
   applyCatalogPreference();
   applyThemePreference();
