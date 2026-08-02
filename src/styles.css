@@ -2289,9 +2289,9 @@ html[data-theme="dark"] dialog::backdrop {
   }
 }
 
-/* Beta design pilot: these rules are activated only when the runtime URL is
-   /beta/. The stable channel keeps the approved v0.9 visual contract. */
-html[data-channel="beta"] {
+/* Visual contract promoted from beta 0.10.0 to both public channels. */
+html[data-channel="beta"],
+html[data-channel="stable"] {
   --beta-card-title-size: 11px;
   --beta-card-meta-size: 10px;
   --beta-card-min-height: 36px;
@@ -2308,7 +2308,8 @@ html[data-channel="beta"] {
   --beta-weekday-height: 32px;
 }
 
-html[data-channel="beta"][data-theme="dark"] {
+html[data-channel="beta"][data-theme="dark"],
+html[data-channel="stable"][data-theme="dark"] {
   --beta-card-payroll-bg: #23423e;
   --beta-card-payroll-ink: #f3fbf7;
   --beta-card-contractor-bg: #51301f;
@@ -2320,7 +2321,8 @@ html[data-channel="beta"][data-theme="dark"] {
   --beta-card-unassigned-ink: #eef6ef;
 }
 
-html[data-channel="beta"] .activity-card {
+html[data-channel="beta"] .activity-card,
+html[data-channel="stable"] .activity-card {
   min-height: var(--beta-card-min-height);
   padding: 5px 6px 5px 5px;
   color: var(--beta-card-payroll-ink);
@@ -2328,91 +2330,114 @@ html[data-channel="beta"] .activity-card {
   box-shadow: 0 1px 3px rgba(28, 48, 34, 0.16);
 }
 
-html[data-channel="beta"] .activity-card.contractor {
+html[data-channel="beta"] .activity-card.contractor,
+html[data-channel="stable"] .activity-card.contractor {
   color: var(--beta-card-contractor-ink);
   background: var(--beta-card-contractor-bg);
 }
 
-html[data-channel="beta"] .activity-card.mixed {
+html[data-channel="beta"] .activity-card.mixed,
+html[data-channel="stable"] .activity-card.mixed {
   color: var(--beta-card-mixed-ink);
   background: linear-gradient(100deg, var(--beta-card-mixed-payroll-bg) 0 50%, var(--beta-card-mixed-contractor-bg) 50% 100%);
 }
 
-html[data-channel="beta"] .activity-card.unassigned {
+html[data-channel="beta"] .activity-card.unassigned,
+html[data-channel="stable"] .activity-card.unassigned {
   color: var(--beta-card-unassigned-ink);
   background: var(--beta-card-unassigned-bg);
 }
 
-html[data-channel="beta"] .activity-card.selected {
+html[data-channel="beta"] .activity-card.selected,
+html[data-channel="stable"] .activity-card.selected {
   outline-color: var(--focus);
 }
 
-html[data-channel="beta"] .activity-copy strong {
+html[data-channel="beta"] .activity-copy strong,
+html[data-channel="stable"] .activity-copy strong {
   font-size: var(--beta-card-title-size);
   line-height: 1.25;
 }
 
-html[data-channel="beta"] .activity-copy small {
+html[data-channel="beta"] .activity-copy small,
+html[data-channel="stable"] .activity-copy small {
   font-size: var(--beta-card-meta-size);
   line-height: 1.2;
 }
 
 html[data-channel="beta"] .button,
-html[data-channel="beta"] .icon-button {
+html[data-channel="stable"] .button,
+html[data-channel="beta"] .icon-button,
+html[data-channel="stable"] .icon-button {
   border-radius: var(--beta-control-radius);
 }
 
 html[data-channel="beta"] .button.small,
-html[data-channel="beta"] .icon-button.small {
+html[data-channel="stable"] .button.small,
+html[data-channel="beta"] .icon-button.small,
+html[data-channel="stable"] .icon-button.small {
   min-height: 32px;
 }
 
-html[data-channel="beta"] .icon-button.small {
+html[data-channel="beta"] .icon-button.small,
+html[data-channel="stable"] .icon-button.small {
   width: 32px;
   height: 32px;
 }
 
-html[data-channel="beta"] .menu-action {
+html[data-channel="beta"] .menu-action,
+html[data-channel="stable"] .menu-action {
   min-height: 38px;
   border-radius: var(--beta-control-radius);
 }
 
-html[data-channel="beta"] .detail-item {
+html[data-channel="beta"] .detail-item,
+html[data-channel="stable"] .detail-item {
   padding-bottom: 9px;
   border-bottom: 1px solid var(--line);
 }
 
-html[data-channel="beta"] .detail-item:last-child {
+html[data-channel="beta"] .detail-item:last-child,
+html[data-channel="stable"] .detail-item:last-child {
   border-bottom: 0;
 }
 
-html[data-channel="beta"][data-theme="dark"] .detail-item {
+html[data-channel="beta"][data-theme="dark"] .detail-item,
+html[data-channel="stable"][data-theme="dark"] .detail-item {
   background: transparent;
 }
 
 html[data-channel="beta"] .modal input[type="text"],
+html[data-channel="stable"] .modal input[type="text"],
 html[data-channel="beta"] .modal input[type="date"],
+html[data-channel="stable"] .modal input[type="date"],
 html[data-channel="beta"] .modal select,
-html[data-channel="beta"] .modal textarea {
+html[data-channel="stable"] .modal select,
+html[data-channel="beta"] .modal textarea,
+html[data-channel="stable"] .modal textarea {
   border-color: var(--control-border);
 }
 
-html[data-channel="beta"] .calendar-grid {
+html[data-channel="beta"] .calendar-grid,
+html[data-channel="stable"] .calendar-grid {
   border-color: var(--line);
 }
 
-html[data-channel="beta"] .day-cell {
+html[data-channel="beta"] .day-cell,
+html[data-channel="stable"] .day-cell {
   border-color: var(--line);
 }
 
-html[data-channel="beta"] .weekday-row {
+html[data-channel="beta"] .weekday-row,
+html[data-channel="stable"] .weekday-row {
   flex: 0 0 auto;
   min-height: var(--beta-weekday-height);
   height: var(--beta-weekday-height);
   isolation: isolate;
 }
 
-html[data-channel="beta"] .weekday-row div {
+html[data-channel="beta"] .weekday-row div,
+html[data-channel="stable"] .weekday-row div {
   min-height: var(--beta-weekday-height);
   height: var(--beta-weekday-height);
   display: flex;
@@ -2420,23 +2445,29 @@ html[data-channel="beta"] .weekday-row div {
   justify-content: center;
 }
 
-html[data-channel="beta"] .activity-detail-grid {
+html[data-channel="beta"] .activity-detail-grid,
+html[data-channel="stable"] .activity-detail-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 16px;
 }
 
 html[data-channel="beta"] .activity-detail-grid > .responsible-chips,
+html[data-channel="stable"] .activity-detail-grid > .responsible-chips,
 html[data-channel="beta"] .activity-detail-grid > .detail-item-wide,
-html[data-channel="beta"] .activity-detail-grid > .detail-actions {
+html[data-channel="stable"] .activity-detail-grid > .detail-item-wide,
+html[data-channel="beta"] .activity-detail-grid > .detail-actions,
+html[data-channel="stable"] .activity-detail-grid > .detail-actions {
   grid-column: 1 / -1;
 }
 
-html[data-channel="beta"] .activity-detail-grid .detail-actions {
+html[data-channel="beta"] .activity-detail-grid .detail-actions,
+html[data-channel="stable"] .activity-detail-grid .detail-actions {
   margin: 10px 0;
   padding: 10px 0;
 }
 
-html[data-channel="beta"] .search-box input {
+html[data-channel="beta"] .search-box input,
+html[data-channel="stable"] .search-box input {
   color: var(--ink);
   background: transparent;
   -webkit-appearance: none;
@@ -2444,85 +2475,108 @@ html[data-channel="beta"] .search-box input {
 }
 
 html[data-channel="beta"] .search-box input::placeholder,
-html[data-channel="beta"] .responsible-search input::placeholder {
+html[data-channel="stable"] .search-box input::placeholder,
+html[data-channel="beta"] .responsible-search input::placeholder,
+html[data-channel="stable"] .responsible-search input::placeholder {
   color: var(--muted);
   opacity: 1;
 }
 
-html[data-channel="beta"] .selection-bar .button:not(.ghost):not(.danger) {
+html[data-channel="beta"] .selection-bar .button:not(.ghost):not(.danger),
+html[data-channel="stable"] .selection-bar .button:not(.ghost):not(.danger) {
   color: var(--ink);
   background: var(--surface);
   border-color: var(--control-border);
 }
 
-html[data-channel="beta"] .selection-bar .button.danger {
+html[data-channel="beta"] .selection-bar .button.danger,
+html[data-channel="stable"] .selection-bar .button.danger {
   border-color: rgba(255, 255, 255, 0.45);
 }
 
-html[data-channel="beta"] .calendar-panel {
+html[data-channel="beta"] .calendar-panel,
+html[data-channel="stable"] .calendar-panel {
   overflow: hidden;
 }
 
-html[data-channel="beta"] .month-grid-wrap {
+html[data-channel="beta"] .month-grid-wrap,
+html[data-channel="stable"] .month-grid-wrap {
   overflow: auto;
   overscroll-behavior: contain;
 }
 
 html[data-channel="beta"] .catalog-site,
-html[data-channel="beta"] .responsible-row {
+html[data-channel="stable"] .catalog-site,
+html[data-channel="beta"] .responsible-row,
+html[data-channel="stable"] .responsible-row {
   border-top-color: var(--line);
   background: var(--surface);
 }
 
 html[data-channel="beta"] .catalog-site:hover,
-html[data-channel="beta"] .responsible-row:hover {
+html[data-channel="stable"] .catalog-site:hover,
+html[data-channel="beta"] .responsible-row:hover,
+html[data-channel="stable"] .responsible-row:hover {
   background: var(--surface-2);
 }
 
-html[data-channel="beta"] .empty-catalog {
+html[data-channel="beta"] .empty-catalog,
+html[data-channel="stable"] .empty-catalog {
   border-color: var(--control-border);
   background: var(--surface-2);
 }
 
 html[data-channel="beta"] .warning-box,
-html[data-channel="beta"] .warning-list {
+html[data-channel="stable"] .warning-box,
+html[data-channel="beta"] .warning-list,
+html[data-channel="stable"] .warning-list {
   border-color: var(--warning-ink);
 }
 
-html[data-channel="beta"] .form-errors {
+html[data-channel="beta"] .form-errors,
+html[data-channel="stable"] .form-errors {
   border-color: var(--error-ink);
 }
 
-html[data-channel="beta"] .catalog-list[role="tabpanel"]:focus-visible {
+html[data-channel="beta"] .catalog-list[role="tabpanel"]:focus-visible,
+html[data-channel="stable"] .catalog-list[role="tabpanel"]:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: -3px;
 }
 
-html[data-channel="beta"] .storage-banner.compact-status {
+html[data-channel="beta"] .storage-banner.compact-status,
+html[data-channel="stable"] .storage-banner.compact-status {
   min-height: 26px;
   font-size: 10px;
 }
 
 @media (max-width: 899px) {
-  html[data-channel="beta"] {
+  html[data-channel="beta"],
+  html[data-channel="stable"] {
     --beta-weekday-height: 30px;
   }
 
-  html[data-channel="beta"] .activity-detail-grid {
+  html[data-channel="beta"] .activity-detail-grid,
+  html[data-channel="stable"] .activity-detail-grid {
     grid-template-columns: 1fr;
   }
 
   html[data-channel="beta"] .backup-banner,
-  html[data-channel="beta"] .access-banner {
+  html[data-channel="stable"] .backup-banner,
+  html[data-channel="beta"] .access-banner,
+  html[data-channel="stable"] .access-banner {
     padding-block: 6px;
   }
 
   html[data-channel="beta"] .backup-banner div,
-  html[data-channel="beta"] .access-banner div {
+  html[data-channel="stable"] .backup-banner div,
+  html[data-channel="beta"] .access-banner div,
+  html[data-channel="stable"] .access-banner div {
     line-height: 1.25;
   }
 
-  html[data-channel="beta"] .mobile-agenda-list .activity-card {
+  html[data-channel="beta"] .mobile-agenda-list .activity-card,
+  html[data-channel="stable"] .mobile-agenda-list .activity-card {
     min-height: 56px;
   }
 }

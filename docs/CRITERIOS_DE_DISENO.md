@@ -10,10 +10,10 @@ La versión beta es el espacio para probar cambios de diseño. La versión
 estable conserva el comportamiento y la apariencia aprobados hasta que una
 propuesta beta cumpla las puertas de promoción descritas al final.
 
-La iteración `0.10.0-beta.2` valida una interacción de tema sin diálogo,
+La iteración `0.10.0-beta.2`, promovida a estable como `0.10.0`, valida una interacción de tema sin diálogo,
 densidad de detalle en dos columnas, búsqueda de responsables y controles de
-selección legibles en ambos temas. Son refinamientos del contrato beta; no
-alteran los datos operativos ni el canal estable.
+selección legibles en ambos temas. Estas reglas son ahora el contrato visual
+compartido por estable y beta; los datos operativos siguen aislados por canal.
 
 ## Producto, audiencia y tarea principal
 

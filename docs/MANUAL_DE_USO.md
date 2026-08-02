@@ -153,9 +153,10 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages contiene la versión estable. `/beta/` permite probar la
-versión siguiente y muestra una insignia BETA. Ambos canales usan bases
-IndexedDB diferentes, incluso si se abren en pestañas del mismo navegador.
+La raíz de GitHub Pages contiene la versión estable. `/beta/` mantiene una
+insignia BETA para probar cambios futuros; en la promoción `0.10.0` ambos
+canales comparten la interfaz aprobada. Usan bases IndexedDB diferentes,
+incluso si se abren en pestañas del mismo navegador.
 Nunca se copian datos automáticamente entre ellos.
 
 ### Reiniciar el navegador
@@ -170,7 +171,7 @@ vacío para no reintroducir información anterior.
 
 En **Configuración > Tema** puede cambiar directamente entre **Sistema**,
 **Claro** y **Oscuro** con cada clic; la preferencia se conserva por canal.
-La primera apertura usa Claro. Después se recuerda la elección. Sistema sigue
+La primera apertura usa Sistema. Después se recuerda la elección. Sistema sigue
 la preferencia de Chrome, Edge o Windows y reacciona si esta
 cambia mientras la aplicación está abierta. La elección se guarda únicamente
 como preferencia visual del canal actual: no aumenta la revisión, no entra en
