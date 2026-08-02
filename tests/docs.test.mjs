@@ -122,6 +122,13 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
   }
 });
 
+test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
+  const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
+  assert.equal(packageJson.version, "0.10.0-beta.1");
+  assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
+});
+
 test("el contrato visual beta permanece aislado del canal estable", () => {
   const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
@@ -129,4 +136,7 @@ test("el contrato visual beta permanece aislado del canal estable", () => {
   assert.match(app, /document\.documentElement\.dataset\.channel = "beta"/);
   assert.match(app, /if \(RUNTIME_CHANNEL !== "beta"\) return;/);
   assert.match(app, /aria-controls/, "La beta debe documentar la relación pestaña/panel");
+  assert.match(css, /html\[data-channel="beta"\] \.weekday-row \{[\s\S]*flex: 0 0 auto/);
+  assert.match(css, /html\[data-channel="beta"\] \.month-grid-wrap \{[\s\S]*overflow: auto/);
+  assert.match(css, /--beta-card-payroll-bg: #23423e/);
 });

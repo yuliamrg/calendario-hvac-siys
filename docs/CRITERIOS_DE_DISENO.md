@@ -63,9 +63,9 @@ propuesta beta cumpla las puertas de promoción descritas al final.
 
 ### Tokens de referencia
 
-Los tokens viven en las variables CSS del bloque inicial de `src/styles.css`.
-Las nuevas reglas deben reutilizar roles, no introducir colores literales sin
-justificación.
+Los tokens viven en las variables CSS de `src/styles.css`, incluidos los
+tokens de piloto beta al final del archivo. Las nuevas reglas deben reutilizar
+roles, no introducir colores literales sin justificación.
 
 | Rol | Referencia actual | Uso |
 |---|---|---|
@@ -78,6 +78,12 @@ justificación.
 | Borde | `#dfe5df` | separación estructural |
 | Advertencia | `#fff3cd` / `#6b4700` | avisos con texto oscuro |
 | Error | `#f9dddd` / `#8d2b2b` | errores y estados no ejecutados |
+
+Las tarjetas beta usan roles semánticos separados para nómina, contratista,
+mixta y sin responsable. En modo oscuro cada fondo cambia a una superficie
+oscura con texto claro; no se reutilizan los colores pastel del modo claro.
+Los campos del detalle usan separación por línea y espacio, no una caja de
+fondo por cada dato.
 
 Los pares principales deben mantener, como mínimo, 4.5:1 para texto normal y
 3:1 para texto grande o componentes no textuales. El color se acompaña con
@@ -100,6 +106,8 @@ etiqueta, icono, patrón, posición o texto.
 - Escala base recomendada: 4, 8, 12, 16, 24, 32 y 48 px.
 - El espacio interior comunica pertenencia; el exterior separa grupos.
 - Mantener alineación de bordes, ejes, líneas base y controles equivalentes.
+- El encabezado de los siete días es una zona persistente: conserva una altura
+  propia y permanece visible mientras se desplaza el calendario con contenido.
 
 ### Superficies, bordes e iconos
 
