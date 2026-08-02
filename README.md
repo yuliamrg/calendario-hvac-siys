@@ -147,5 +147,6 @@ Documentación:
 - [Manual completo](docs/MANUAL_DE_USO.md)
 - [Guía de Base Operativa](docs/BASE_OPERATIVA.md)
 - [Criterios de diseño y promoción beta](docs/CRITERIOS_DE_DISENO.md)
+- [Reglas de versionamiento](docs/VERSIONAMIENTO.md)
 - [Historial de cambios](CHANGELOG.md)
 - [Distribución y GitHub Pages](docs/DISTRIBUCION.md)

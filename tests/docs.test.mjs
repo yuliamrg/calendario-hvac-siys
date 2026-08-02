@@ -104,6 +104,24 @@ test("los criterios de diseño documentan la evolución beta y sus puertas de pr
   }
 });
 
+test("las reglas de versionamiento explican SemVer y la decisión beta actual", () => {
+  const versioningPath = resolve(root, "docs", "VERSIONAMIENTO.md");
+  assert.equal(existsSync(versioningPath), true);
+  const versioning = readFileSync(versioningPath, "utf8");
+  for (const required of [
+    "Semantic Versioning",
+    "package.json",
+    "APP_VERSION",
+    "0.10.0-beta.1",
+    "0.9.1",
+    "SCHEMA_VERSION",
+    "0d05123",
+    "npm run verify"
+  ]) {
+    assert.match(versioning, new RegExp(required.replace(/[.]/g, "\\."), "i"));
+  }
+});
+
 test("el contrato visual beta permanece aislado del canal estable", () => {
   const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
