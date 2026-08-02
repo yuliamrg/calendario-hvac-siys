@@ -84,11 +84,37 @@ roles, no introducir colores literales sin justificación.
 | Advertencia | `#fff3cd` / `#6b4700` | avisos con texto oscuro |
 | Error | `#f9dddd` / `#8d2b2b` | errores y estados no ejecutados |
 
+### Dirección beta `0.10.0-beta.5` — SIYS Operations
+
+La beta prueba una línea operativa profesional, separada visualmente del
+contrato estable hasta su eventual promoción:
+
+- Fondo gris frío y superficies blancas en claro; superficies azul-verdosas
+  escalonadas en oscuro.
+- Verde/teal reservado para acción primaria, foco, selección y señales de
+  éxito; nómina y contratista se distinguen con etiquetas y marcadores
+  compactos, no con fondos saturados.
+- Tarjetas con borde estructural y marcador superior de estado; la información
+  principal conserva mínimo 11 px y el metadato 10 px sólo cuando permanece
+  legible.
+- Detalle en dos columnas cuando el ancho lo permite, con observaciones y
+  datos operativos a todo el ancho; formularios, catálogo y menús comparten
+  radios, bordes y estados.
+- El modo oscuro beta define sus propios tokens de fondo, superficie, borde,
+  texto y control. No se reutilizan tonos pastel del claro.
+- La base sigue siendo HTML, CSS y JavaScript autocontenidos, sin fuentes,
+  iconos ni dependencias remotas nuevas.
+
+La dirección se inspira en recursos locales de Open Design —sistemas de
+dashboard y productividad, más las guías de color, tipografía y cobertura de
+estados—, adaptados a SIYS Sync sin copiar identidad de marca.
+
 Las tarjetas beta usan roles semánticos separados para nómina, contratista,
 mixta y sin responsable. En modo oscuro cada fondo cambia a una superficie
 oscura con texto claro; no se reutilizan los colores pastel del modo claro.
-Los campos del detalle usan separación por línea y espacio, no una caja de
-fondo por cada dato.
+En el contrato estable, los campos del detalle usan separación por línea y
+espacio. La beta `0.10.0-beta.5` prueba bloques sutiles por dato para reducir la
+lectura vertical sin convertirlos en tarjetas decorativas.
 
 Los pares principales deben mantener, como mínimo, 4.5:1 para texto normal y
 3:1 para texto grande o componentes no textuales. El color se acompaña con

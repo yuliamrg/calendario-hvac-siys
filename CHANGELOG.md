@@ -1,5 +1,25 @@
 # Historial de cambios
 
+## [0.10.0-beta.5] - 2026-08-02
+
+### Mejorado
+
+- La beta adopta la dirección visual **SIYS Operations**: superficies neutras,
+  jerarquía operativa y verde reservado para acciones y estados.
+- Las tarjetas usan superficies limpias y un marcador compacto de estado, sin
+  bloques saturados por tipo de responsable.
+- El detalle de actividad, filtros, catálogo, formularios, selección múltiple,
+  botones y modales comparten una geometría y contraste coherentes.
+- El modo oscuro beta recibe una paleta propia de superficies, bordes y texto;
+  el buscador y las acciones de selección mantienen contraste visible.
+- La cabecera del calendario conserva los nombres de los días y la beta se
+  valida en escritorio, mobile, claro y oscuro.
+
+### Compatibilidad
+
+- Sin cambios en esquema, IndexedDB, respaldos, exportaciones, persistencia ni
+  canal estable.
+
 ## [0.10.0-beta.4] - 2026-08-02
 
 ### Mejorado
