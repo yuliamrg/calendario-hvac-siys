@@ -56,7 +56,7 @@
             <div class="action-menu-panel">
               <button class="menu-action" id="holidayButton" type="button"><strong>Festivos y ajustes</strong><small>Excepciones del calendario colombiano</small></button>
               <button class="menu-action" id="calendarSettingsButton" type="button"><strong>Nombre del cronograma</strong><small>Identificación y coordinador</small></button>
-              <button class="menu-action" id="themeButton" type="button"><strong>Tema: Claro</strong><small>Apariencia clara, oscura o del sistema</small></button>
+              <button class="menu-action" id="themeButton" type="button" title="Cambiar tema"><strong>Tema: Sistema</strong><small>Cambiar entre sistema, claro y oscuro</small></button>
               <button class="menu-action" id="helpButton" type="button"><strong>Ayuda y privacidad</strong><small>Uso, almacenamiento y respaldos</small></button>
             </div>
           </details>
@@ -284,6 +284,10 @@
           <h3>Responsables</h3>
           <button class="text-button" id="quickAddResponsibleButton" type="button">＋ Crear responsable</button>
         </div>
+        <label class="responsible-search">
+          <span>Buscar responsable</span>
+          <input id="responsibleSearch" type="search" placeholder="Nombre, ciudad o grupo…" autocomplete="off">
+        </label>
         <div class="responsible-picker" id="responsiblePicker" data-testid="responsible-picker"></div>
       </div>
 

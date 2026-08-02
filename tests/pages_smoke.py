@@ -123,8 +123,8 @@ def main() -> None:
             assert len(get_state(beta_page)["activities"]) == 1
             beta_revision = get_state(beta_page)["calendarMeta"]["revision"]
             click_menu_action(beta_page, "themeButton")
-            beta_page.locator('input[name="themeMode"][value="dark"]').check()
-            beta_page.locator("#themeForm button[type=submit]").click()
+            expect(beta_page.locator("html")).to_have_attribute("data-theme", "light")
+            click_menu_action(beta_page, "themeButton")
             expect(beta_page.locator("html")).to_have_attribute("data-theme", "dark")
             assert get_state(beta_page)["calendarMeta"]["revision"] == beta_revision
             beta_theme_page = context.new_page()

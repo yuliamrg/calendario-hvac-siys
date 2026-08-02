@@ -201,8 +201,8 @@ def launch_and_check(
     assert identified_state["calendarMeta"]["revision"] == 1
 
     click_menu_action(page, "themeButton")
-    page.locator('input[name="themeMode"][value="dark"]').check()
-    page.locator("#themeForm button[type=submit]").click()
+    expect(page.locator("html")).to_have_attribute("data-theme", "light")
+    click_menu_action(page, "themeButton")
     expect(page.locator("html")).to_have_attribute("data-theme", "dark")
     assert get_state(page)["calendarMeta"]["revision"] == 1
     theme_page = context.new_page()
@@ -213,7 +213,7 @@ def launch_and_check(
     theme_page.close()
     page.screenshot(path=str(artifact_dir / f"{channel}-dark-theme.png"), full_page=True)
     click_menu_action(page, "themeButton")
-    page.locator('[data-close-dialog="themeDialog"]').first.click()
+    expect(page.locator("html")).to_have_attribute("data-theme", "light")
     page.locator(".action-menu", has_text="Gestionar").locator("summary").click()
     contrast_failures = page.evaluate(
         """

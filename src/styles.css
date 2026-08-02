@@ -1206,6 +1206,16 @@ body.catalog-collapsed .catalog-panel {
   color: white;
 }
 
+.responsible-search {
+  display: grid;
+  gap: 4px;
+  margin: 9px 0 10px;
+}
+
+.responsible-search input {
+  width: 100%;
+}
+
 dialog {
   max-height: calc(100vh - 34px);
   padding: 0;
@@ -2295,6 +2305,7 @@ html[data-channel="beta"] {
   --beta-card-unassigned-bg: #e4e8e4;
   --beta-card-unassigned-ink: #3d463e;
   --beta-control-radius: 9px;
+  --beta-weekday-height: 32px;
 }
 
 html[data-channel="beta"][data-theme="dark"] {
@@ -2367,7 +2378,7 @@ html[data-channel="beta"] .menu-action {
 }
 
 html[data-channel="beta"] .detail-item {
-  padding-bottom: 12px;
+  padding-bottom: 9px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -2396,15 +2407,56 @@ html[data-channel="beta"] .day-cell {
 
 html[data-channel="beta"] .weekday-row {
   flex: 0 0 auto;
-  min-height: 38px;
+  min-height: var(--beta-weekday-height);
+  height: var(--beta-weekday-height);
   isolation: isolate;
 }
 
 html[data-channel="beta"] .weekday-row div {
-  min-height: 38px;
+  min-height: var(--beta-weekday-height);
+  height: var(--beta-weekday-height);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+html[data-channel="beta"] .activity-detail-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+html[data-channel="beta"] .activity-detail-grid > .responsible-chips,
+html[data-channel="beta"] .activity-detail-grid > .detail-item-wide,
+html[data-channel="beta"] .activity-detail-grid > .detail-actions {
+  grid-column: 1 / -1;
+}
+
+html[data-channel="beta"] .activity-detail-grid .detail-actions {
+  margin: 10px 0;
+  padding: 10px 0;
+}
+
+html[data-channel="beta"] .search-box input {
+  color: var(--ink);
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+html[data-channel="beta"] .search-box input::placeholder,
+html[data-channel="beta"] .responsible-search input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+html[data-channel="beta"] .selection-bar .button:not(.ghost):not(.danger) {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--control-border);
+}
+
+html[data-channel="beta"] .selection-bar .button.danger {
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
 html[data-channel="beta"] .calendar-panel {
@@ -2452,6 +2504,14 @@ html[data-channel="beta"] .storage-banner.compact-status {
 }
 
 @media (max-width: 899px) {
+  html[data-channel="beta"] {
+    --beta-weekday-height: 30px;
+  }
+
+  html[data-channel="beta"] .activity-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
   html[data-channel="beta"] .backup-banner,
   html[data-channel="beta"] .access-banner {
     padding-block: 6px;

@@ -59,6 +59,13 @@ Por eso, el trabajo beta posterior a `0.9.0` se clasifica como `0.10.0-beta.1`:
 3. corrige un defecto persistente del encabezado de días;
 4. mantiene separado el canal estable y no cambia el formato de datos.
 
+La siguiente iteración publicada de esa misma línea se clasifica como
+`0.10.0-beta.2`: conserva el alcance de la beta visual, pero incorpora ajustes
+de interacción y densidad medidos en navegador —cambio directo de tema,
+cabecera persistente de días, detalle más compacto, búsqueda de responsables,
+contraste del buscador y botones de selección— sin cambiar el esquema ni
+introducir una capacidad de producto independiente.
+
 El commit anterior que añadió la primera capa del contrato beta (`0d05123`)
 no actualizó la versión. Esta regla corrige esa omisión: todo cambio que se
 publique en un canal beta debe actualizar las dos fuentes de versión, regenerar

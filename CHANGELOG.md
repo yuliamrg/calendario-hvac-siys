@@ -1,5 +1,23 @@
 # Historial de cambios
 
+## [0.10.0-beta.2] - 2026-08-01
+
+### Mejorado
+
+- Cambio directo entre tema del sistema, claro y oscuro desde Configuración.
+- Encabezado de días persistente y más compacto al desplazar el calendario.
+- Detalle de actividad reorganizado en dos columnas, con bloques extensos a
+  todo el ancho y menor separación vertical.
+- Búsqueda y filtrado por nombre, ciudad o grupo en responsables, con render
+  diferido para evitar reconstrucciones innecesarias durante la escritura.
+- Contraste explícito del buscador oscuro y de los botones de selección múltiple
+  en modo claro.
+
+### Compatibilidad
+
+- Sin cambios en el esquema 3, IndexedDB, respaldos, exportaciones ni canal
+  estable.
+
 ## [0.9.0] - 2026-07-30
 
 ### Añadido
