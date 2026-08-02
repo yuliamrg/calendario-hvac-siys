@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## [0.10.0-beta.4] - 2026-08-02
+
+### Mejorado
+
+- El estado de la actividad vuelve a una señal compacta en la tarjeta beta:
+  icono con contorno y nombre accesible completo en tooltip y lector de pantalla.
+- Se elimina la palabra visible completa para conservar espacio para sede y
+  responsable.
+
+### Compatibilidad
+
+- Sin cambios en esquema, respaldos, exportaciones, persistencia ni canal estable.
+
 ## [0.10.0-beta.3] - 2026-08-02
 
 ### Mejorado
