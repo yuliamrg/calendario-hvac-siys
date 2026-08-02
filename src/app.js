@@ -1178,6 +1178,11 @@ function buildActivityCard(activity, maps) {
   card.append(copyBlock);
 
   const flags = createElement("span", "card-flags");
+  if (RUNTIME_CHANNEL === "beta") {
+    const statusLabel = createElement("span", "beta-status-label", ACTIVITY_STATUSES[activity.status] ?? "Estado");
+    statusLabel.title = `Estado: ${ACTIVITY_STATUSES[activity.status] ?? "Estado"}`;
+    flags.append(statusLabel);
+  }
   const openDetail = createElement("button", "quick-open", STATUS_ICONS[activity.status] ?? "•");
   openDetail.type = "button";
   openDetail.title = "Abrir detalle";

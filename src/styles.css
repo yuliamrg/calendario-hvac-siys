@@ -2365,6 +2365,34 @@ html[data-channel="stable"] .activity-copy small {
   line-height: 1.2;
 }
 
+/* Beta-only experiment: make activity state scannable without relying on color. */
+html[data-channel="beta"] .card-flags {
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+}
+
+html[data-channel="beta"] .beta-status-label {
+  max-width: 58px;
+  overflow: hidden;
+  color: currentColor;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-channel="beta"] .activity-card.completed .beta-status-label,
+html[data-channel="beta"] .activity-card.cancelled .beta-status-label {
+  text-decoration: line-through;
+}
+
+html[data-channel="beta"] .activity-card.not-executed .beta-status-label {
+  color: var(--error-ink);
+}
+
 html[data-channel="beta"] .button,
 html[data-channel="stable"] .button,
 html[data-channel="beta"] .icon-button,

@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## [0.10.0-beta.3] - 2026-08-02
+
+### Mejorado
+
+- Las tarjetas de actividad muestran el estado en texto dentro del canal beta.
+- La etiqueta textual es exclusiva de beta para comparar el flujo con estable.
+
+### Compatibilidad
+
+- Sin cambios en esquema, respaldos, exportaciones, persistencia ni canal estable.
+
 ## [0.10.0] - 2026-08-01
 
 ### Promovido
