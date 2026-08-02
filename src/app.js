@@ -985,22 +985,21 @@ function runtimeMode() {
       : "servidor local";
 }
 
-function updateBetaCatalogSemantics() {
-  if (RUNTIME_CHANNEL !== "beta") return;
+function updateCatalogSemantics() {
   const activeTab = catalogTab === "sites" ? dom.sitesTab : dom.responsiblesTab;
   dom.catalogList.setAttribute("aria-labelledby", activeTab.id);
 }
 
-function applyBetaDesignContract() {
-  if (RUNTIME_CHANNEL !== "beta") return;
-  document.documentElement.dataset.channel = "beta";
+function applyDesignContract() {
+  if (!["beta", "stable"].includes(RUNTIME_CHANNEL)) return;
+  document.documentElement.dataset.channel = RUNTIME_CHANNEL;
   document.querySelector(".segmented[role=\"tablist\"]")?.setAttribute("aria-orientation", "horizontal");
   dom.catalogList.setAttribute("role", "tabpanel");
   dom.catalogList.setAttribute("tabindex", "0");
   for (const tab of [dom.sitesTab, dom.responsiblesTab]) {
     tab.setAttribute("aria-controls", "catalogList");
   }
-  updateBetaCatalogSemantics();
+  updateCatalogSemantics();
 }
 
 function renderCalendarIdentity() {
@@ -1028,7 +1027,7 @@ function renderCatalog() {
   dom.responsiblesTab.classList.toggle("active", catalogTab === "responsibles");
   dom.sitesTab.setAttribute("aria-selected", String(catalogTab === "sites"));
   dom.responsiblesTab.setAttribute("aria-selected", String(catalogTab === "responsibles"));
-  updateBetaCatalogSemantics();
+  updateCatalogSemantics();
   dom.dragHint.textContent = catalogTab === "sites"
     ? "Arrastra un cliente o una sede hasta un día."
     : "Los colores distinguen nómina y contratistas.";
@@ -3371,7 +3370,7 @@ async function loadInitialDocument() {
 
 async function initialize() {
   initializeStaticOptions();
-  applyBetaDesignContract();
+  applyDesignContract();
   bindEvents();
   applyCatalogPreference();
   applyThemePreference();

@@ -53,7 +53,8 @@ La auditoría falla si detecta:
 4. Abrir y aprobar el PR hacia `main`.
 5. Esperar CI y probar `/beta/`.
 6. Crear la etiqueta de la versión aceptada.
-7. Actualizar `stable-version.txt` mediante un PR de promoción.
+7. Crear la etiqueta estable aceptada y actualizar `stable-version.txt` mediante
+   un PR de promoción.
 8. Ejecutar el smoke test sobre estable y beta.
 
 El smoke reproducible está en `tests/pages_smoke.py` y recibe `--url`,

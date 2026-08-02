@@ -66,6 +66,13 @@ cabecera persistente de días, detalle más compacto, búsqueda de responsables,
 contraste del buscador y botones de selección— sin cambiar el esquema ni
 introducir una capacidad de producto independiente.
 
+Tras pasar las puertas de promoción, esa línea se publica como `0.10.0`.
+La promoción no crea una interfaz diferente: convierte el contrato visual
+validado en la versión estable y fija `v0.10.0` como la etiqueta que usa la
+raíz de GitHub Pages. `/beta/` puede continuar como canal de prueba, pero en
+esta promoción comparte la misma versión y experiencia visual; sus datos y
+preferencias siguen separados por origen/canal.
+
 El commit anterior que añadió la primera capa del contrato beta (`0d05123`)
 no actualizó la versión. Esta regla corrige esa omisión: todo cambio que se
 publique en un canal beta debe actualizar las dos fuentes de versión, regenerar
@@ -81,4 +88,5 @@ publique en un canal beta debe actualizar las dos fuentes de versión, regenerar
 6. Revisar que `dist/` sólo contenga la salida del build.
 7. Commit con la versión en el mensaje y publicar la rama correspondiente.
 8. Promover a estable sólo después de la revisión beta y sus puertas de
-   promoción.
+   promoción; crear la etiqueta estable y actualizar `stable-version.txt` en
+   una publicación posterior verificable.

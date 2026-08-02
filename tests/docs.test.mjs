@@ -117,6 +117,8 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
     "APP_VERSION",
     "0.10.0-beta.1",
     "0.10.0-beta.2",
+    "0.10.0",
+    "v0.10.0",
     "0.9.1",
     "SCHEMA_VERSION",
     "0d05123",
@@ -129,20 +131,20 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.10.0-beta.2");
+  assert.equal(packageJson.version, "0.10.0");
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
 });
 
-test("el contrato visual beta permanece aislado del canal estable", () => {
+test("el contrato visual promovido se aplica a beta y estable", () => {
   const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
-  assert.match(css, /html\[data-channel="beta"\]/);
-  assert.match(app, /document\.documentElement\.dataset\.channel = "beta"/);
-  assert.match(app, /if \(RUNTIME_CHANNEL !== "beta"\) return;/);
+  assert.match(css, /html\[data-channel="beta"\],[\s\S]*html\[data-channel="stable"\]/);
+  assert.match(app, /document\.documentElement\.dataset\.channel = RUNTIME_CHANNEL/);
+  assert.match(app, /\["beta", "stable"\]\.includes\(RUNTIME_CHANNEL\)/);
   assert.match(app, /aria-controls/, "La beta debe documentar la relación pestaña/panel");
-  assert.match(css, /html\[data-channel="beta"\] \.weekday-row \{[\s\S]*flex: 0 0 auto/);
+  assert.match(css, /html\[data-channel="beta"\] \.weekday-row,[\s\S]*html\[data-channel="stable"\] \.weekday-row \{[\s\S]*flex: 0 0 auto/);
   assert.match(css, /--beta-weekday-height: 32px/);
-  assert.match(css, /html\[data-channel="beta"\] \.month-grid-wrap \{[\s\S]*overflow: auto/);
+  assert.match(css, /html\[data-channel="beta"\] \.month-grid-wrap,[\s\S]*html\[data-channel="stable"\] \.month-grid-wrap \{[\s\S]*overflow: auto/);
   assert.match(css, /--beta-card-payroll-bg: #23423e/);
   assert.match(css, /\.search-box input \{[\s\S]*background: transparent/);
   assert.match(css, /\.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);

@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## [0.10.0] - 2026-08-01
+
+### Promovido
+
+- La beta visual `0.10.0-beta.2` pasa a ser el contrato público estable.
+- El canal estable y `/beta/` comparten la misma interfaz, tipografía,
+  densidad, tema, tarjetas y controles; mantienen bases locales separadas.
+
+### Compatibilidad
+
+- Sin cambios en el esquema 3, respaldos, exportaciones ni persistencia.
+
 ## [0.10.0-beta.2] - 2026-08-01
 
 ### Mejorado
