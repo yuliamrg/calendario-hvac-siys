@@ -59,12 +59,18 @@ Por eso, el trabajo beta posterior a `0.9.0` se clasifica como `0.10.0-beta.1`:
 3. corrige un defecto persistente del encabezado de días;
 4. mantiene separado el canal estable y no cambia el formato de datos.
 
-La siguiente iteración publicada de esa misma línea se clasifica como
-`0.10.0-beta.4`: conserva el alcance de la beta visual, pero incorpora ajustes
+La siguiente iteración publicada de esa misma línea se clasificó como
+`0.10.0-beta.4`: conservó el alcance de la beta visual, pero incorporó ajustes
 de interacción y densidad medidos en navegador —cambio directo de tema,
 cabecera persistente de días, detalle más compacto, búsqueda de responsables,
 contraste del buscador y botones de selección— sin cambiar el esquema ni
 introducir una capacidad de producto independiente.
+
+La renovación visual integral posterior se clasifica como `0.10.0-beta.5`:
+mantiene el contrato de datos y los flujos, pero cambia de forma transversal la
+dirección visual de la beta —superficies, paleta, tarjetas, controles, detalle y
+modo oscuro— para validar una línea profesional SIYS Operations antes de
+considerar una promoción.
 
 Tras pasar las puertas de promoción, esa línea se publica como `0.10.0`.
 La promoción no crea una interfaz diferente: convierte el contrato visual

@@ -131,7 +131,7 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.10.0-beta.4");
+  assert.equal(packageJson.version, "0.10.0-beta.5");
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
 });
 
@@ -151,4 +151,13 @@ test("el contrato visual promovido se aplica a beta y estable", () => {
   assert.match(app, /RUNTIME_CHANNEL === "beta"/);
   assert.match(app, /Estado: \$\{statusText\}/);
   assert.match(css, /html\[data-channel="beta"\] \.quick-open/);
+});
+
+test("la dirección SIYS Operations permanece aislada en beta", () => {
+  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
+  assert.match(css, /html\[data-channel="beta"\] \{[\s\S]*--beta-accent: #176b57/);
+  assert.match(css, /html\[data-channel="beta"\]\[data-theme="dark"\][\s\S]*--beta-bg: #0e171a/);
+  assert.match(css, /html\[data-channel="beta"\] \.activity-card[\s\S]*box-shadow: inset 0 3px 0 var\(--beta-card-mark\)/);
+  assert.match(css, /html\[data-channel="beta"\] \.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);
+  assert.match(css, /html\[data-channel="beta"\] \.search-box:focus-within/);
 });
