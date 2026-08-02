@@ -168,7 +168,8 @@ vacío para no reintroducir información anterior.
 
 ## 8. Apariencia
 
-En **Configuración > Tema** puede elegir **Claro**, **Oscuro** o **Sistema**.
+En **Configuración > Tema** puede cambiar directamente entre **Sistema**,
+**Claro** y **Oscuro** con cada clic; la preferencia se conserva por canal.
 La primera apertura usa Claro. Después se recuerda la elección. Sistema sigue
 la preferencia de Chrome, Edge o Windows y reacciona si esta
 cambia mientras la aplicación está abierta. La elección se guarda únicamente

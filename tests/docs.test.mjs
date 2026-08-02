@@ -47,7 +47,7 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
   }
 });
 
-test("la interfaz usa lenguaje operativo, tema claro inicial y menús móviles explícitos", () => {
+test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móviles explícitos", () => {
   const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
   for (const label of [
@@ -64,7 +64,10 @@ test("la interfaz usa lenguaje operativo, tema claro inicial y menús móviles e
   ]) {
     assert.match(template, new RegExp(label, "i"));
   }
-  assert.match(app, /return \["light", "dark", "system"\]\.includes\(value\) \? value : "light"/);
+  assert.match(app, /return \["light", "dark", "system"\]\.includes\(value\) \? value : "system"/);
+  assert.match(app, /function cycleThemePreference\(\)/);
+  assert.match(app, /dom\.themeButton\.addEventListener\("click", cycleThemePreference\)/);
+  assert.match(template, /id="responsibleSearch"/);
   assert.match(app, /respaldo-cronograma_/);
   assert.match(app, /_programacion_/);
   assert.match(app, /_cronograma_/);
@@ -113,6 +116,7 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
     "package.json",
     "APP_VERSION",
     "0.10.0-beta.1",
+    "0.10.0-beta.2",
     "0.9.1",
     "SCHEMA_VERSION",
     "0d05123",
@@ -125,7 +129,7 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.10.0-beta.1");
+  assert.equal(packageJson.version, "0.10.0-beta.2");
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
 });
 
@@ -137,6 +141,9 @@ test("el contrato visual beta permanece aislado del canal estable", () => {
   assert.match(app, /if \(RUNTIME_CHANNEL !== "beta"\) return;/);
   assert.match(app, /aria-controls/, "La beta debe documentar la relación pestaña/panel");
   assert.match(css, /html\[data-channel="beta"\] \.weekday-row \{[\s\S]*flex: 0 0 auto/);
+  assert.match(css, /--beta-weekday-height: 32px/);
   assert.match(css, /html\[data-channel="beta"\] \.month-grid-wrap \{[\s\S]*overflow: auto/);
   assert.match(css, /--beta-card-payroll-bg: #23423e/);
+  assert.match(css, /\.search-box input \{[\s\S]*background: transparent/);
+  assert.match(css, /\.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);
 });

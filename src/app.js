@@ -103,6 +103,7 @@ let pendingTouchActivityId = null;
 let mobileAgendaDate = null;
 let undoSnapshot = null;
 let forcedRangeDates = new Set();
+let responsibleRenderTimer = null;
 let storageAvailable = true;
 let hasEditControl = false;
 let editLockTimer = null;
@@ -165,7 +166,7 @@ function toggleCatalog() {
 
 function themePreference() {
   const value = readUiPreferences().theme;
-  return ["light", "dark", "system"].includes(value) ? value : "light";
+  return ["light", "dark", "system"].includes(value) ? value : "system";
 }
 
 function applyThemePreference() {
@@ -180,7 +181,21 @@ function applyThemePreference() {
     const label = dom.themeButton.querySelector("strong");
     if (label) label.textContent = `Tema: ${labels[preference]}`;
     else dom.themeButton.textContent = `Tema: ${labels[preference]}`;
+    const order = ["system", "light", "dark"];
+    const next = order[(order.indexOf(preference) + 1) % order.length];
+    dom.themeButton.title = `Tema: ${labels[preference]}. Cambiar a ${labels[next]}`;
+    dom.themeButton.setAttribute("aria-label", dom.themeButton.title);
   }
+}
+
+function cycleThemePreference() {
+  const order = ["system", "light", "dark"];
+  const current = themePreference();
+  const next = order[(order.indexOf(current) + 1) % order.length];
+  updateUiPreferences({ theme: next });
+  applyThemePreference();
+  const labels = { light: "claro", dark: "oscuro", system: "del sistema" };
+  showToast(`Tema ${labels[next]} aplicado.`);
 }
 
 function openThemeDialog() {
@@ -1555,8 +1570,8 @@ function markActivityCompleted(activityId) {
   }
 }
 
-function detailItem(label, content) {
-  const wrapper = createElement("div", "detail-item");
+function detailItem(label, content, { wide = false } = {}) {
+  const wrapper = createElement("div", `detail-item${wide ? " detail-item-wide" : ""}`);
   wrapper.append(createElement("span", "", label));
   if (content instanceof Node) wrapper.append(content);
   else wrapper.append(createElement("p", "", content || "—"));
@@ -1577,7 +1592,7 @@ function renderActivityDrawer(activityId) {
   dom.drawerEyebrow.textContent = SERVICE_TYPES[activity.serviceType] ?? "Actividad";
   dom.drawerTitle.textContent = client?.name ?? (activity.serviceType === "administrative" ? "Administrativo" : "Actividad");
 
-  const body = createElement("div", "detail-grid");
+  const body = createElement("div", "detail-grid activity-detail-grid");
   const badgeRow = createElement("div", "responsible-chips");
   badgeRow.append(createElement("span", `status-badge ${activity.status}`, `${STATUS_ICONS[activity.status]} ${ACTIVITY_STATUSES[activity.status]}`));
   badgeRow.append(createElement("span", "service-badge", SERVICE_SHORT[activity.serviceType] ?? activity.serviceType));
@@ -1603,7 +1618,7 @@ function renderActivityDrawer(activityId) {
   body.append(detailItem("Responsables", responsibleChips));
   body.append(detailItem("Tipo de servicio", SERVICE_TYPES[activity.serviceType]));
   body.append(detailItem("Estado", ACTIVITY_STATUSES[activity.status]));
-  body.append(detailItem("Observaciones", activity.observations));
+  body.append(detailItem("Observaciones", activity.observations, { wide: true }));
 
   if (site?.entryConditions || site?.requiresApp != null || site?.address) {
     const operational = createElement("div");
@@ -1613,7 +1628,7 @@ function renderActivityDrawer(activityId) {
       site.requiresApp === true ? "Requiere App SI&S" : site.requiresApp === false ? "No requiere App SI&S" : "Requisito de App sin confirmar"
     ].filter(Boolean);
     for (const line of lines) operational.append(createElement("p", "", line));
-    body.append(detailItem("Datos operativos de sede", operational));
+    body.append(detailItem("Datos operativos de sede", operational, { wide: true }));
   }
   if (Array.isArray(site?.coverageHints) && site.coverageHints.length) {
     const equipmentCount = site.coverageHints.reduce((sum, hint) => sum + (Number(hint.equipmentCount) || 0), 0);
@@ -1624,7 +1639,7 @@ function renderActivityDrawer(activityId) {
       ...groups,
       ...frequencies
     ].join(" · ");
-    body.append(detailItem("Referencia de equipos", `${hint}. Es una pista; no asigna personal automáticamente.`));
+    body.append(detailItem("Referencia de equipos", `${hint}. Es una pista; no asigna personal automáticamente.`, { wide: true }));
   }
 
   const actions = createElement("div", "detail-actions");
@@ -1640,7 +1655,7 @@ function renderActivityDrawer(activityId) {
   actions.append(edit, organize, remove);
   body.append(actions);
 
-  const statusEditor = createElement("div", "detail-item");
+  const statusEditor = createElement("div", "detail-item detail-item-wide");
   statusEditor.append(createElement("span", "", "Actualizar estado"));
   const statusSelect = document.createElement("select");
   statusSelect.id = "drawerStatusSelect";
@@ -1675,7 +1690,8 @@ function renderActivityDrawer(activityId) {
       .sort((a, b) => compareISODate(a.date, b.date));
     body.append(detailItem(
       "Actividad multidía",
-      `${seriesItems.length} tarjetas independientes · ${formatDisplayDate(seriesItems[0].date)} a ${formatDisplayDate(seriesItems.at(-1).date)}`
+      `${seriesItems.length} tarjetas independientes · ${formatDisplayDate(seriesItems[0].date)} a ${formatDisplayDate(seriesItems.at(-1).date)}`,
+      { wide: true }
     ));
   }
 
@@ -1684,7 +1700,7 @@ function renderActivityDrawer(activityId) {
     for (const item of [...activity.history].reverse().slice(0, 20)) {
       list.append(createElement("li", "", `${timestampLabel(item.at)} · ${item.detail}`));
     }
-    body.append(detailItem("Historial", list));
+    body.append(detailItem("Historial", list, { wide: true }));
   }
   dom.drawerBody.replaceChildren(body);
   openDrawer();
@@ -1698,7 +1714,7 @@ function renderDayDrawer(date) {
   const items = appDocument.activities
     .filter((activity) => activity.date === date)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const body = createElement("div", "detail-grid");
+  const body = createElement("div", "detail-grid day-detail-grid");
   if (!items.length) body.append(createElement("p", "", "No hay actividades programadas."));
   for (const activity of items) {
     const card = buildActivityCard(activity, maps);
@@ -1788,8 +1804,21 @@ function renderResponsiblePicker(selectedIds = null) {
     selectedIds ?? [...dom.responsiblePicker.querySelectorAll("input:checked")].map((input) => input.value)
   );
   const city = dom.activityCity.value;
+  const query = normalizeText(dom.responsibleSearch?.value || "");
   const active = appDocument.catalog.responsibles
     .filter((item) => item.active !== false || checked.has(item.id))
+    .filter((item) => {
+      if (!query) return true;
+      if (checked.has(item.id)) return true;
+      return normalizeText([
+        item.name,
+        item.baseCity,
+        item.group,
+        item.company,
+        ...(item.coverage ?? []),
+        ...(item.responsibleGroups ?? [])
+      ].filter(Boolean).join(" ")).includes(query);
+    })
     .sort((a, b) => {
       const score = responsibleScore(a, city) - responsibleScore(b, city);
       if (score) return score;
@@ -1805,7 +1834,7 @@ function renderResponsiblePicker(selectedIds = null) {
     const group = createElement("section", "responsible-group");
     group.append(createElement("h4", "", title));
     const items = active.filter((item) => item.responsibleType === type);
-    if (!items.length) group.append(createElement("p", "field-note", "Sin registros activos."));
+    if (!items.length) group.append(createElement("p", "field-note", query ? "Sin coincidencias." : "Sin registros activos."));
     for (const responsible of items) {
       const score = responsibleScore(responsible, city);
       const label = createElement("label", `responsible-option ${score < 4 ? "recommended" : ""}`.trim());
@@ -1826,7 +1855,16 @@ function renderResponsiblePicker(selectedIds = null) {
     }
     fragment.append(group);
   }
+  dom.responsiblePicker.dataset.filteredCount = String(active.length);
   dom.responsiblePicker.replaceChildren(fragment);
+}
+
+function scheduleResponsiblePickerRender() {
+  if (responsibleRenderTimer != null) clearTimeout(responsibleRenderTimer);
+  responsibleRenderTimer = setTimeout(() => {
+    responsibleRenderTimer = null;
+    renderResponsiblePicker();
+  }, 120);
 }
 
 function syncActivityLocationFromSite() {
@@ -3105,7 +3143,7 @@ function bindEvents() {
   });
   dom.helpButton.addEventListener("click", () => openDialog("helpDialog"));
   dom.calendarSettingsButton.addEventListener("click", openCalendarSettingsDialog);
-  dom.themeButton.addEventListener("click", openThemeDialog);
+  dom.themeButton.addEventListener("click", cycleThemePreference);
   dom.themeForm.addEventListener("submit", handleThemeSubmit);
   dom.resetDataButton.addEventListener("click", openResetDataDialog);
   dom.resetDataForm.addEventListener("submit", handleResetDataSubmit);
@@ -3190,7 +3228,8 @@ function bindEvents() {
     renderResponsiblePicker();
   });
   dom.activitySite.addEventListener("change", syncActivityLocationFromSite);
-  dom.activityCity.addEventListener("input", () => renderResponsiblePicker());
+  dom.responsibleSearch.addEventListener("input", scheduleResponsiblePickerRender);
+  dom.activityCity.addEventListener("input", scheduleResponsiblePickerRender);
   dom.activityServiceType.addEventListener("change", updateAdministrativeFormState);
   dom.activityDate.addEventListener("change", () => {
     forcedRangeDates.clear();
