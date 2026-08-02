@@ -116,7 +116,7 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
     "package.json",
     "APP_VERSION",
     "0.10.0-beta.1",
-    "0.10.0-beta.3",
+    "0.10.0-beta.4",
     "0.10.0",
     "v0.10.0",
     "0.9.1",
@@ -131,7 +131,7 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.10.0-beta.3");
+  assert.equal(packageJson.version, "0.10.0-beta.4");
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
 });
 
@@ -149,6 +149,6 @@ test("el contrato visual promovido se aplica a beta y estable", () => {
   assert.match(css, /\.search-box input \{[\s\S]*background: transparent/);
   assert.match(css, /\.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);
   assert.match(app, /RUNTIME_CHANNEL === "beta"/);
-  assert.match(app, /beta-status-label/);
-  assert.match(css, /html\[data-channel="beta"\] \.beta-status-label/);
+  assert.match(app, /Estado: \$\{statusText\}/);
+  assert.match(css, /html\[data-channel="beta"\] \.quick-open/);
 });

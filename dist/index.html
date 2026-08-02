@@ -2374,32 +2374,16 @@ html[data-channel="stable"] .activity-copy small {
   line-height: 1.2;
 }
 
-/* Beta-only experiment: make activity state scannable without relying on color. */
-html[data-channel="beta"] .card-flags {
-  flex-direction: row;
-  align-items: center;
-  gap: 3px;
-}
-
-html[data-channel="beta"] .beta-status-label {
-  max-width: 58px;
-  overflow: hidden;
-  color: currentColor;
-  font-size: 9px;
+/* Beta-only experiment: use a compact status token with a full accessible label. */
+html[data-channel="beta"] .quick-open {
+  border: 1px solid color-mix(in srgb, currentColor 42%, transparent);
+  font-size: 10px;
   font-weight: 800;
-  line-height: 1.05;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-html[data-channel="beta"] .activity-card.completed .beta-status-label,
-html[data-channel="beta"] .activity-card.cancelled .beta-status-label {
-  text-decoration: line-through;
-}
-
-html[data-channel="beta"] .activity-card.not-executed .beta-status-label {
+html[data-channel="beta"] .activity-card.not-executed .quick-open {
   color: var(--error-ink);
+  border-color: var(--error-ink);
 }
 
 html[data-channel="beta"] .button,
@@ -3622,7 +3606,7 @@ t.sheetStubs=true}if(t.type=="array"){t.type="binary";var a=xk(e,t);t.type="arra
 
   </script>
   <script type="module">
-export const APP_VERSION = "0.10.0-beta.3";
+export const APP_VERSION = "0.10.0-beta.4";
 export const SCHEMA_VERSION = 3;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -7436,15 +7420,15 @@ function buildActivityCard(activity, maps) {
   card.append(copyBlock);
 
   const flags = createElement("span", "card-flags");
-  if (RUNTIME_CHANNEL === "beta") {
-    const statusLabel = createElement("span", "beta-status-label", ACTIVITY_STATUSES[activity.status] ?? "Estado");
-    statusLabel.title = `Estado: ${ACTIVITY_STATUSES[activity.status] ?? "Estado"}`;
-    flags.append(statusLabel);
-  }
   const openDetail = createElement("button", "quick-open", STATUS_ICONS[activity.status] ?? "•");
   openDetail.type = "button";
-  openDetail.title = "Abrir detalle";
-  openDetail.setAttribute("aria-label", `Abrir detalle de ${title}`);
+  const statusText = ACTIVITY_STATUSES[activity.status] ?? "Estado desconocido";
+  openDetail.title = RUNTIME_CHANNEL === "beta"
+    ? `Estado: ${statusText} · Abrir detalle`
+    : "Abrir detalle";
+  openDetail.setAttribute("aria-label", RUNTIME_CHANNEL === "beta"
+    ? `Estado: ${statusText}. Abrir detalle de ${title}`
+    : `Abrir detalle de ${title}`);
   openDetail.addEventListener("click", (event) => {
     event.stopPropagation();
     renderActivityDrawer(activity.id);
