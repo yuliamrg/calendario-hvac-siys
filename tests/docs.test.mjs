@@ -101,7 +101,10 @@ test("los criterios de diseño documentan la evolución beta y sus puertas de pr
     "Accesibilidad e interacción",
     "Puertas de promoción beta → estable",
     "85/100",
-    "seis viewports"
+    "seis viewports",
+    "parche `0.x.y`",
+    "hito `0.x.0`",
+    "1.0.0"
   ]) {
     assert.match(criteria, new RegExp(required, "i"));
   }
@@ -115,10 +118,16 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
     "Semantic Versioning",
     "package.json",
     "APP_VERSION",
-    "0.10.0-beta.1",
-    "0.10.0-beta.4",
+    "0.10.1",
+    "0.10.1-beta.1",
+    "0.11.0-beta.1",
+    "0.11.0",
+    "1.0.0-beta.1",
+    "1.0.0",
     "0.10.0",
     "v0.10.0",
+    "stable-version.txt",
+    "no se reescriben",
     "0.9.1",
     "SCHEMA_VERSION",
     "0d05123",
@@ -130,9 +139,20 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  const lockfile = JSON.parse(readFileSync(resolve(root, "package-lock.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.10.0-beta.5");
+  assert.equal(packageJson.version, "0.11.0-beta.1");
+  assert.equal(lockfile.version, packageJson.version);
+  assert.equal(lockfile.packages[""].version, packageJson.version);
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
+});
+
+test("la línea activa beta no reutiliza la base estable", () => {
+  const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  const stablePointer = readFileSync(resolve(root, "stable-version.txt"), "utf8").trim();
+  assert.equal(stablePointer, "v0.10.0");
+  assert.equal(packageJson.version, "0.11.0-beta.1");
+  assert.notEqual(packageJson.version, stablePointer.slice(1));
 });
 
 test("el contrato visual promovido se aplica a beta y estable", () => {

@@ -10,10 +10,12 @@ La versión beta es el espacio para probar cambios de diseño. La versión
 estable conserva el comportamiento y la apariencia aprobados hasta que una
 propuesta beta cumpla las puertas de promoción descritas al final.
 
-La iteración `0.10.0-beta.2`, promovida a estable como `0.10.0`, valida una interacción de tema sin diálogo,
-densidad de detalle en dos columnas, búsqueda de responsables y controles de
-selección legibles en ambos temas. Estas reglas son ahora el contrato visual
-compartido por estable y beta; los datos operativos siguen aislados por canal.
+La iteración histórica `0.10.0-beta.2`, promovida a estable como `0.10.0`,
+validó una interacción de tema sin diálogo, densidad de detalle en dos
+columnas, búsqueda de responsables y controles de selección legibles en ambos
+temas. La renovación integral SIYS Operations posterior se mantiene como la
+línea activa `0.11.0-beta.1`; la estable conserva `v0.10.0` hasta una nueva
+promoción explícita. Los datos operativos siguen aislados por canal.
 
 ## Producto, audiencia y tarea principal
 
@@ -84,7 +86,7 @@ roles, no introducir colores literales sin justificación.
 | Advertencia | `#fff3cd` / `#6b4700` | avisos con texto oscuro |
 | Error | `#f9dddd` / `#8d2b2b` | errores y estados no ejecutados |
 
-### Dirección beta `0.10.0-beta.5` — SIYS Operations
+### Dirección beta `0.11.0-beta.1` — SIYS Operations
 
 La beta prueba una línea operativa profesional, separada visualmente del
 contrato estable hasta su eventual promoción:
@@ -113,7 +115,7 @@ Las tarjetas beta usan roles semánticos separados para nómina, contratista,
 mixta y sin responsable. En modo oscuro cada fondo cambia a una superficie
 oscura con texto claro; no se reutilizan los colores pastel del modo claro.
 En el contrato estable, los campos del detalle usan separación por línea y
-espacio. La beta `0.10.0-beta.5` prueba bloques sutiles por dato para reducir la
+espacio. La beta `0.11.0-beta.1` prueba bloques sutiles por dato para reducir la
 lectura vertical sin convertirlos en tarjetas decorativas.
 
 Los pares principales deben mantener, como mínimo, 4.5:1 para texto normal y
@@ -209,6 +211,13 @@ Una mejora visual beta sólo se promueve si:
 - se revisa en claro, oscuro, impresión y exportación PNG cuando corresponda;
 - se compara explícitamente contra la versión estable y se documenta la
   decisión de promoción.
+
+La promoción visual también respeta el impacto de versionamiento: una
+corrección aislada de contraste, responsive o accesibilidad puede ser un
+parche `0.x.y`; una renovación transversal del sistema visual o una capacidad
+visible nueva es un hito `0.x.0`; `1.0.0` sólo se considera cuando los contratos
+de datos y flujos del producto ya cumplen su puerta de estabilidad. El tamaño
+del diff o el número de iteraciones beta no decide por sí solo la versión.
 
 ## Registro de cambios de diseño
 
