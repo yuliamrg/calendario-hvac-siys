@@ -15,6 +15,23 @@ test("el README enlaza documentación existente", () => {
   }
 });
 
+test("la distribución documenta que Pages publica main y la beta requiere merge", () => {
+  const pages = readFileSync(resolve(root, "docs", "GITHUB_PAGES.md"), "utf8");
+  assert.equal(existsSync(resolve(root, "docs", "GITHUB_PAGES.md")), true);
+  for (const required of [
+    "no publica cada rama",
+    "main",
+    "/beta/",
+    "stable-version.txt",
+    "PR a main",
+    "workflow de Pages",
+    "No ejecutar `workflow_dispatch` desde una rama",
+    "preview local"
+  ]) {
+    assert.match(pages, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+  }
+});
+
 test("el manual documenta persistencia, filtros, plantilla y restauración", () => {
   const manual = readFileSync(resolve(root, "docs", "MANUAL_DE_USO.md"), "utf8");
   for (const required of [

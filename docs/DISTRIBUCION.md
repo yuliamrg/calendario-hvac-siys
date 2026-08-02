@@ -45,6 +45,10 @@ La auditoría falla si detecta:
   versionados;
 - patrones de token de GitHub dentro del HTML.
 
+El detalle de por qué una rama no aparece directamente en Pages y la secuencia
+rama → PR → `main` → `/beta/` está en
+[Flujo de GitHub Pages y beta](GITHUB_PAGES.md).
+
 ## Publicación manual de una versión
 
 1. Clasificar el cambio: parche (`0.10.1`), hito (`0.11.0`) o primera

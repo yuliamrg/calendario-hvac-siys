@@ -162,5 +162,6 @@ Documentación:
 - [Guía de Base Operativa](docs/BASE_OPERATIVA.md)
 - [Criterios de diseño y promoción beta](docs/CRITERIOS_DE_DISENO.md)
 - [Reglas de versionamiento](docs/VERSIONAMIENTO.md)
+- [Flujo de GitHub Pages y beta](docs/GITHUB_PAGES.md)
 - [Historial de cambios](CHANGELOG.md)
 - [Distribución y GitHub Pages](docs/DISTRIBUCION.md)

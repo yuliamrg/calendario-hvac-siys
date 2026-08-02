@@ -89,6 +89,10 @@ línea actual.
   estable automáticamente.
 - Promover requiere una versión final, una etiqueta nueva y actualizar
   `stable-version.txt` mediante un cambio verificable.
+- Las ramas de trabajo no son destinos de Pages. Para ver una rama antes del
+  merge se usa una preview local; para publicar beta se requiere PR aprobado y
+  merge a `main`. El detalle operativo está en
+  [Flujo de GitHub Pages y beta](GITHUB_PAGES.md).
 
 ## Flujo de release
 
