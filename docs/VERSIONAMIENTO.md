@@ -1,0 +1,77 @@
+# Versionamiento de SIYS Sync
+
+## Regla adoptada
+
+SIYS Sync usa [Semantic Versioning 2.0.0](https://semver.org/) con una
+adaptación explícita para el periodo `0.x` del producto.
+
+El número de versión se mantiene en dos fuentes que deben coincidir:
+
+- `package.json > version`: fuente de release y de automatización.
+- `src/core.js > APP_VERSION`: versión que se guarda en las copias y que se
+  muestra en la interfaz.
+
+Después de cambiar la versión se ejecuta `npm run build` para regenerar ambos
+archivos de `dist/`. No se edita la distribución manualmente.
+
+## Cómo se decide el incremento
+
+| Tipo | Cuándo se usa | Ejemplo |
+|---|---|---|
+| `0.x.0` | Hito de producto o capacidad visible nueva que conserva la compatibilidad de datos y los flujos existentes | `0.9.0` agenda-first, `0.8.0` responsive y acciones táctiles |
+| `0.x.y` | Corrección aislada, regresión o ajuste interno sin una superficie de producto nueva | `0.9.1` |
+| `1.0.0` | Primera API/formato estable o cambio incompatible que requiera migración o cambie un contrato público | `1.0.0` |
+
+Mientras el producto sea `0.x`, la compatibilidad no se presume por el número:
+se conserva por decisión del proyecto y se valida con pruebas de migración,
+persistencia y regresión.
+
+El `SCHEMA_VERSION` de `src/core.js` es independiente del número de la app.
+Sólo aumenta cuando cambia el formato persistido o las reglas necesarias para
+leer/escribir copias; un cambio visual no lo incrementa.
+
+## Canales beta
+
+Una beta se identifica con un sufijo prerelease:
+
+```text
+0.10.0-beta.1
+```
+
+- La base (`0.10.0`) es el siguiente hito previsto.
+- `beta.1`, `beta.2`, etc. ordena las iteraciones publicadas antes de la
+  promoción.
+- La beta debe mostrar su versión y su distintivo `BETA`.
+- La versión estable no se cambia hasta que la beta cumpla las puertas de
+  promoción de `CRITERIOS_DE_DISENO.md` y las pruebas del proyecto.
+
+## Aplicación a este proyecto
+
+El historial confirma una convención de hitos de producto: después de `0.3.0`
+se publicaron `0.4.0`, `0.5.0`, `0.6.0`, `0.7.0`, `0.8.0` y `0.9.0` para
+capacidades o etapas visibles. No se encontró una secuencia histórica de
+parches `0.x.y` para corregir únicamente defectos.
+
+Por eso, el trabajo beta posterior a `0.9.0` se clasifica como `0.10.0-beta.1`:
+
+1. consolida un contrato visual y componentes reutilizables;
+2. corrige de forma transversal el tema oscuro, tarjetas, controles y densidad;
+3. corrige un defecto persistente del encabezado de días;
+4. mantiene separado el canal estable y no cambia el formato de datos.
+
+El commit anterior que añadió la primera capa del contrato beta (`0d05123`)
+no actualizó la versión. Esta regla corrige esa omisión: todo cambio que se
+publique en un canal beta debe actualizar las dos fuentes de versión, regenerar
+`dist/`, pasar `npm run verify` y quedar registrado en Git.
+
+## Lista de comprobación de release
+
+1. Clasificar el cambio como hito (`0.x.0`), parche (`0.x.y`) o ruptura.
+2. Elegir el sufijo de canal si es beta, candidato o experimento.
+3. Actualizar `package.json` y `src/core.js` con el mismo valor.
+4. Actualizar pruebas o documentación cuando cambie el contrato.
+5. Ejecutar `npm run verify` y pruebas de navegador de estable y beta.
+6. Revisar que `dist/` sólo contenga la salida del build.
+7. Commit con la versión en el mensaje y publicar la rama correspondiente.
+8. Promover a estable sólo después de la revisión beta y sus puertas de
+   promoción.

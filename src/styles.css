@@ -2279,6 +2279,194 @@ html[data-theme="dark"] dialog::backdrop {
   }
 }
 
+/* Beta design pilot: these rules are activated only when the runtime URL is
+   /beta/. The stable channel keeps the approved v0.9 visual contract. */
+html[data-channel="beta"] {
+  --beta-card-title-size: 11px;
+  --beta-card-meta-size: 10px;
+  --beta-card-min-height: 36px;
+  --beta-card-payroll-bg: #9bc1bc;
+  --beta-card-payroll-ink: #17302d;
+  --beta-card-contractor-bg: #f5aa77;
+  --beta-card-contractor-ink: #4b270e;
+  --beta-card-mixed-payroll-bg: #9bc1bc;
+  --beta-card-mixed-contractor-bg: #f3a46e;
+  --beta-card-mixed-ink: #3e2a1d;
+  --beta-card-unassigned-bg: #e4e8e4;
+  --beta-card-unassigned-ink: #3d463e;
+  --beta-control-radius: 9px;
+}
+
+html[data-channel="beta"][data-theme="dark"] {
+  --beta-card-payroll-bg: #23423e;
+  --beta-card-payroll-ink: #f3fbf7;
+  --beta-card-contractor-bg: #51301f;
+  --beta-card-contractor-ink: #fff4e8;
+  --beta-card-mixed-payroll-bg: #23423e;
+  --beta-card-mixed-contractor-bg: #51301f;
+  --beta-card-mixed-ink: #fff4e8;
+  --beta-card-unassigned-bg: #2b342e;
+  --beta-card-unassigned-ink: #eef6ef;
+}
+
+html[data-channel="beta"] .activity-card {
+  min-height: var(--beta-card-min-height);
+  padding: 5px 6px 5px 5px;
+  color: var(--beta-card-payroll-ink);
+  background: var(--beta-card-payroll-bg);
+  box-shadow: 0 1px 3px rgba(28, 48, 34, 0.16);
+}
+
+html[data-channel="beta"] .activity-card.contractor {
+  color: var(--beta-card-contractor-ink);
+  background: var(--beta-card-contractor-bg);
+}
+
+html[data-channel="beta"] .activity-card.mixed {
+  color: var(--beta-card-mixed-ink);
+  background: linear-gradient(100deg, var(--beta-card-mixed-payroll-bg) 0 50%, var(--beta-card-mixed-contractor-bg) 50% 100%);
+}
+
+html[data-channel="beta"] .activity-card.unassigned {
+  color: var(--beta-card-unassigned-ink);
+  background: var(--beta-card-unassigned-bg);
+}
+
+html[data-channel="beta"] .activity-card.selected {
+  outline-color: var(--focus);
+}
+
+html[data-channel="beta"] .activity-copy strong {
+  font-size: var(--beta-card-title-size);
+  line-height: 1.25;
+}
+
+html[data-channel="beta"] .activity-copy small {
+  font-size: var(--beta-card-meta-size);
+  line-height: 1.2;
+}
+
+html[data-channel="beta"] .button,
+html[data-channel="beta"] .icon-button {
+  border-radius: var(--beta-control-radius);
+}
+
+html[data-channel="beta"] .button.small,
+html[data-channel="beta"] .icon-button.small {
+  min-height: 32px;
+}
+
+html[data-channel="beta"] .icon-button.small {
+  width: 32px;
+  height: 32px;
+}
+
+html[data-channel="beta"] .menu-action {
+  min-height: 38px;
+  border-radius: var(--beta-control-radius);
+}
+
+html[data-channel="beta"] .detail-item {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+html[data-channel="beta"] .detail-item:last-child {
+  border-bottom: 0;
+}
+
+html[data-channel="beta"][data-theme="dark"] .detail-item {
+  background: transparent;
+}
+
+html[data-channel="beta"] .modal input[type="text"],
+html[data-channel="beta"] .modal input[type="date"],
+html[data-channel="beta"] .modal select,
+html[data-channel="beta"] .modal textarea {
+  border-color: var(--control-border);
+}
+
+html[data-channel="beta"] .calendar-grid {
+  border-color: var(--line);
+}
+
+html[data-channel="beta"] .day-cell {
+  border-color: var(--line);
+}
+
+html[data-channel="beta"] .weekday-row {
+  flex: 0 0 auto;
+  min-height: 38px;
+  isolation: isolate;
+}
+
+html[data-channel="beta"] .weekday-row div {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+html[data-channel="beta"] .calendar-panel {
+  overflow: hidden;
+}
+
+html[data-channel="beta"] .month-grid-wrap {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+html[data-channel="beta"] .catalog-site,
+html[data-channel="beta"] .responsible-row {
+  border-top-color: var(--line);
+  background: var(--surface);
+}
+
+html[data-channel="beta"] .catalog-site:hover,
+html[data-channel="beta"] .responsible-row:hover {
+  background: var(--surface-2);
+}
+
+html[data-channel="beta"] .empty-catalog {
+  border-color: var(--control-border);
+  background: var(--surface-2);
+}
+
+html[data-channel="beta"] .warning-box,
+html[data-channel="beta"] .warning-list {
+  border-color: var(--warning-ink);
+}
+
+html[data-channel="beta"] .form-errors {
+  border-color: var(--error-ink);
+}
+
+html[data-channel="beta"] .catalog-list[role="tabpanel"]:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+html[data-channel="beta"] .storage-banner.compact-status {
+  min-height: 26px;
+  font-size: 10px;
+}
+
+@media (max-width: 899px) {
+  html[data-channel="beta"] .backup-banner,
+  html[data-channel="beta"] .access-banner {
+    padding-block: 6px;
+  }
+
+  html[data-channel="beta"] .backup-banner div,
+  html[data-channel="beta"] .access-banner div {
+    line-height: 1.25;
+  }
+
+  html[data-channel="beta"] .mobile-agenda-list .activity-card {
+    min-height: 56px;
+  }
+}
+
 @media print {
   @page {
     size: landscape;

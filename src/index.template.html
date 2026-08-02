@@ -143,14 +143,14 @@
 
       <section class="calendar-panel" id="calendarPanel" role="region" aria-label="Calendario mensual">
         <div class="month-grid-wrap" id="monthGridWrap">
-          <div class="weekday-row" id="weekdayRow" aria-hidden="true">
-            <div>Lunes</div>
-            <div>Martes</div>
-            <div>Miércoles</div>
-            <div>Jueves</div>
-            <div>Viernes</div>
-            <div>Sábado</div>
-            <div>Domingo</div>
+          <div class="weekday-row" id="weekdayRow" role="row">
+            <div role="columnheader">Lunes</div>
+            <div role="columnheader">Martes</div>
+            <div role="columnheader">Miércoles</div>
+            <div role="columnheader">Jueves</div>
+            <div role="columnheader">Viernes</div>
+            <div role="columnheader">Sábado</div>
+            <div role="columnheader">Domingo</div>
           </div>
           <div class="calendar-grid" id="calendarGrid" data-testid="calendar-grid"></div>
         </div>

@@ -24,7 +24,10 @@ def get_state(page: Page) -> dict:
     return page.evaluate(
         """
         async () => new Promise((resolve, reject) => {
-          const request = indexedDB.open("calendario-hvac-siys", 1);
+          const databaseName = location.pathname.includes("/beta/")
+            ? "calendario-hvac-siys-beta"
+            : "calendario-hvac-siys";
+          const request = indexedDB.open(databaseName, 1);
           request.onerror = () => reject(request.error);
           request.onsuccess = () => {
             const db = request.result;
@@ -63,6 +66,25 @@ def launch_and_check(
         locale="es-CO",
         timezone_id="America/Bogota",
         viewport={"width": 1600, "height": 1000},
+    )
+    context.add_init_script(
+        """
+        (() => {
+          const NativeDate = Date;
+          const fixedNow = NativeDate.parse("2026-07-01T12:00:00Z");
+          class FixedDate extends NativeDate {
+            constructor(...args) {
+              super(...(args.length ? args : [fixedNow]));
+            }
+            static now() {
+              return fixedNow;
+            }
+          }
+          FixedDate.parse = NativeDate.parse;
+          FixedDate.UTC = NativeDate.UTC;
+          window.Date = FixedDate;
+        })();
+        """
     )
     page = context.new_page()
     page_errors: list[str] = []
@@ -232,7 +254,12 @@ def launch_and_check(
 
     system_context = browser.new_context(locale="es-CO", color_scheme="dark")
     system_context.add_init_script(
-        """localStorage.setItem("siys-sync-ui:local", JSON.stringify({theme: "system"}));"""
+        """
+        localStorage.setItem(
+          `siys-sync-ui:${location.pathname.includes("/beta/") ? "beta" : "local"}`,
+          JSON.stringify({theme: "system"})
+        );
+        """
     )
     system_page = system_context.new_page()
     system_page.goto(html_path.as_uri(), wait_until="load")
@@ -618,7 +645,10 @@ def launch_and_check(
     page.evaluate(
         """
         async () => new Promise((resolve, reject) => {
-          const request = indexedDB.open("calendario-hvac-siys", 1);
+          const databaseName = location.pathname.includes("/beta/")
+            ? "calendario-hvac-siys-beta"
+            : "calendario-hvac-siys";
+          const request = indexedDB.open(databaseName, 1);
           request.onerror = () => reject(request.error);
           request.onsuccess = () => {
             const db = request.result;
