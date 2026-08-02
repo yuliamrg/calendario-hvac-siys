@@ -3,6 +3,15 @@
 Este archivo se actualiza al cerrar cada bloque con pruebas verificables. Las
 versiones se construyen de forma acumulativa sobre `v0.1.0`.
 
+## Estado de releases
+
+- Estable actual: `v0.10.0`.
+- Beta activa: `0.11.0-beta.1`.
+- Una corrección compatible de la estable sería `0.10.1`; un nuevo hito sería
+  `0.11.0`; `1.0.0` requiere cerrar los contratos públicos de datos y flujos.
+- Fusionar a `main` actualiza `/beta/`; sólo una etiqueta nueva y
+  `stable-version.txt` actualizan la raíz estable.
+
 ## Fase 1 — Operación y persistencia (`v0.2.0`)
 
 - [x] Migrar documentos y respaldos de esquema 1 a esquema 2.

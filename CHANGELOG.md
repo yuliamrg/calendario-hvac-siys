@@ -1,5 +1,15 @@
 # Historial de cambios
 
+## [0.11.0-beta.1] - 2026-08-02
+
+### Corrección de línea de release
+
+- La línea activa de SIYS Operations se reencauza como `0.11.0-beta.1` porque
+  `v0.10.0` ya existe como release estable.
+- No se reescriben etiquetas ni commits históricos `0.10.0-beta.*`.
+- La raíz estable conserva `v0.10.0`; esta versión sólo prepara el siguiente
+  hito beta.
+
 ## [0.10.0-beta.5] - 2026-08-02
 
 ### Mejorado
