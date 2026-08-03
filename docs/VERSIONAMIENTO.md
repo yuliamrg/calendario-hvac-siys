@@ -30,6 +30,10 @@ El `SCHEMA_VERSION` de `src/core.js` es independiente del número de la app.
 Sólo aumenta cuando cambia el formato persistido o las reglas necesarias para
 leer/escribir copias; un cambio visual no lo incrementa.
 
+La bandeja Pendiente usa el esquema 4. Los documentos de esquemas
+anteriores se migran asignando `planningBucket: "calendar"`; la versión estable
+anterior no interpreta documentos nuevos de esquema 4.
+
 ## Canales beta
 
 Una beta se identifica con un sufijo prerelease:
@@ -71,6 +75,11 @@ La versión estable actual es `0.11.0`. Esta release promueve a estable la
 CLI local y el contrato programático compartido para trabajar sobre respaldos
 JSON. `package.json`, `src/core.js` y `stable-version.txt` deben conservar
 `0.11.0` hasta la siguiente release.
+
+La beta en preparación es `0.12.0-beta.1`. Añade la bandeja **Pendiente**, el
+esquema 4, los tipos Diagnóstico y Garantía y las operaciones de respaldo/CLI
+correspondientes. Se publica sólo en `/beta/`; la raíz estable continúa usando
+`v0.11.0` hasta la promoción explícita.
 
 El historial confirma una convención de hitos de producto: después de `0.3.0`
 se publicaron `0.4.0`, `0.5.0`, `0.6.0`, `0.7.0`, `0.8.0` y `0.9.0` para

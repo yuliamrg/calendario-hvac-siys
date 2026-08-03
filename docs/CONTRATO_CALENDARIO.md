@@ -30,11 +30,14 @@ Los errores exponen `CalendarContractError.code`: `INVALID_REQUEST`,
 |---|---|---|
 | `calendar.inspect` | `{}` | metadatos, conteos y rango |
 | `calendar.export-csv` | `{ year, month }` | contenido, MIME y nombre CSV |
-| `activity.list` | `from`, `to`, `clientId`, `siteId`, `city`, listas de responsables/servicios/estados, `query` | `items` resueltos |
+| `calendar.export-quarantine-csv` | `{}` | CSV independiente de actividades Pendiente |
+| `activity.list` | `from`, `to`, `clientId`, `siteId`, `city`, listas de responsables/servicios/estados/bandejas, `query` | `items` resueltos |
 | `activity.get` | `{ activityId }` | actividad resuelta |
-| `activity.create` | fecha/rango, referencias, servicio, estado, observaciones y política no laborable | IDs, serie y fechas omitidas |
-| `activity.edit` | `{ activityId, patch, commonScope, statusScope, allowNonWorking }` | IDs y campos cambiados |
+| `activity.create` | fecha/rango o `planningBucket: "quarantine"`, referencias, servicio, estado, observaciones y política no laborable | IDs, serie y fechas omitidas |
+| `activity.edit` | `{ activityId, patch, commonScope, statusScope, allowNonWorking }`; `patch` admite `planningBucket` | IDs y campos cambiados |
 | `activity.move` | `{ activityIds, targetDate, anchorId?, mode?, allowNonWorking? }` | movimientos |
+| `activity.quarantine` | `{ activityId, scope?: "single"|"series" }` | tarjeta representante y fechas retiradas |
+| `activity.assign-date` | `{ activityId, targetDate, allowNonWorking? }` | tarjeta devuelta a `calendar` como `scheduled` |
 | `activity.duplicate` | `{ activityIds, targetDate, anchorId?, allowNonWorking? }` | IDs nuevos |
 | `activity.extend` | `{ activityId, targetDate, allowNonWorking? }` | tarjeta y serie |
 | `activity.status` | `{ activityId, status, scope? }` | IDs afectados |
@@ -52,7 +55,10 @@ Los payloads son estrictos: campos desconocidos se rechazan. Las fechas usan
 `YYYY-MM-DD`; los alcances son `single`, `future` o `series` según la operación;
 y mover, duplicar, ampliar o editar hacia domingo/festivo requiere
 `allowNonWorking: true`. Las referencias de cliente, sede y responsables deben
-existir y ser coherentes.
+existir y ser coherentes. En esquema 4, una actividad `quarantine` usa
+`date: null`, `status: "to_schedule"` y `seriesId: null`; una actividad del
+calendario usa `planningBucket: "calendar"` y fecha válida. Los documentos
+anteriores se migran al calendario.
 
 ## Límites de la CLI MVP
 
