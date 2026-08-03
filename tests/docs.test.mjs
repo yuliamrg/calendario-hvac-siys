@@ -15,6 +15,26 @@ test("el README enlaza documentación existente", () => {
   }
 });
 
+test("el runbook fija el flujo seguro de respaldos JSON", () => {
+  const runbookPath = resolve(root, "docs", "OPERACION_RESPALDOS_JSON.md");
+  assert.equal(existsSync(runbookPath), true);
+  const runbook = readFileSync(runbookPath, "utf8");
+  for (const required of [
+    "C:\\Users\\CoordServicio\\OneDrive - Siys\\cronogramas\\Respaldo",
+    "https://yuliamrg.github.io/calendario-hvac-siys/",
+    "https://yuliamrg.github.io/calendario-hvac-siys/beta/",
+    "channel",
+    "appVersion",
+    "schemaVersion",
+    "SHA256",
+    "DOM.setFileInputFiles: Not allowed",
+    "Combinar otra copia",
+    "nunca se sobrescribe"
+  ]) {
+    assert.ok(runbook.includes(required), `Falta documentar ${required}`);
+  }
+});
+
 test("el manual documenta persistencia, filtros, plantilla y restauración", () => {
   const manual = readFileSync(resolve(root, "docs", "MANUAL_DE_USO.md"), "utf8");
   for (const required of [
@@ -131,7 +151,8 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.10.0");
+  assert.equal(packageJson.version, "0.11.0");
+  assert.equal(readFileSync(resolve(root, "stable-version.txt"), "utf8").trim(), "v0.11.0");
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
 });
 

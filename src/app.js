@@ -10,27 +10,18 @@ import {
   activityMatchesFilters,
   activityIdsForScope,
   addDaysISO,
-  applyBulkEdit,
-  applyStatus,
-  buildMonthlyCsv,
   colombianHolidays,
   compareISODate,
-  createActivitiesFromRange,
   createBackupEnvelope,
   createDefaultDocument,
   dayOfWeek,
-  deleteActivities,
-  duplicateActivities,
-  extendActivity,
   generateSeriesDates,
   holidayMapForRange,
   holidayMapForYears,
   importDiff,
   isNonWorkingDate,
-  makeId,
   mergeBackupDocument,
   monthGridDates,
-  moveActivities,
   normalizeKey,
   normalizeFilterArray,
   normalizeText,
@@ -43,6 +34,7 @@ import {
   validateActivity,
   validateHolidayOverride
 } from "./core.js";
+import { executeCalendarOperation } from "./calendar-contract.js";
 import {
   PROGRAMMING_COLUMNS,
   applyProgrammingImport,
@@ -565,6 +557,19 @@ function mutate(action, detail, callback, { undo = true, toast = detail } = {}) 
   if (toast) showToast(toast, { undo });
 }
 
+function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
+  if (!hasEditControl) throw new TypeError("Esta pestaña está en modo de solo lectura.");
+  const before = clone(appDocument);
+  const outcome = executeCalendarOperation(appDocument, { operation, payload });
+  if (!outcome.changed) return outcome;
+  appDocument = outcome.document;
+  if (undo) undoSnapshot = { document: before, label: detail };
+  renderAll();
+  scheduleSave();
+  if (toast) showToast(toast, { undo });
+  return outcome;
+}
+
 function undoLastMutation() {
   if (!undoSnapshot) return;
   const previous = undoSnapshot;
@@ -974,6 +979,16 @@ function renderSelectionBar() {
   const count = selectedActivityIds.size;
   dom.selectionBar.hidden = count === 0 || !hasEditControl;
   dom.selectionCount.textContent = String(count);
+}
+
+function refreshSelectionUi() {
+  renderCalendar();
+  renderSelectionBar();
+}
+
+function clearActivitySelection() {
+  selectedActivityIds.clear();
+  refreshSelectionUi();
 }
 
 function runtimeMode() {
@@ -1466,30 +1481,30 @@ function applyPendingDrop(action) {
       const label = payload.activityIds.length > 1
         ? `${payload.activityIds.length} tarjetas movidas`
         : "Actividad movida";
-      mutate("activities_moved", label, () => {
-        const moved = moveActivities(appDocument, payload.activityIds, payload.date, {
-          anchorId: payload.anchorId,
-          mode: "preserve"
-        });
-        if (!moved.length) throw new TypeError("La actividad ya está en esa fecha.");
-      });
+      mutateWithContract("activity.move", {
+        activityIds: payload.activityIds,
+        targetDate: payload.date,
+        anchorId: payload.anchorId,
+        mode: "preserve",
+        allowNonWorking: true
+      }, label);
     } else if (action === "duplicate") {
-      const copies = [];
-      mutate("activities_duplicated", `${payload.activityIds.length} tarjeta(s) duplicada(s)`, () => {
-        copies.push(...duplicateActivities(appDocument, payload.activityIds, payload.date, {
-          anchorId: payload.anchorId
-        }));
-      });
-      selectedActivityIds.clear();
-      if (copies[0]) renderActivityDrawer(copies[0].id);
+      const outcome = mutateWithContract("activity.duplicate", {
+        activityIds: payload.activityIds,
+        targetDate: payload.date,
+        anchorId: payload.anchorId,
+        allowNonWorking: true
+      }, `${payload.activityIds.length} tarjeta(s) duplicada(s)`);
+      clearActivitySelection();
+      if (outcome.result.activityIds[0]) renderActivityDrawer(outcome.result.activityIds[0]);
     } else if (action === "extend") {
       if (payload.activityIds.length !== 1) throw new TypeError("Sólo se puede ampliar una tarjeta a la vez.");
-      let extended = null;
-      mutate("activity_extended", "Actividad ampliada a otro día", () => {
-        extended = extendActivity(appDocument, payload.activityIds[0], payload.date);
-        if (!extended) throw new TypeError("La actividad ya está en esa fecha.");
-      });
-      if (extended) renderActivityDrawer(extended.id);
+      const outcome = mutateWithContract("activity.extend", {
+        activityId: payload.activityIds[0],
+        targetDate: payload.date,
+        allowNonWorking: true
+      }, "Actividad ampliada a otro día");
+      if (outcome.result.activityId) renderActivityDrawer(outcome.result.activityId);
     }
     if (isNonWorkingDate(payload.date, payload.holidayMap)) {
       showToast("La fecha elegida es domingo o festivo. La programación se conservó por decisión manual.", {
@@ -1561,9 +1576,7 @@ function toggleActivitySelection(activityId, force) {
 
 function markActivityCompleted(activityId) {
   try {
-    mutate("status_changed", "Actividad marcada como terminada", () => {
-      applyStatus(appDocument, activityId, "completed", "single");
-    });
+    mutateWithContract("activity.status", { activityId, status: "completed", scope: "single" }, "Actividad marcada como terminada");
   } catch (error) {
     showToast(error.message, { type: "error" });
   }
@@ -1731,9 +1744,7 @@ function renderDayDrawer(date) {
 function updateActivityStatus(activityId, status, scope) {
   try {
     const count = activityIdsForScope(appDocument, activityId, scope).length;
-    mutate("status_changed", `Estado actualizado en ${count} tarjeta${count === 1 ? "" : "s"}`, () => {
-      applyStatus(appDocument, activityId, status, scope);
-    });
+    mutateWithContract("activity.status", { activityId, status, scope }, `Estado actualizado en ${count} tarjeta${count === 1 ? "" : "s"}`);
   } catch (error) {
     showToast(error.message, { type: "error" });
   }
@@ -1743,10 +1754,9 @@ function deleteActivity(activityId) {
   const activity = appDocument.activities.find((item) => item.id === activityId);
   if (!activity) return;
   if (!window.confirm("¿Eliminar esta tarjeta? Las demás fechas de la actividad multidía no se modificarán.")) return;
-  mutate("activity_deleted", "Tarjeta eliminada", () => {
-    appDocument.activities = appDocument.activities.filter((item) => item.id !== activityId);
-    selectedActivityIds.delete(activityId);
-  });
+  mutateWithContract("activity.delete", { activityIds: [activityId] }, "Tarjeta eliminada");
+  selectedActivityIds.delete(activityId);
+  refreshSelectionUi();
   closeDrawer();
 }
 
@@ -2012,77 +2022,22 @@ function handleActivitySubmit(event) {
       return;
     }
     try {
-      mutate("activity_edited", "Tarjeta actualizada", () => {
-        const now = new Date().toISOString();
-        const commonScope = existing.seriesId ? dom.activityEditScope.value : "single";
-        const statusScope = existing.seriesId ? dom.activityEditStatusScope.value : "single";
-        const commonIds = new Set(activityIdsForScope(appDocument, activityId, commonScope));
-        const statusIds = new Set(activityIdsForScope(appDocument, activityId, statusScope));
-        const commonPatch = {
+      mutateWithContract("activity.edit", {
+        activityId,
+        commonScope: existing.seriesId ? dom.activityEditScope.value : "single",
+        statusScope: existing.seriesId ? dom.activityEditStatusScope.value : "single",
+        allowNonWorking: true,
+        patch: {
+          date: input.date,
           clientId: input.clientId,
           siteId: input.siteId,
           city: input.city,
           responsibleIds: [...input.responsibleIds],
           serviceType: input.serviceType,
+          status: input.status,
           observations: input.observations
-        };
-        const drafts = appDocument.activities.map((activity) => {
-          const draft = structuredClone(activity);
-          if (commonIds.has(activity.id)) Object.assign(draft, commonPatch);
-          if (activity.id === activityId) draft.date = input.date;
-          if (statusIds.has(activity.id)) {
-            draft.status = input.status;
-            draft.completedAt = input.status === "completed" ? (draft.completedAt || now) : null;
-          }
-          return draft;
-        });
-        const errors = drafts.flatMap((activity) => validateActivity(activity));
-        if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
-
-        for (let index = 0; index < appDocument.activities.length; index += 1) {
-          const activity = appDocument.activities[index];
-          const draft = drafts[index];
-          const previousDate = activity.date;
-          const previousStatus = activity.status;
-          const commonChanged = commonIds.has(activity.id) && (
-            activity.clientId !== draft.clientId ||
-            activity.siteId !== draft.siteId ||
-            activity.city !== draft.city ||
-            activity.serviceType !== draft.serviceType ||
-            activity.observations !== draft.observations ||
-            JSON.stringify(activity.responsibleIds ?? []) !== JSON.stringify(draft.responsibleIds ?? [])
-          );
-          const dateChanged = activity.id === activityId && previousDate !== draft.date;
-          const statusChanged = statusIds.has(activity.id) && previousStatus !== draft.status;
-          if (!commonChanged && !dateChanged && !statusChanged) continue;
-          Object.assign(activity, draft, { updatedAt: now });
-          activity.history ??= [];
-          if (commonChanged) {
-            activity.history.push({
-              at: now,
-              action: "edited",
-              detail: commonScope === "series" ? "Datos comunes editados en toda la actividad" : "Datos editados sólo para este día",
-              scope: commonScope
-            });
-          }
-          if (dateChanged) {
-            activity.history.push({
-              at: now,
-              action: "rescheduled",
-              detail: `${previousDate} → ${draft.date}`,
-              mode: "single"
-            });
-          }
-          if (statusChanged) {
-            activity.history.push({
-              at: now,
-              action: "status_changed",
-              detail: `${ACTIVITY_STATUSES[previousStatus]} → ${ACTIVITY_STATUSES[draft.status]}`,
-              scope: statusScope
-            });
-          }
         }
-      });
+      }, "Tarjeta actualizada");
       closeDialog("activityDialog");
       renderActivityDrawer(activityId);
     } catch (error) {
@@ -2092,22 +2047,9 @@ function handleActivitySubmit(event) {
   }
 
   try {
-    const holidays = holidayMapForRange(input.date, input.endDate, appDocument.holidayOverrides);
-    const result = createActivitiesFromRange(input, holidays);
-    if (!result.activities.length) {
-      showFormErrors(dom.activityFormErrors, ["El rango no contiene fechas programables. Incluye manualmente una fecha no laborable o cambia el rango."]);
-      return;
-    }
-    mutate(
-      "activity_created",
-      `${result.activities.length} tarjeta${result.activities.length === 1 ? "" : "s"} creada${result.activities.length === 1 ? "" : "s"}`,
-      () => {
-        appDocument.activities.push(...result.activities);
-        if (result.series) appDocument.series.push(result.series);
-      }
-    );
+    const outcome = mutateWithContract("activity.create", input, "Actividad creada");
     closeDialog("activityDialog");
-    renderActivityDrawer(result.activities[0].id);
+    renderActivityDrawer(outcome.result.activityIds[0]);
   } catch (error) {
     showFormErrors(dom.activityFormErrors, [error.message]);
   }
@@ -2188,23 +2130,11 @@ function handleCatalogSubmit(event) {
     return;
   }
 
-  const id = itemId || makeId(type === "client" ? "cliente" : type === "site" ? "sede" : "responsable");
-  const base = {
-    id,
-    sourceKey: itemId ? undefined : `manual:${id}`,
-    active: dom.catalogActive.checked,
-    source: itemId ? undefined : "manual",
-    updatedAt: new Date().toISOString()
-  };
-  let collection;
-  let next;
+  let values;
   if (type === "client") {
-    collection = appDocument.catalog.clients;
-    next = { ...base, name: safeText(dom.catalogClientName.value, 160) };
+    values = { name: safeText(dom.catalogClientName.value, 160), active: dom.catalogActive.checked };
   } else if (type === "site") {
-    collection = appDocument.catalog.sites;
-    next = {
-      ...base,
+    values = {
       clientId: dom.catalogSiteClient.value,
       name: safeText(dom.catalogSiteName.value, 160),
       city: safeText(dom.catalogSiteCity.value, 120) || null,
@@ -2212,12 +2142,11 @@ function handleCatalogSubmit(event) {
       shoppingCenter: safeText(dom.catalogSiteCenter.value, 160) || null,
       address: safeText(dom.catalogSiteAddress.value, 240) || null,
       entryConditions: safeText(dom.catalogSiteEntry.value, 1000) || null,
-      requiresApp: dom.catalogSiteApp.checked
+      requiresApp: dom.catalogSiteApp.checked,
+      active: dom.catalogActive.checked
     };
   } else {
-    collection = appDocument.catalog.responsibles;
-    next = {
-      ...base,
+    values = {
       name: safeText(dom.catalogResponsibleName.value, 160),
       responsibleType: dom.catalogResponsibleType.value,
       company: safeText(dom.catalogResponsibleCompany.value, 160) || null,
@@ -2228,20 +2157,11 @@ function handleCatalogSubmit(event) {
         .split(",")
         .map((value) => safeText(value, 120))
         .filter(Boolean),
-      favorite: dom.catalogResponsibleFavorite.checked
+      favorite: dom.catalogResponsibleFavorite.checked,
+      active: dom.catalogActive.checked
     };
   }
-
-  mutate("catalog_saved", itemId ? "Registro del catálogo actualizado" : "Registro agregado al catálogo", () => {
-    const existing = collection.find((item) => item.id === itemId);
-    if (existing) {
-      const sourceKey = existing.sourceKey;
-      const source = existing.source;
-      Object.assign(existing, next, { sourceKey, source });
-    } else {
-      collection.push(next);
-    }
-  });
+  mutateWithContract("catalog.upsert", { type, ...(itemId ? { id: itemId } : {}), values }, itemId ? "Registro del catálogo actualizado" : "Registro agregado al catálogo");
   closeDialog("catalogDialog");
   if (type === "responsible" && dom.activityDialog.open) {
     renderResponsiblePicker([...dom.responsiblePicker.querySelectorAll("input:checked")].map((input) => input.value));
@@ -2289,9 +2209,7 @@ function renderHolidayDialog() {
     remove.title = "Eliminar excepción";
     remove.setAttribute("aria-label", `Eliminar excepción ${override.name}`);
     remove.addEventListener("click", () => {
-      mutate("holiday_override_deleted", "Excepción eliminada", () => {
-        appDocument.holidayOverrides = appDocument.holidayOverrides.filter((item) => item.id !== override.id);
-      });
+      mutateWithContract("holiday.delete", { overrideId: override.id }, "Excepción eliminada");
       renderHolidayDialog();
     });
     row.append(remove);
@@ -2306,16 +2224,12 @@ function renderHolidayDialog() {
 function handleHolidaySubmit(event) {
   event.preventDefault();
   const override = {
-    id: makeId("festivo"),
     date: dom.overrideDate.value,
     type: dom.overrideType.value,
     name: safeText(dom.overrideName.value, 120),
     reason: safeText(dom.overrideReason.value, 500),
-    active: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
   };
-  const errors = validateHolidayOverride(override);
+  const errors = validateHolidayOverride({ ...override, id: "preview" });
   if (appDocument.holidayOverrides.some((item) => item.active !== false && item.date === override.date)) {
     errors.push("Ya existe una excepción activa para esta fecha.");
   }
@@ -2323,9 +2237,7 @@ function handleHolidaySubmit(event) {
     showFormErrors(dom.holidayFormErrors, errors);
     return;
   }
-  mutate("holiday_override_added", "Excepción de calendario agregada", () => {
-    appDocument.holidayOverrides.push(override);
-  });
+  mutateWithContract("holiday.add", override, "Excepción de calendario agregada");
   dom.overrideDate.value = "";
   dom.overrideName.value = "";
   dom.overrideReason.value = "";
@@ -2373,13 +2285,14 @@ function handleBulkMoveSubmit(event) {
   if (!activities.length) return;
   const mode = dom.bulkMoveForm.elements.moveMode.value;
   try {
-    mutate("activities_moved", `${activities.length} tarjetas movidas`, () => {
-      moveActivities(appDocument, activities.map((item) => item.id), dom.bulkMoveDate.value, {
-        anchorId: activities[0].id,
-        mode
-      });
-      selectedActivityIds.clear();
-    });
+    mutateWithContract("activity.move", {
+      activityIds: activities.map((item) => item.id),
+      targetDate: dom.bulkMoveDate.value,
+      anchorId: activities[0].id,
+      mode,
+      allowNonWorking: true
+    }, `${activities.length} tarjetas movidas`);
+    clearActivitySelection();
     closeDialog("bulkMoveDialog");
   } catch (error) {
     showToast(error.message, { type: "error" });
@@ -2404,23 +2317,13 @@ function handleBulkStatusSubmit(event) {
     showToast("No se puede confirmar una selección que contiene tarjetas sin responsables.", { type: "error" });
     return;
   }
-  mutate("bulk_status_changed", `Estado actualizado en ${activities.length} tarjetas`, () => {
-    const now = new Date().toISOString();
-    for (const activity of activities) {
-      const previous = activity.status;
-      activity.status = status;
-      activity.updatedAt = now;
-      activity.completedAt = status === "completed" ? (activity.completedAt || now) : null;
-      activity.history ??= [];
-      activity.history.push({
-        at: now,
-        action: "status_changed",
-        detail: `${ACTIVITY_STATUSES[previous]} → ${ACTIVITY_STATUSES[status]}`,
-        scope: "selection"
-      });
-    }
-    selectedActivityIds.clear();
-  });
+  mutateWithContract("activity.bulk-edit", {
+    activityIds: activities.map((activity) => activity.id),
+    field: "status",
+    value: status,
+    mode: "replace"
+  }, `Estado actualizado en ${activities.length} tarjetas`);
+  clearActivitySelection();
   closeDialog("bulkStatusDialog");
 }
 
@@ -2501,10 +2404,8 @@ function handleBulkEditSubmit(event) {
     value = dom.bulkEditTextarea.value;
   }
   try {
-    mutate("activities_bulk_edited", `${BULK_EDIT_FIELDS[field]} actualizado en ${ids.length} tarjetas`, () => {
-      applyBulkEdit(appDocument, ids, field, value, { mode });
-      selectedActivityIds.clear();
-    });
+    mutateWithContract("activity.bulk-edit", { activityIds: ids, field, value, mode }, `${BULK_EDIT_FIELDS[field]} actualizado en ${ids.length} tarjetas`);
+    clearActivitySelection();
     closeDialog("bulkEditDialog");
   } catch (error) {
     showFormErrors(dom.bulkEditErrors, [error.message]);
@@ -2516,11 +2417,9 @@ function deleteSelectedActivities() {
   if (!activities.length) return;
   if (!window.confirm(`¿Eliminar ${activities.length} tarjeta(s) seleccionada(s)? Podrás deshacer esta operación una vez.`)) return;
   try {
-    mutate("activities_deleted", `${activities.length} tarjetas eliminadas`, () => {
-      deleteActivities(appDocument, activities.map((activity) => activity.id));
-      selectedActivityIds.clear();
-      closeDrawer();
-    });
+    mutateWithContract("activity.delete", { activityIds: activities.map((activity) => activity.id) }, `${activities.length} tarjetas eliminadas`);
+    clearActivitySelection();
+    closeDrawer();
   } catch (error) {
     showToast(error.message, { type: "error" });
   }
@@ -2585,7 +2484,10 @@ async function handleResetDataSubmit(event) {
 
 function exportCurrentMonthCsv() {
   const { year, month } = currentMonthParts();
-  const csv = buildMonthlyCsv(appDocument, year, month);
+  const csv = executeCalendarOperation(appDocument, {
+    operation: "calendar.export-csv",
+    payload: { year, month }
+  }).result.content;
   const fileMonth = `${year}-${String(month).padStart(2, "0")}`;
   const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
   downloadBlob(csv, "text/csv;charset=utf-8", `${fileMonth}_programacion_${identity}.csv`);
@@ -2863,17 +2765,14 @@ function handleRestoreSubmit(event) {
     showToast("Esta pestaña está en modo de solo lectura.", { type: "error" });
     return;
   }
-  const before = clone(appDocument);
-  appDocument = pendingRestore;
+  mutateWithContract("backup.restore", { document: pendingRestore }, "restauración del respaldo", {
+    toast: "Respaldo restaurado correctamente."
+  });
   pendingRestore = null;
-  appendAudit("backup_restored", "Respaldo JSON restaurado");
-  undoSnapshot = { document: before, label: "restauración del respaldo" };
   selectedActivityIds.clear();
   closeDrawer();
-  renderAll();
   scheduleSave({ immediate: true });
   closeDialog("restoreDialog");
-  showToast("Respaldo restaurado correctamente.", { undo: true });
 }
 
 function renderMergeJsonPreview(parsed, result, file) {
@@ -2928,15 +2827,9 @@ async function handleMergeJsonFile(event) {
 function handleMergeJsonSubmit(event) {
   event.preventDefault();
   if (!pendingMerge) return;
-  const { result } = pendingMerge;
+  const { parsed, result } = pendingMerge;
   try {
-    mutate(
-      "backup_merged",
-      `${result.counts.added} registros añadidos y ${result.counts.updated} actualizados desde JSON`,
-      () => {
-        appDocument = result.document;
-      }
-    );
+    mutateWithContract("backup.merge", { document: parsed.document }, `${result.counts.added} registros añadidos y ${result.counts.updated} actualizados desde JSON`);
     pendingMerge = null;
     closeDialog("mergeJsonDialog");
   } catch (error) {

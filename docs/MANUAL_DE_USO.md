@@ -153,10 +153,12 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages contiene la versión estable. `/beta/` mantiene una
-insignia BETA para probar cambios futuros; en la promoción `0.10.0` ambos
-canales comparten la interfaz aprobada. Usan bases IndexedDB diferentes,
-incluso si se abren en pestañas del mismo navegador.
+La raíz de GitHub Pages contiene la versión estable actual `v0.11.0`, que
+incluye la CLI local para respaldos JSON. `/beta/` mantiene una insignia BETA
+para probar cambios futuros. Ambos canales pueden compartir la interfaz
+aprobada, pero usan bases IndexedDB diferentes, incluso si se abren en pestañas
+del mismo navegador. La versión visible y el `channel` del respaldo deben
+comprobarse antes de trasladar datos.
 Nunca se copian datos automáticamente entre ellos.
 
 ### Reiniciar el navegador

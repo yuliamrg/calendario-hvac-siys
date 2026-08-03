@@ -6,6 +6,7 @@ const paths = {
   template: resolve(root, "src", "index.template.html"),
   css: resolve(root, "src", "styles.css"),
   core: resolve(root, "src", "core.js"),
+  contract: resolve(root, "src", "calendar-contract.js"),
   importer: resolve(root, "src", "importer.js"),
   app: resolve(root, "src", "app.js"),
   vendor: resolve(root, "vendor", "xlsx.full.min.js"),
@@ -17,10 +18,11 @@ const paths = {
   pagesOutput: resolve(root, "dist", "index.html")
 };
 
-const [template, css, core, importer, app, vendor, license, notice, brandIcon] = await Promise.all([
+const [template, css, core, contract, importer, app, vendor, license, notice, brandIcon] = await Promise.all([
   readFile(paths.template, "utf8"),
   readFile(paths.css, "utf8"),
   readFile(paths.core, "utf8"),
+  readFile(paths.contract, "utf8"),
   readFile(paths.importer, "utf8"),
   readFile(paths.app, "utf8"),
   readFile(paths.vendor, "utf8"),
@@ -53,7 +55,7 @@ ${license.replaceAll("--", "—")}
 -->`;
 
 const stripLocalImports = (source) => source.replace(
-  /import\s*\{[\s\S]*?\}\s*from\s*["']\.\/(?:core|importer)\.js["'];?\s*/g,
+  /import\s*\{[\s\S]*?\}\s*from\s*["']\.\/(?:core|calendar-contract|importer)\.js["'];?\s*/g,
   ""
 );
 
@@ -65,7 +67,7 @@ const slots = {
 };
 const escapeInlineScript = (source) => source.replace(/<\/script/gi, "<\\/script");
 const escapeInlineStyle = (source) => source.replace(/<\/style/gi, "<\\/style");
-const appBundle = `${core}\n\n${stripLocalImports(importer)}\n\n${stripLocalImports(app)}`;
+const appBundle = `${core}\n\n${stripLocalImports(contract)}\n\n${stripLocalImports(importer)}\n\n${stripLocalImports(app)}`;
 
 const slottedTemplate = template
   .replace("/*__APP_CSS__*/", slots.css)

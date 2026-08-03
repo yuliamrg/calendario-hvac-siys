@@ -9,6 +9,11 @@ No requiere instalación, servidor ni conexión a internet. Se abre con doble
 clic en Chrome o Microsoft Edge y guarda la información en el perfil local del
 navegador mediante IndexedDB.
 
+El repositorio también incluye la CLI local `calendary` para inspeccionar y
+modificar copias JSON sin acceder directamente a IndexedDB. Consulte la
+[guía de la CLI](docs/CLI.md), el [contrato compartido](docs/CONTRATO_CALENDARIO.md)
+y el [runbook de respaldos](docs/OPERACION_RESPALDOS_JSON.md).
+
 También puede abrirse desde GitHub Pages. Esa opción sigue siendo estática: los
 datos se guardan en el navegador que abre el sitio y no se sincronizan. La
 versión local y la versión Pages usan almacenamientos separados; la opción
@@ -84,6 +89,14 @@ valida el archivo, advierte si su revisión es anterior o igual y conserva una
 copia de recuperación local. Los respaldos creados con `v0.1.0` se migran
 automáticamente.
 
+Para trasladar un respaldo entre la interfaz y una CLI, use siempre el
+procedimiento de [Operación de respaldos JSON](docs/OPERACION_RESPALDOS_JSON.md).
+En este equipo la carpeta canónica es
+`C:\Users\CoordServicio\OneDrive - Siys\cronogramas\Respaldo`. El respaldo
+original no se sobrescribe: se descarga uno nuevo, se genera un archivo
+modificado con nombre distinto y se verifica un respaldo final en el mismo
+canal y perfil del navegador.
+
 **Borrar y empezar de cero** descarga primero una copia y exige escribir
 `REINICIAR`. La operación limpia el cronograma y su recuperación en ese
 navegador, sin afectar otros perfiles u orígenes.
@@ -136,7 +149,11 @@ Requiere Node.js 20 o superior sólo para reconstruir el entregable:
 npm test
 npm run build
 npm run audit
+npm run goal:check
 ```
+
+La matriz y la ruta e2e de la CLI están documentadas en
+[Pruebas CLI](docs/PRUEBAS_CLI.md).
 
 El HTML incorpora localmente SheetJS Community Edition 0.20.3 para leer
 archivos Excel. Su licencia y aviso se encuentran en `vendor/` y también están
@@ -148,5 +165,9 @@ Documentación:
 - [Guía de Base Operativa](docs/BASE_OPERATIVA.md)
 - [Criterios de diseño y promoción beta](docs/CRITERIOS_DE_DISENO.md)
 - [Reglas de versionamiento](docs/VERSIONAMIENTO.md)
+- [Guía de la CLI](docs/CLI.md)
+- [Contrato compartido](docs/CONTRATO_CALENDARIO.md)
+- [Pruebas CLI](docs/PRUEBAS_CLI.md)
+- [Operación de respaldos JSON](docs/OPERACION_RESPALDOS_JSON.md)
 - [Historial de cambios](CHANGELOG.md)
 - [Distribución y GitHub Pages](docs/DISTRIBUCION.md)

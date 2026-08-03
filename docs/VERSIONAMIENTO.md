@@ -45,7 +45,32 @@ Una beta se identifica con un sufijo prerelease:
 - La versión estable no se cambia hasta que la beta cumpla las puertas de
   promoción de `CRITERIOS_DE_DISENO.md` y las pruebas del proyecto.
 
+## Preflight de canal y respaldos
+
+La versión del código local no sustituye la versión observada en el canal que
+se va a operar. Antes de restaurar un JSON se comparan:
+
+- la URL y el canal (`stable` o `beta`);
+- la versión visible en la interfaz;
+- `appVersion`, `channel`, `schemaVersion` y `revision` del respaldo;
+- el perfil del navegador donde se guardan los datos.
+
+Una discrepancia se trata como una alerta de despliegue y detiene la
+restauración hasta identificar la publicación correcta. No se debe subir un
+respaldo beta a estable, ni uno estable a beta, por coincidencia de nombres o
+porque ambas interfaces tengan el mismo aspecto.
+
+La ruta operativa de respaldos de este equipo está documentada en
+[`OPERACION_RESPALDOS_JSON.md`](OPERACION_RESPALDOS_JSON.md). El procedimiento
+exige descargar un respaldo nuevo antes de cada modificación, conservar el
+origen, escribir un destino nuevo y verificar un respaldo final.
+
 ## Aplicación a este proyecto
+
+La versión estable actual es `0.11.0`. Esta release promueve a estable la
+CLI local y el contrato programático compartido para trabajar sobre respaldos
+JSON. `package.json`, `src/core.js` y `stable-version.txt` deben conservar
+`0.11.0` hasta la siguiente release.
 
 El historial confirma una convención de hitos de producto: después de `0.3.0`
 se publicaron `0.4.0`, `0.5.0`, `0.6.0`, `0.7.0`, `0.8.0` y `0.9.0` para
@@ -66,12 +91,12 @@ cabecera persistente de días, detalle más compacto, búsqueda de responsables,
 contraste del buscador y botones de selección— sin cambiar el esquema ni
 introducir una capacidad de producto independiente.
 
-Tras pasar las puertas de promoción, esa línea se publica como `0.10.0`.
-La promoción no crea una interfaz diferente: convierte el contrato visual
-validado en la versión estable y fija `v0.10.0` como la etiqueta que usa la
-raíz de GitHub Pages. `/beta/` puede continuar como canal de prueba, pero en
-esta promoción comparte la misma versión y experiencia visual; sus datos y
-preferencias siguen separados por origen/canal.
+Tras pasar las puertas de promoción, esa línea visual se publicó como
+`v0.10.0`; esta es una referencia histórica del contrato visual anterior. La
+promoción no creó una interfaz diferente: convirtió el contrato visual
+validado en la versión estable y fijó `v0.10.0` como la etiqueta de la raíz de
+GitHub Pages. `/beta/` podía continuar como canal de prueba, con datos y
+preferencias separados por origen/canal.
 
 El commit anterior que añadió la primera capa del contrato beta (`0d05123`)
 no actualizó la versión. Esta regla corrige esa omisión: todo cambio que se
