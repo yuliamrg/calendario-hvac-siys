@@ -30,6 +30,10 @@ El `SCHEMA_VERSION` de `src/core.js` es independiente del número de la app.
 Sólo aumenta cuando cambia el formato persistido o las reglas necesarias para
 leer/escribir copias; un cambio visual no lo incrementa.
 
+La bandeja Pendiente usa el esquema 4. Los documentos de esquemas
+anteriores se migran asignando `planningBucket: "calendar"`; la versión estable
+anterior no interpreta documentos nuevos de esquema 4.
+
 ## Canales beta
 
 Una beta se identifica con un sufijo prerelease:

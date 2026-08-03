@@ -1,11 +1,13 @@
 export const APP_VERSION = "0.10.0";
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
 export const SERVICE_TYPES = Object.freeze({
   preventive: "Mantenimiento preventivo",
   corrective: "Mantenimiento correctivo",
   emergency: "Llamada de emergencia",
+  diagnostic: "Diagnóstico",
+  warranty: "Garantía",
   administrative: "Administrativo"
 });
 
@@ -15,8 +17,19 @@ export const ACTIVITY_STATUSES = Object.freeze({
   in_progress: "En ejecución",
   completed: "Terminada",
   not_executed: "No ejecutada",
-  cancelled: "Cancelada"
+  cancelled: "Cancelada",
+  to_schedule: "Por programar"
 });
+
+export const PLANNING_BUCKETS = Object.freeze({
+  calendar: "Calendario",
+  quarantine: "Pendiente"
+});
+
+export const QUARANTINE_ALLOWED_STATUSES = Object.freeze([
+  "scheduled",
+  "confirmed"
+]);
 
 export const RESPONSIBLE_TYPES = Object.freeze({
   payroll: "Personal de nómina",
@@ -419,7 +432,8 @@ export function createDefaultDocument(today = todayInBogota(), now = new Date().
         sites: [],
         responsibles: [],
         serviceTypes: [],
-        statuses: []
+        statuses: [],
+        planningBuckets: []
       }
     },
     holidayOverrides: [],
@@ -453,6 +467,7 @@ export function createActivitiesFromRange(
     id: makeId("actividad", idFactory),
     seriesId,
     date,
+    planningBucket: "calendar",
     clientId: input.clientId || null,
     siteId: input.siteId || null,
     city: safeText(input.city, 120) || null,
@@ -483,12 +498,54 @@ export function createActivitiesFromRange(
   return { activities, series, omitted };
 }
 
+export function createQuarantineActivity(
+  input,
+  { idFactory = () => crypto.randomUUID(), now = new Date().toISOString() } = {}
+) {
+  const activity = {
+    id: makeId("actividad", idFactory),
+    seriesId: null,
+    date: null,
+    planningBucket: "quarantine",
+    clientId: input.clientId || null,
+    siteId: input.siteId || null,
+    city: safeText(input.city, 120) || null,
+    responsibleIds: [...new Set((input.responsibleIds ?? []).map(String).filter(Boolean))],
+    serviceType: input.serviceType,
+    status: "to_schedule",
+    observations: safeText(input.observations, 5000),
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+    history: [{
+      at: now,
+      action: "created",
+      detail: "Creada directamente en la bandeja Pendiente"
+    }]
+  };
+  const errors = validateActivity(activity);
+  if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
+  return activity;
+}
+
 export function validateActivity(activity) {
   const errors = [];
-  try {
-    parseISODate(activity.date);
-  } catch {
-    errors.push("La fecha no es válida.");
+  const planningBucket = activity?.planningBucket ?? "calendar";
+  if (!Object.hasOwn(PLANNING_BUCKETS, planningBucket)) {
+    errors.push("La bandeja de planificación no es válida.");
+  } else if (planningBucket === "quarantine") {
+    if (activity.date !== null) errors.push("Una actividad de la bandeja Pendiente debe quedar sin fecha.");
+    if (activity.status !== "to_schedule") errors.push("Una actividad de la bandeja Pendiente debe tener estado Por programar.");
+    if (activity.seriesId) errors.push("Una actividad de la bandeja Pendiente no puede conservar una serie.");
+  } else {
+    try {
+      parseISODate(activity.date);
+    } catch {
+      errors.push("La fecha no es válida.");
+    }
+    if (activity.status === "to_schedule") {
+      errors.push("Una actividad del calendario no puede estar Por programar.");
+    }
   }
   if (!Object.hasOwn(SERVICE_TYPES, activity.serviceType)) {
     errors.push("Selecciona un tipo de servicio válido.");
@@ -508,6 +565,128 @@ export function validateActivity(activity) {
   }
   return errors;
 }
+
+export function isQuarantineActivity(activity) {
+  return activity?.planningBucket === "quarantine";
+}
+
+export function validatePlanningDate(date, holidayMap = new Map()) {
+  try {
+    parseISODate(date);
+  } catch {
+    return { valid: false, reason: "La fecha no es válida." };
+  }
+  if (isNonWorkingDate(date, holidayMap)) {
+    const holiday = holidayMap.get(date);
+    return {
+      valid: false,
+      reason: holiday?.name
+        ? `${holiday.name}. La fecha no es laborable.`
+        : "La fecha es domingo y no es laborable.",
+      holiday: holiday ?? null
+    };
+  }
+  return { valid: true, reason: "" };
+}
+
+export function assignQuarantineDate(
+  document,
+  activityId,
+  targetDate,
+  holidayMap = new Map(),
+  { allowNonWorking = false, now = new Date().toISOString() } = {}
+) {
+  const activity = document.activities.find((item) => item.id === activityId);
+  if (!activity) throw new TypeError("No se encontró la actividad.");
+  if (!isQuarantineActivity(activity)) {
+    throw new TypeError("Sólo se puede asignar fecha a una actividad Pendiente.");
+  }
+  try {
+    parseISODate(targetDate);
+  } catch {
+    throw new TypeError("La fecha no es válida.");
+  }
+  const dateValidation = validatePlanningDate(targetDate, holidayMap);
+  if (!dateValidation.valid && !allowNonWorking) {
+    throw new TypeError(dateValidation.reason);
+  }
+  const previousStatus = activity.status;
+  activity.date = targetDate;
+  activity.planningBucket = "calendar";
+  activity.status = "scheduled";
+  activity.seriesId = null;
+  activity.completedAt = null;
+  activity.updatedAt = now;
+  activity.history ??= [];
+  activity.history.push({
+    at: now,
+    action: "scheduled_from_quarantine",
+    detail: `${PLANNING_BUCKETS.quarantine} · ${ACTIVITY_STATUSES[previousStatus] ?? previousStatus} → ${ACTIVITY_STATUSES.scheduled}`
+  });
+  return activity;
+}
+
+export function moveActivityToQuarantine(
+  document,
+  activityId,
+  scope = "single",
+  now = new Date().toISOString()
+) {
+  if (!Object.hasOwn(STATUS_SCOPES, scope) || !["single", "series"].includes(scope)) {
+    throw new TypeError("El alcance de Pendiente no es válido.");
+  }
+  const source = document.activities.find((item) => item.id === activityId);
+  if (!source) throw new TypeError("No se encontró la actividad.");
+  if (isQuarantineActivity(source)) return { activity: source, removed: [], scope };
+  const ids = scope === "series" && source.seriesId
+    ? document.activities
+      .filter((item) => item.seriesId === source.seriesId)
+      .map((item) => item.id)
+    : [source.id];
+  const selected = document.activities.filter((item) => ids.includes(item.id));
+  const blocked = selected.filter((item) => !QUARANTINE_ALLOWED_STATUSES.includes(item.status));
+  if (blocked.length) {
+    throw new TypeError(
+      `No se puede enviar a Pendiente una actividad ${ACTIVITY_STATUSES[blocked[0].status] ?? blocked[0].status}. Sólo se permiten Programada o Confirmada.`
+    );
+  }
+
+  const seriesId = source.seriesId;
+  const removed = scope === "series" && seriesId
+    ? selected.filter((item) => item.id !== source.id)
+    : [];
+  if (removed.length) {
+    const removedIds = new Set(removed.map((item) => item.id));
+    document.activities = document.activities.filter((item) => !removedIds.has(item.id));
+  }
+  const representative = document.activities.find((item) => item.id === source.id);
+  if (!representative) throw new TypeError("No se encontró la tarjeta representante.");
+  representative.date = null;
+  representative.planningBucket = "quarantine";
+  representative.status = "to_schedule";
+  representative.seriesId = null;
+  representative.completedAt = null;
+  representative.updatedAt = now;
+  representative.history ??= [];
+  representative.history.push({
+    at: now,
+    action: "moved_to_quarantine",
+    detail: scope === "series"
+      ? "Toda la actividad pasó a Pendiente; las demás fechas fueron retiradas"
+      : "Sólo esta fecha pasó a Pendiente",
+    scope
+  });
+  if (seriesId) {
+    const remaining = document.activities.filter((item) => item.seriesId === seriesId);
+    if (remaining.length < 2) {
+      for (const item of remaining) item.seriesId = null;
+      document.series = document.series.filter((item) => item.id !== seriesId);
+    }
+  }
+  return { activity: representative, removed, scope };
+}
+
+export const sendActivityToQuarantine = moveActivityToQuarantine;
 
 export function activityIdsForScope(document, activityId, scope) {
   const activity = document.activities.find((item) => item.id === activityId);
@@ -529,9 +708,16 @@ export function applyStatus(document, activityId, status, scope = "single", now 
   }
   const ids = new Set(activityIdsForScope(document, activityId, scope));
   if (!ids.size) throw new TypeError("No se encontró la actividad.");
+  const selected = document.activities.filter((activity) => ids.has(activity.id));
+  if (selected.some((activity) => isQuarantineActivity(activity) && status !== "to_schedule")) {
+    throw new TypeError("Una actividad Pendiente debe permanecer en esa bandeja hasta asignarle fecha.");
+  }
+  if (status === "to_schedule" && selected.some((activity) => !isQuarantineActivity(activity))) {
+    throw new TypeError("Por programar sólo se puede usar en la bandeja Pendiente.");
+  }
   if (status === "confirmed") {
-    const invalid = document.activities.filter(
-      (activity) => ids.has(activity.id) && !(activity.responsibleIds ?? []).map(String).filter(Boolean).length
+    const invalid = selected.filter(
+      (activity) => !(activity.responsibleIds ?? []).map(String).filter(Boolean).length
     );
     if (invalid.length) {
       throw new TypeError("No se puede confirmar una actividad sin responsables.");
@@ -864,7 +1050,8 @@ export function activityMatchesFilters(activity, filters, maps) {
     sites: normalizeFilterArray(filters?.sites),
     responsibles: normalizeFilterArray(filters?.responsibles),
     serviceTypes: normalizeFilterArray(filters?.serviceTypes),
-    statuses: normalizeFilterArray(filters?.statuses)
+    statuses: normalizeFilterArray(filters?.statuses),
+    planningBuckets: normalizeFilterArray(filters?.planningBuckets)
   };
   if (selected.cities.length && !selected.cities.includes(activity.city ?? "")) return false;
   if (selected.clients.length && !selected.clients.includes(activity.clientId ?? "")) return false;
@@ -872,6 +1059,7 @@ export function activityMatchesFilters(activity, filters, maps) {
   if (selected.responsibles.length && !selected.responsibles.some((id) => activity.responsibleIds?.includes(id))) return false;
   if (selected.serviceTypes.length && !selected.serviceTypes.includes(activity.serviceType)) return false;
   if (selected.statuses.length && !selected.statuses.includes(activity.status)) return false;
+  if (selected.planningBuckets.length && !selected.planningBuckets.includes(activity.planningBucket ?? "calendar")) return false;
   const query = normalizeText(filters?.query);
   if (!query) return true;
   const client = maps?.clients?.get(activity.clientId);
@@ -884,6 +1072,7 @@ export function activityMatchesFilters(activity, filters, maps) {
     activity.city,
     SERVICE_TYPES[activity.serviceType],
     ACTIVITY_STATUSES[activity.status],
+    PLANNING_BUCKETS[activity.planningBucket ?? "calendar"],
     activity.observations,
     ...responsibles
   ].filter(Boolean).join(" ")).includes(query);
@@ -1019,6 +1208,7 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
   if (Number(raw.schemaVersion ?? 1) > SCHEMA_VERSION) {
     throw new RangeError("El respaldo fue creado por una versión más reciente de la herramienta.");
   }
+  const sourceSchemaVersion = Number(raw.schemaVersion ?? 1);
   const base = createDefaultDocument(today);
   const legacyUpdatedAt = safeText(raw.calendarMeta?.updatedAt, 80) || base.calendarMeta.updatedAt;
   const rawOverrides = Array.isArray(raw.holidayOverrides)
@@ -1086,15 +1276,29 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
         aliases: cleanStringArray(item?.aliases, 160)
       })) : []
     },
-    activities: Array.isArray(raw.activities) ? raw.activities.map((item) => ({
-      ...keepAllowed(item, [
-        "id", "seriesId", "date", "clientId", "siteId", "city", "responsibleIds",
-        "serviceType", "status", "observations", "createdAt", "updatedAt", "completedAt"
-      ]),
-      responsibleIds: Array.isArray(item.responsibleIds) ? [...new Set(item.responsibleIds.map(String))] : [],
-      observations: safeText(item.observations, 5000),
-      history: cleanHistory(item.history)
-    })) : [],
+    activities: Array.isArray(raw.activities) ? raw.activities.map((item) => {
+      const hasBucket = typeof item?.planningBucket === "string";
+      const inferredBucket = item?.status === "to_schedule" || item?.date === null
+        ? "quarantine"
+        : "calendar";
+      const planningBucket = hasBucket
+        ? item.planningBucket
+        : sourceSchemaVersion < 4
+          ? "calendar"
+          : inferredBucket;
+      return {
+        ...keepAllowed(item, [
+          "id", "seriesId", "date", "planningBucket", "clientId", "siteId", "city", "responsibleIds",
+          "serviceType", "status", "observations", "createdAt", "updatedAt", "completedAt"
+        ]),
+        planningBucket,
+        date: Object.hasOwn(item ?? {}, "date") ? item.date : null,
+        seriesId: Object.hasOwn(item ?? {}, "seriesId") ? item.seriesId : null,
+        responsibleIds: Array.isArray(item.responsibleIds) ? [...new Set(item.responsibleIds.map(String))] : [],
+        observations: safeText(item.observations, 5000),
+        history: cleanHistory(item.history)
+      };
+    }) : [],
     series: Array.isArray(raw.series) ? raw.series.map((item) => keepAllowed(item, [
       "id", "createdAt", "updatedAt", "originalStart", "originalEnd"
     ])).map((item) => ({
@@ -1124,6 +1328,10 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
         statuses: normalizeFilterArray(
           raw.settings?.filters?.statuses,
           raw.settings?.filters?.status
+        ),
+        planningBuckets: normalizeFilterArray(
+          raw.settings?.filters?.planningBuckets,
+          raw.settings?.filters?.planningBucket
         )
       }
     },
@@ -1181,7 +1389,11 @@ export function buildMonthlyCsv(document, year, month) {
   const responsibles = new Map(document.catalog.responsibles.map((item) => [item.id, item]));
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
   const rows = document.activities
-    .filter((activity) => activity.date.startsWith(prefix))
+    .filter((activity) => (
+      (activity.planningBucket ?? "calendar") === "calendar" &&
+      typeof activity.date === "string" &&
+      activity.date.startsWith(prefix)
+    ))
     .sort((a, b) => compareISODate(a.date, b.date) || a.id.localeCompare(b.id))
     .map((activity) => {
       const assigned = activity.responsibleIds.map((id) => responsibles.get(id)).filter(Boolean);
@@ -1202,6 +1414,39 @@ export function buildMonthlyCsv(document, year, month) {
   const header = [
     "Fecha", "Cliente", "Sede", "Ciudad", "Responsables nómina", "Responsables contratistas",
     "Tipo de servicio", "Estado", "Observaciones", "ID actividad", "ID serie"
+  ];
+  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  return "\uFEFF" + [header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+}
+
+export function buildQuarantineCsv(document) {
+  const clients = new Map(document.catalog.clients.map((item) => [item.id, item]));
+  const sites = new Map(document.catalog.sites.map((item) => [item.id, item]));
+  const responsibles = new Map(document.catalog.responsibles.map((item) => [item.id, item]));
+  const rows = document.activities
+    .filter((activity) => (activity.planningBucket ?? "calendar") === "quarantine")
+    .sort((a, b) => (
+      (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id)
+    ))
+    .map((activity) => {
+      const assigned = (activity.responsibleIds ?? []).map((id) => responsibles.get(id)).filter(Boolean);
+      return [
+        "",
+        PLANNING_BUCKETS.quarantine,
+        clients.get(activity.clientId)?.name ?? "",
+        sites.get(activity.siteId)?.name ?? "",
+        activity.city ?? sites.get(activity.siteId)?.city ?? "",
+        assigned.filter((item) => item.responsibleType === "payroll").map((item) => item.name).join(" | "),
+        assigned.filter((item) => item.responsibleType === "contractor").map((item) => item.name).join(" | "),
+        SERVICE_TYPES[activity.serviceType] ?? activity.serviceType,
+        ACTIVITY_STATUSES[activity.status] ?? activity.status,
+        activity.observations ?? "",
+        activity.id
+      ];
+    });
+  const header = [
+    "Fecha", "Bandeja", "Cliente", "Sede", "Ciudad", "Responsables nómina",
+    "Responsables contratistas", "Tipo de servicio", "Estado", "Observaciones", "ID actividad"
   ];
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   return "\uFEFF" + [header, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");

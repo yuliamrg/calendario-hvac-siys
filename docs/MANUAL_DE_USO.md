@@ -29,8 +29,30 @@ Arrastre un cliente o sede a una fecha, haga clic en el fondo del día o pulse
 varios responsables, tipo de servicio, estado y observaciones.
 
 Los servicios disponibles son mantenimiento preventivo, mantenimiento
-correctivo, llamada de emergencia y administrativo. Los estados son:
-Programada, Confirmada, En ejecución, Terminada, No ejecutada y Cancelada.
+correctivo, llamada de emergencia, diagnóstico, garantía y administrativo.
+Los estados son: Programada, Confirmada, En ejecución, Terminada, No ejecutada,
+Cancelada y Por programar. Una actividad confirmada exige al menos un
+responsable.
+
+### Bandeja Pendiente
+
+La tercera pestaña del banco es **Pendiente** y reúne actividades por programar.
+Use **Nuevo pendiente** para crear una tarjeta sin fecha o, desde el detalle de
+una actividad Programada o Confirmada, pulse **Enviar a Pendiente**. También
+puede arrastrar una tarjeta del calendario hasta la zona donde aparecen las
+tarjetas Pendiente. Las actividades En
+ejecución, Terminadas, No ejecutadas y Canceladas no pueden enviarse allí.
+
+En una actividad multifecha puede enviar sólo ese día (la tarjeta queda
+independiente) o **Toda la actividad**. Esta última opción conserva una tarjeta
+representante, elimina las demás fechas y requiere confirmación; ambas
+operaciones se pueden **Deshacer**. Una tarjeta Pendiente siempre tiene
+`date: null`, no conserva `seriesId` y muestra el estado Por programar.
+
+Para devolverla al calendario, use **Asignar fecha** o arrástrela a un día.
+Domingos y festivos requieren una confirmación adicional. Al asignar fecha la
+tarjeta vuelve automáticamente a Programada y queda como actividad de una sola
+fecha.
 Una actividad confirmada exige al menos un responsable.
 
 Un rango genera tarjetas independientes enlazadas. Los domingos y festivos
@@ -72,15 +94,17 @@ en su fecha actual no abre el diálogo ni genera historial.
 
 ## 5. Filtros y exportaciones
 
-La búsqueda libre revisa cliente, sede, ciudad, servicio, estado,
+La búsqueda libre revisa cliente, sede, ciudad, servicio, estado, bandeja,
 observaciones y responsables. **Filtros** permite seleccionar varias ciudades,
-clientes, sedes, responsables, servicios y estados. Dentro de una categoría se
+clientes, sedes, responsables, servicios, estados y bandejas. Dentro de una categoría se
 acepta cualquiera de los valores; entre categorías deben cumplirse todos.
 
 Los chips muestran los filtros activos y permiten retirarlos individualmente.
 Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
 
 - **CSV:** exporta las actividades del mes y separa nómina de contratistas.
+- **CSV de pendientes:** descarga por separado las actividades sin fecha para
+  revisarlas en Excel; el listado mensual nunca incluye estas tarjetas.
 - **PNG:** crea una imagen horizontal a escala 2 con nombre, coordinador, mes,
   filtros, festivos y todas las tarjetas visibles, incluso en días densos.
 - **Descargar copia del cronograma:** crea la copia portable completa
@@ -102,14 +126,19 @@ Columnas de `Programacion`:
 | --- | --- |
 | `FechaInicio` | Obligatoria, fecha inicial |
 | `FechaFin` | Opcional; vacía equivale a un día |
+| `Bandeja` | Opcional para compatibilidad; `Calendario` o `Pendiente` |
 | `Cliente` | Coincidencia exacta; opcional sólo en Administrativo |
 | `Sede` | Coincidencia exacta dentro del cliente; opcional sólo en Administrativo |
 | `Ciudad` | Obligatoria para servicios operativos; se completa desde la sede si está vacía |
 | `Responsables` | Nombres exactos separados por `;` |
-| `TipoServicio` | Uno de los cuatro tipos admitidos |
-| `Estado` | Uno de los seis estados admitidos |
+| `TipoServicio` | Uno de los seis tipos admitidos |
+| `Estado` | Uno de los siete estados admitidos |
 | `Observaciones` | Texto opcional |
 | `IncluirNoLaborables` | `Sí` o `No` |
+
+Si `Bandeja` se omite, la fila se interpreta como Calendario. Una fila
+Pendiente debe venir sin FechaInicio ni FechaFin y con estado Por programar;
+una fila Calendario debe tener fecha y no puede usar Por programar.
 
 La importación no crea clientes, sedes ni responsables faltantes. Reporta
 ambigüedades, duplicados y fechas no laborables omitidas. Los duplicados se

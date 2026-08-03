@@ -509,7 +509,7 @@ test("el esquema 2 migra registros maestros con updatedAt de respaldo", () => {
     originalEnd: "2026-07-02"
   });
   const migrated = sanitizeDocument(legacy);
-  assert.equal(migrated.schemaVersion, 3);
+  assert.equal(migrated.schemaVersion, 4);
   assert.equal(migrated.catalog.clients[0].updatedAt, legacy.calendarMeta.updatedAt);
   assert.equal(migrated.series[0].updatedAt, legacy.calendarMeta.updatedAt);
 });

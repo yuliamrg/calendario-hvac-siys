@@ -3,6 +3,7 @@ import {
   APP_VERSION,
   BULK_EDIT_FIELDS,
   HOLIDAY_RULESET_VERSION,
+  PLANNING_BUCKETS,
   RESPONSIBLE_TYPES,
   SERVICE_TYPES,
   STATUS_SCOPES,
@@ -10,14 +11,17 @@ import {
   activityMatchesFilters,
   activityIdsForScope,
   addDaysISO,
+  assignQuarantineDate,
   applyBulkEdit,
   applyStatus,
   buildMonthlyCsv,
+  buildQuarantineCsv,
   colombianHolidays,
   compareISODate,
   createActivitiesFromRange,
   createBackupEnvelope,
   createDefaultDocument,
+  createQuarantineActivity,
   dayOfWeek,
   deleteActivities,
   duplicateActivities,
@@ -27,10 +31,12 @@ import {
   holidayMapForYears,
   importDiff,
   isNonWorkingDate,
+  isQuarantineActivity,
   makeId,
   mergeBackupDocument,
   monthGridDates,
   moveActivities,
+  moveActivityToQuarantine,
   normalizeKey,
   normalizeFilterArray,
   normalizeText,
@@ -41,7 +47,8 @@ import {
   todayInBogota,
   toISODate,
   validateActivity,
-  validateHolidayOverride
+  validateHolidayOverride,
+  validatePlanningDate
 } from "./core.js";
 import {
   PROGRAMMING_COLUMNS,
@@ -68,6 +75,8 @@ const SERVICE_SHORT = {
   preventive: "Preventivo",
   corrective: "Correctivo",
   emergency: "Emergencia",
+  diagnostic: "Diagnóstico",
+  warranty: "Garantía",
   administrative: "Administrativo"
 };
 const STATUS_ICONS = {
@@ -76,7 +85,8 @@ const STATUS_ICONS = {
   in_progress: "▶",
   completed: "✓",
   not_executed: "!",
-  cancelled: "×"
+  cancelled: "×",
+  to_schedule: "○"
 };
 
 const dom = Object.fromEntries(
@@ -100,6 +110,8 @@ let pendingProgrammingImport = null;
 let dragContext = null;
 let pendingDrop = null;
 let pendingTouchActivityId = null;
+let pendingQuarantineActivityId = null;
+let pendingQuarantineAssignId = null;
 let mobileAgendaDate = null;
 let undoSnapshot = null;
 let forcedRangeDates = new Set();
@@ -373,7 +385,8 @@ function renderAccessMode() {
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
-    "calendarSettingsButton", "importProgrammingButton", "resetDataButton", "mergeJsonButton"
+    "calendarSettingsButton", "importProgrammingButton", "resetDataButton", "mergeJsonButton",
+    "newQuarantineButton"
   ];
   for (const id of guardedIds) {
     if (dom[id]) dom[id].disabled = !hasEditControl;
@@ -742,6 +755,7 @@ function activitySearchText(activity, maps = lookupMaps()) {
     activity.city,
     SERVICE_TYPES[activity.serviceType],
     ACTIVITY_STATUSES[activity.status],
+    PLANNING_BUCKETS[activity.planningBucket ?? "calendar"],
     activity.observations,
     ...responsibles
   ].filter(Boolean).join(" "));
@@ -814,6 +828,10 @@ function filterDefinitions() {
     {
       key: "statuses", title: "Estados", singular: "Estado",
       options: Object.entries(ACTIVITY_STATUSES).map(([value, label]) => ({ value, label }))
+    },
+    {
+      key: "planningBuckets", title: "Bandejas", singular: "Bandeja",
+      options: Object.entries(PLANNING_BUCKETS).map(([value, label]) => ({ value, label }))
     }
   ].map((definition) => ({
     ...definition,
@@ -864,7 +882,8 @@ function clearAllFilters({ close = false } = {}) {
     sites: [],
     responsibles: [],
     serviceTypes: [],
-    statuses: []
+    statuses: [],
+    planningBuckets: []
   };
   if (close) closeDialog("filterDialog");
   renderAll();
@@ -986,7 +1005,11 @@ function runtimeMode() {
 }
 
 function updateCatalogSemantics() {
-  const activeTab = catalogTab === "sites" ? dom.sitesTab : dom.responsiblesTab;
+  const activeTab = catalogTab === "sites"
+    ? dom.sitesTab
+    : catalogTab === "responsibles"
+      ? dom.responsiblesTab
+      : dom.quarantineTab;
   dom.catalogList.setAttribute("aria-labelledby", activeTab.id);
 }
 
@@ -996,7 +1019,7 @@ function applyDesignContract() {
   document.querySelector(".segmented[role=\"tablist\"]")?.setAttribute("aria-orientation", "horizontal");
   dom.catalogList.setAttribute("role", "tabpanel");
   dom.catalogList.setAttribute("tabindex", "0");
-  for (const tab of [dom.sitesTab, dom.responsiblesTab]) {
+  for (const tab of [dom.sitesTab, dom.responsiblesTab, dom.quarantineTab]) {
     tab.setAttribute("aria-controls", "catalogList");
   }
   updateCatalogSemantics();
@@ -1007,7 +1030,7 @@ function renderCalendarIdentity() {
   dom.calendarIdentity.textContent = coordinator
     ? `${appDocument.calendarMeta.name} · ${coordinator}`
     : appDocument.calendarMeta.name;
-  dom.runtimeModeLabel.textContent = `Modo: ${runtimeMode()}. Revisión ${appDocument.calendarMeta.revision}. Los datos de cada origen se guardan por separado en este navegador.`;
+  dom.runtimeModeLabel.textContent = "Los datos se guardan en este navegador. Descarga una copia para conservarlos.";
 }
 
 function renderAll() {
@@ -1025,15 +1048,62 @@ function renderAll() {
 function renderCatalog() {
   dom.sitesTab.classList.toggle("active", catalogTab === "sites");
   dom.responsiblesTab.classList.toggle("active", catalogTab === "responsibles");
+  dom.quarantineTab.classList.toggle("active", catalogTab === "quarantine");
   dom.sitesTab.setAttribute("aria-selected", String(catalogTab === "sites"));
   dom.responsiblesTab.setAttribute("aria-selected", String(catalogTab === "responsibles"));
+  dom.quarantineTab.setAttribute("aria-selected", String(catalogTab === "quarantine"));
+  const quarantineCount = appDocument.activities.filter((activity) => isQuarantineActivity(activity)).length;
+  dom.quarantineCount.textContent = String(quarantineCount);
   updateCatalogSemantics();
+  dom.catalogList.classList.toggle("pending-drop-zone", catalogTab === "quarantine");
   dom.dragHint.textContent = catalogTab === "sites"
     ? "Arrastra un cliente o una sede hasta un día."
-    : "Los colores distinguen nómina y contratistas.";
+    : catalogTab === "responsibles"
+      ? "Los colores distinguen nómina y contratistas."
+      : "Arrastra una tarjeta del calendario hasta la zona Pendiente o un pendiente hasta una fecha.";
+  dom.newQuarantineButton.hidden = catalogTab !== "quarantine";
+  dom.newCatalogButton.hidden = catalogTab === "quarantine";
 
   const query = normalizeText(dom.catalogSearch.value);
   const fragment = document.createDocumentFragment();
+
+  if (catalogTab === "quarantine") {
+    const maps = lookupMaps();
+    const items = appDocument.activities
+      .filter((activity) => isQuarantineActivity(activity))
+      .filter((activity) => matchesActivityFilters(activity, maps))
+      .filter((activity) => !query || activitySearchText(activity, maps).includes(query))
+      .sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id));
+    for (const activity of items) {
+      const card = buildActivityCard(activity, maps, { quarantine: true });
+      const assign = createElement("button", "button small quarantine-assign", "Asignar fecha");
+      assign.type = "button";
+      assign.disabled = !hasEditControl;
+      assign.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openQuarantineAssignDialog(activity.id);
+      });
+      card.append(assign);
+      fragment.append(card);
+    }
+    if (!items.length) {
+      const placeholder = createElement("div", "pending-drop-placeholder");
+      placeholder.append(
+        createElement("strong", "", "No hay pendientes"),
+        createElement("span", "", "Arrastra aquí una tarjeta del calendario para enviarla a actividades por programar.")
+      );
+      fragment.append(placeholder);
+    }
+    dom.catalogList.replaceChildren(fragment);
+    dom.emptyCatalog.hidden = true;
+    dom.catalogList.hidden = false;
+    dom.emptyImportButton.hidden = true;
+    return;
+  }
+
+  dom.emptyImportButton.hidden = false;
+  dom.emptyCatalog.querySelector("strong").textContent = "Aún no hay catálogo";
+  dom.emptyCatalog.querySelector("p").textContent = "Importa la Base Operativa o crea tus primeros registros manualmente.";
 
   if (catalogTab === "sites") {
     const activeClients = appDocument.catalog.clients
@@ -1139,19 +1209,63 @@ function handleCatalogDragStart(event) {
   event.dataTransfer.setData("application/x-calendario-hvac", JSON.stringify(payload));
 }
 
-function buildActivityCard(activity, maps) {
-  const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}`);
+function dragPayloadFromEvent(event) {
+  if (dragContext) return dragContext;
+  try {
+    const raw = event.dataTransfer?.getData("application/x-calendario-hvac");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPlanningBucketDropState() {
+  dom.catalogList.classList.remove("drag-over");
+}
+
+function handlePlanningBucketDragOver(event) {
+  if (!hasEditControl || catalogTab !== "quarantine") return;
+  const payload = dragPayloadFromEvent(event);
+  if (payload?.type !== "activity") return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  dom.catalogList.classList.add("drag-over");
+}
+
+function handlePlanningBucketDragLeave(event) {
+  if (!dom.catalogList.contains(event.relatedTarget)) clearPlanningBucketDropState();
+}
+
+function handlePlanningBucketDrop(event) {
+  event.preventDefault();
+  clearPlanningBucketDropState();
+  if (!hasEditControl || catalogTab !== "quarantine") return;
+  const payload = dragPayloadFromEvent(event);
+  dragContext = null;
+  if (payload?.type !== "activity") return;
+  if (payload.activityIds?.length !== 1) {
+    showToast("Pendiente se maneja una tarjeta a la vez.", { type: "error" });
+    return;
+  }
+  const activity = appDocument.activities.find((item) => item.id === payload.anchorId);
+  if (!activity || isQuarantineActivity(activity)) return;
+  openQuarantineDialog(activity.id);
+}
+
+function buildActivityCard(activity, maps, { quarantine = false } = {}) {
+  const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
   card.draggable = hasEditControl;
   card.dataset.activityId = activity.id;
-  card.setAttribute("aria-label", `${maps.clients.get(activity.clientId)?.name ?? "Actividad"} ${maps.sites.get(activity.siteId)?.name ?? ""}, ${ACTIVITY_STATUSES[activity.status]}`);
+  card.setAttribute("aria-label", `${maps.clients.get(activity.clientId)?.name ?? SERVICE_TYPES[activity.serviceType] ?? "Actividad"} ${maps.sites.get(activity.siteId)?.name ?? ""}, ${ACTIVITY_STATUSES[activity.status]}`);
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.className = "activity-select";
   checkbox.checked = selectedActivityIds.has(activity.id);
-  checkbox.disabled = !hasEditControl;
-  checkbox.title = "Seleccionar tarjeta";
+  checkbox.disabled = !hasEditControl || quarantine;
+  checkbox.hidden = quarantine;
+  checkbox.title = quarantine ? "Las operaciones Pendiente son individuales" : "Seleccionar tarjeta";
   checkbox.setAttribute("aria-label", "Seleccionar tarjeta");
   checkbox.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1164,7 +1278,7 @@ function buildActivityCard(activity, maps) {
   const site = maps.sites.get(activity.siteId);
   const title = activity.serviceType === "administrative" && !client
     ? "Administrativo"
-    : client?.name ?? "Cliente sin catálogo";
+    : client?.name ?? SERVICE_TYPES[activity.serviceType] ?? "Cliente sin catálogo";
   const assigned = activity.responsibleIds
     .map((id) => maps.responsibles.get(id))
     .filter(Boolean)
@@ -1173,7 +1287,8 @@ function buildActivityCard(activity, maps) {
   copyBlock.append(createElement("strong", "", title));
   copyBlock.append(createElement("small", "", [
     site?.name || activity.city,
-    assigned || "Sin responsable"
+    assigned || "Sin responsable",
+    quarantine ? PLANNING_BUCKETS.quarantine : ""
   ].filter(Boolean).join(" · ")));
   card.append(copyBlock);
 
@@ -1192,7 +1307,7 @@ function buildActivityCard(activity, maps) {
     moved.title = "Actividad reprogramada";
     flags.append(moved);
   }
-  if (hasEditControl && activity.status !== "completed" && activity.status !== "cancelled") {
+  if (!quarantine && hasEditControl && activity.status !== "completed" && activity.status !== "cancelled") {
     const complete = createElement("button", "quick-complete", "✓");
     complete.type = "button";
     complete.title = "Marcar como terminada";
@@ -1228,6 +1343,7 @@ function buildActivityCard(activity, maps) {
   card.addEventListener("dragend", () => {
     dragContext = null;
     document.querySelectorAll(".day-cell.drag-over").forEach((cell) => cell.classList.remove("drag-over"));
+    clearPlanningBucketDropState();
   });
   return card;
 }
@@ -1282,6 +1398,7 @@ function renderCalendar() {
   const maps = lookupMaps();
   const activitiesByDate = new Map();
   for (const activity of appDocument.activities) {
+    if (isQuarantineActivity(activity) || !activity.date) continue;
     if (!matchesActivityFilters(activity, maps)) continue;
     const items = activitiesByDate.get(activity.date) ?? [];
     items.push(activity);
@@ -1422,6 +1539,59 @@ function renderCalendar() {
   }
 }
 
+function renderQuarantineAssignWarning() {
+  const date = dom.quarantineAssignDate.value;
+  if (!date) {
+    dom.quarantineAssignWarning.hidden = true;
+    dom.quarantineAssignWarning.replaceChildren();
+    return;
+  }
+  const holidays = holidayMapForYears([Number(date.slice(0, 4))], appDocument.holidayOverrides);
+  const validation = validatePlanningDate(date, holidays);
+  dom.quarantineAssignWarning.hidden = validation.valid;
+  dom.quarantineAssignWarning.replaceChildren();
+  if (!validation.valid) {
+    dom.quarantineAssignWarning.append(
+      createElement("p", "", `${validation.reason} Podrás asignarla sólo después de confirmar la decisión.`)
+    );
+  }
+  dom.confirmQuarantineAssignButton.disabled = !parseISODateSafely(date);
+}
+
+function parseISODateSafely(value) {
+  try {
+    parseISODate(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function openQuarantineAssignDialog(activityId, date = null) {
+  const activity = appDocument.activities.find((item) => item.id === activityId);
+  if (!activity || !isQuarantineActivity(activity) || !hasEditControl) return;
+  pendingQuarantineAssignId = activityId;
+  const maps = lookupMaps();
+  const client = maps.clients.get(activity.clientId);
+  dom.quarantineAssignSummary.textContent = `${client?.name ?? SERVICE_TYPES[activity.serviceType] ?? "Actividad"}. Elige una fecha laborable para devolverla al calendario.`;
+  dom.quarantineAssignDate.value = date || appDocument.settings.currentDate || todayInBogota();
+  showFormErrors(dom.quarantineAssignErrors, []);
+  renderQuarantineAssignWarning();
+  openDialog("quarantineAssignDialog");
+}
+
+function applyQuarantineAssignment(activityId, date) {
+  const holidays = holidayMapForYears([Number(date.slice(0, 4))], appDocument.holidayOverrides);
+  const validation = validatePlanningDate(date, holidays);
+  if (!validation.valid && !window.confirm(`${validation.reason}\n\n¿Asignar de todos modos?`)) return false;
+  mutate("quarantine_assigned", "Actividad devuelta al calendario", () => {
+    assignQuarantineDate(appDocument, activityId, date, holidays, {
+      allowNonWorking: !validation.valid
+    });
+  });
+  return true;
+}
+
 function handleCalendarDrop(event, date, holidayMap) {
   event.preventDefault();
   if (!hasEditControl) return;
@@ -1446,7 +1616,20 @@ function handleCalendarDrop(event, date, holidayMap) {
   }
   if (payload.type === "activity") {
     const anchor = appDocument.activities.find((item) => item.id === payload.anchorId);
-    if (!anchor || anchor.date === date) return;
+    if (!anchor) return;
+    if (isQuarantineActivity(anchor)) {
+      if (payload.activityIds.length !== 1) {
+        showToast("Las tarjetas Pendiente se asignan una por una.", { type: "error" });
+        return;
+      }
+      try {
+        applyQuarantineAssignment(anchor.id, date);
+      } catch (error) {
+        showToast(error.message, { type: "error" });
+      }
+      return;
+    }
+    if (anchor.date === date) return;
     pendingDrop = { ...payload, date, holidayMap };
     dom.dropActionSummary.textContent = payload.activityIds.length > 1
       ? `${payload.activityIds.length} tarjetas seleccionadas. Se conservará la distancia entre sus fechas.`
@@ -1577,6 +1760,62 @@ function detailItem(label, content, { wide = false } = {}) {
   return wrapper;
 }
 
+function openQuarantineDialog(activityId) {
+  const activity = appDocument.activities.find((item) => item.id === activityId);
+  if (!activity || isQuarantineActivity(activity) || !hasEditControl) return;
+  pendingQuarantineActivityId = activityId;
+  const maps = lookupMaps();
+  const client = maps.clients.get(activity.clientId);
+  const site = maps.sites.get(activity.siteId);
+  dom.quarantineSummary.textContent = `${client?.name ?? SERVICE_TYPES[activity.serviceType] ?? "Actividad"}${site?.name ? ` · ${site.name}` : ""} · ${formatDisplayDate(activity.date)}.`;
+  dom.quarantineScopeFieldset.hidden = !activity.seriesId;
+  dom.quarantineSeriesScopeRow.hidden = !activity.seriesId;
+  dom.quarantineForm.querySelector('input[value="single"]').checked = true;
+  showFormErrors(dom.quarantineErrors, []);
+  openDialog("quarantineDialog");
+}
+
+function handleQuarantineSubmit(event) {
+  event.preventDefault();
+  const activity = appDocument.activities.find((item) => item.id === pendingQuarantineActivityId);
+  if (!activity) return;
+  const scope = dom.quarantineForm.querySelector('input[name="quarantineScope"]:checked')?.value ?? "single";
+  if (scope === "series" && !window.confirm("Toda la actividad se convertirá en un solo Pendiente y las demás fechas se eliminarán. ¿Continuar?")) {
+    return;
+  }
+  try {
+    mutate(
+      "activity_quarantined",
+      scope === "series" ? "Toda la actividad enviada a Pendiente" : "Tarjeta enviada a Pendiente",
+      () => moveActivityToQuarantine(appDocument, activity.id, scope)
+    );
+    pendingQuarantineActivityId = null;
+    closeDialog("quarantineDialog");
+    renderActivityDrawer(activity.id);
+  } catch (error) {
+    showFormErrors(dom.quarantineErrors, [error.message]);
+  }
+}
+
+function handleQuarantineAssignSubmit(event) {
+  event.preventDefault();
+  const activityId = pendingQuarantineAssignId;
+  const date = dom.quarantineAssignDate.value;
+  if (!activityId || !parseISODateSafely(date)) {
+    showFormErrors(dom.quarantineAssignErrors, ["Selecciona una fecha válida."]);
+    return;
+  }
+  try {
+    const applied = applyQuarantineAssignment(activityId, date);
+    if (!applied) return;
+    pendingQuarantineAssignId = null;
+    closeDialog("quarantineAssignDialog");
+    renderActivityDrawer(activityId);
+  } catch (error) {
+    showFormErrors(dom.quarantineAssignErrors, [error.message]);
+  }
+}
+
 function renderActivityDrawer(activityId) {
   const activity = appDocument.activities.find((item) => item.id === activityId);
   if (!activity) {
@@ -1599,7 +1838,13 @@ function renderActivityDrawer(activityId) {
     badgeRow.append(createElement("span", "chip", "↪ Reprogramada"));
   }
   body.append(badgeRow);
-  body.append(detailItem("Fecha", formatDisplayDate(activity.date, { weekday: "long" })));
+  body.append(detailItem(
+    "Fecha",
+    activity.date
+      ? formatDisplayDate(activity.date, { weekday: "long" })
+      : "Sin fecha · Pendiente"
+  ));
+  body.append(detailItem("Bandeja", PLANNING_BUCKETS[activity.planningBucket ?? "calendar"]));
   body.append(detailItem("Cliente", client?.name));
   body.append(detailItem("Sede", site?.name));
   body.append(detailItem("Ciudad", activity.city || site?.city));
@@ -1645,9 +1890,17 @@ function renderActivityDrawer(activityId) {
   const edit = createElement("button", "button small", "Editar tarjeta");
   edit.type = "button";
   edit.addEventListener("click", () => openActivityDialog({ activityId }));
-  const organize = createElement("button", "button small", "Mover · Duplicar · Ampliar");
+  const organize = createElement("button", "button small", isQuarantineActivity(activity) ? "Asignar fecha" : "Mover · Duplicar · Ampliar");
   organize.type = "button";
-  organize.addEventListener("click", () => openActivityDateActionDialog(activityId));
+  organize.addEventListener("click", () => isQuarantineActivity(activity)
+    ? openQuarantineAssignDialog(activityId)
+    : openActivityDateActionDialog(activityId));
+  if (!isQuarantineActivity(activity) && ["scheduled", "confirmed"].includes(activity.status)) {
+  const quarantine = createElement("button", "button small", "Enviar a Pendiente");
+    quarantine.type = "button";
+    quarantine.addEventListener("click", () => openQuarantineDialog(activityId));
+    actions.append(quarantine);
+  }
   const remove = createElement("button", "button small ghost", "Eliminar");
   remove.type = "button";
   remove.addEventListener("click", () => deleteActivity(activityId));
@@ -1655,11 +1908,18 @@ function renderActivityDrawer(activityId) {
   body.append(actions);
 
   const statusEditor = createElement("div", "detail-item detail-item-wide");
+  if (isQuarantineActivity(activity)) {
+    statusEditor.append(createElement("span", "", "Estado operativo"));
+    statusEditor.append(createElement("p", "", "Pendiente · actividad por programar. Asigna una fecha para devolverla al calendario."));
+    body.append(statusEditor);
+  } else {
   statusEditor.append(createElement("span", "", "Actualizar estado"));
   const statusSelect = document.createElement("select");
   statusSelect.id = "drawerStatusSelect";
   statusSelect.setAttribute("aria-label", "Nuevo estado de la actividad");
-  for (const [value, label] of Object.entries(ACTIVITY_STATUSES)) statusSelect.append(option(value, label));
+  for (const [value, label] of Object.entries(ACTIVITY_STATUSES)) {
+    if (value !== "to_schedule") statusSelect.append(option(value, label));
+  }
   statusSelect.value = activity.status;
   statusSelect.style.minHeight = "36px";
   const scopeRow = createElement("div", "status-scope");
@@ -1682,6 +1942,7 @@ function renderActivityDrawer(activityId) {
   });
   statusEditor.append(statusSelect, scopeRow, apply);
   body.append(statusEditor);
+  }
 
   if (activity.seriesId) {
     const seriesItems = appDocument.activities
@@ -1711,7 +1972,7 @@ function renderDayDrawer(date) {
   dom.drawerTitle.textContent = formatDisplayDate(date, { weekday: "long" });
   const maps = lookupMaps();
   const items = appDocument.activities
-    .filter((activity) => activity.date === date)
+    .filter((activity) => !isQuarantineActivity(activity) && activity.date === date)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const body = createElement("div", "detail-grid day-detail-grid");
   if (!items.length) body.append(createElement("p", "", "No hay actividades programadas."));
@@ -1875,18 +2136,34 @@ function syncActivityLocationFromSite() {
   renderResponsiblePicker();
 }
 
-function setActivityFormMode(mode) {
+function setActivityFormMode(mode, planningBucket = "calendar") {
   const editing = mode === "edit";
   dom.activityDialog.dataset.mode = mode;
+  dom.activityDialog.dataset.planningBucket = planningBucket;
   dom.activityDialogTitle.textContent = editing ? "Editar tarjeta" : "Nueva actividad";
-  dom.activityDialogEyebrow.textContent = editing ? "Edición individual" : "Programación";
-  dom.endDateLabel.hidden = editing;
-  dom.includeNonWorkingLabel.hidden = editing;
-  dom.rangePreview.hidden = editing;
-  dom.saveActivityButton.textContent = editing ? "Guardar cambios" : "Guardar actividad";
+  dom.activityDialogEyebrow.textContent = planningBucket === "quarantine"
+    ? "Bandeja Pendiente"
+    : editing
+      ? "Edición individual"
+      : "Programación";
+  const quarantined = planningBucket === "quarantine";
+  dom.activityScheduleSection.hidden = quarantined;
+  dom.activityDate.required = !quarantined;
+  dom.activityDate.disabled = quarantined;
+  dom.activityEndDate.disabled = quarantined || editing;
+  dom.endDateLabel.hidden = editing || quarantined;
+  dom.includeNonWorkingLabel.hidden = editing || quarantined;
+  dom.rangePreview.hidden = editing || quarantined;
+  dom.activityStatus.value = quarantined ? "to_schedule" : dom.activityStatus.value;
+  dom.activityStatus.disabled = quarantined;
+  dom.saveActivityButton.textContent = quarantined && !editing
+    ? "Guardar pendiente"
+    : editing
+      ? "Guardar cambios"
+      : "Guardar actividad";
 }
 
-function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = "", activityId = "", duplicateId = "" } = {}) {
+function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = "", activityId = "", duplicateId = "", planningBucket = "calendar" } = {}) {
   dom.activityForm.reset();
   showFormErrors(dom.activityFormErrors, []);
   forcedRangeDates = new Set();
@@ -1896,13 +2173,14 @@ function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = ""
       ? appDocument.activities.find((item) => item.id === duplicateId)
       : null;
   const mode = activityId ? "edit" : "create";
-  setActivityFormMode(mode);
+  const bucket = source?.planningBucket ?? planningBucket;
+  setActivityFormMode(mode, bucket);
   dom.activityId.value = activityId;
-  dom.activityDate.value = source?.date ?? date;
+  dom.activityDate.value = source?.date ?? (bucket === "quarantine" ? "" : date);
   dom.activityEndDate.value = "";
   dom.includeNonWorking.checked = false;
   dom.activityServiceType.value = source?.serviceType ?? "preventive";
-  dom.activityStatus.value = source?.status ?? "scheduled";
+  dom.activityStatus.value = source?.status ?? (bucket === "quarantine" ? "to_schedule" : "scheduled");
   dom.activityCity.value = source?.city ?? "";
   dom.activityObservations.value = source?.observations ?? "";
   const resolvedClient = source?.clientId ?? clientId;
@@ -1925,6 +2203,9 @@ function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = ""
 function updateAdministrativeFormState() {
   const administrative = dom.activityServiceType.value === "administrative";
   dom.administrativeNote.hidden = !administrative;
+  const quarantined = dom.activityDialog.dataset.planningBucket === "quarantine";
+  dom.activityStatus.value = quarantined ? "to_schedule" : dom.activityStatus.value;
+  dom.activityStatus.disabled = quarantined;
 }
 
 function updateRangePreview() {
@@ -1969,8 +2250,11 @@ function updateRangePreview() {
 function activityInputFromForm() {
   const responsibleIds = [...dom.responsiblePicker.querySelectorAll("input:checked")].map((input) => input.value);
   return {
-    date: dom.activityDate.value,
-    endDate: dom.activityEndDate.value || dom.activityDate.value,
+    date: dom.activityDialog.dataset.planningBucket === "quarantine" ? null : dom.activityDate.value,
+    endDate: dom.activityDialog.dataset.planningBucket === "quarantine"
+      ? null
+      : dom.activityEndDate.value || dom.activityDate.value,
+    planningBucket: dom.activityDialog.dataset.planningBucket || "calendar",
     includeNonWorking: dom.includeNonWorking.checked,
     forceIncludeDates: [...forcedRangeDates],
     clientId: dom.activityClient.value || null,
@@ -1978,7 +2262,7 @@ function activityInputFromForm() {
     city: safeText(dom.activityCity.value, 120) || null,
     responsibleIds,
     serviceType: dom.activityServiceType.value,
-    status: dom.activityStatus.value,
+    status: dom.activityDialog.dataset.planningBucket === "quarantine" ? "to_schedule" : dom.activityStatus.value,
     observations: safeText(dom.activityObservations.value, 5000)
   };
 }
@@ -1986,11 +2270,13 @@ function activityInputFromForm() {
 function validateActivityInput(input) {
   const candidate = {
     ...input,
-    date: input.date,
+    date: input.planningBucket === "quarantine" ? null : input.date,
+    planningBucket: input.planningBucket,
+    status: input.planningBucket === "quarantine" ? "to_schedule" : input.status,
     responsibleIds: input.responsibleIds
   };
   const errors = validateActivity(candidate);
-  if (input.endDate && input.date && compareISODate(input.endDate, input.date) < 0) {
+  if (input.planningBucket !== "quarantine" && input.endDate && input.date && compareISODate(input.endDate, input.date) < 0) {
     errors.push("La fecha final no puede ser anterior a la inicial.");
   }
   return [...new Set(errors)];
@@ -2019,6 +2305,7 @@ function handleActivitySubmit(event) {
         const commonIds = new Set(activityIdsForScope(appDocument, activityId, commonScope));
         const statusIds = new Set(activityIdsForScope(appDocument, activityId, statusScope));
         const commonPatch = {
+          planningBucket: input.planningBucket,
           clientId: input.clientId,
           siteId: input.siteId,
           city: input.city,
@@ -2029,7 +2316,14 @@ function handleActivitySubmit(event) {
         const drafts = appDocument.activities.map((activity) => {
           const draft = structuredClone(activity);
           if (commonIds.has(activity.id)) Object.assign(draft, commonPatch);
-          if (activity.id === activityId) draft.date = input.date;
+          if (activity.id === activityId) {
+            draft.date = input.date;
+            if (input.planningBucket === "quarantine") {
+              draft.seriesId = null;
+              draft.status = "to_schedule";
+              draft.completedAt = null;
+            }
+          }
           if (statusIds.has(activity.id)) {
             draft.status = input.status;
             draft.completedAt = input.status === "completed" ? (draft.completedAt || now) : null;
@@ -2092,22 +2386,32 @@ function handleActivitySubmit(event) {
   }
 
   try {
-    const holidays = holidayMapForRange(input.date, input.endDate, appDocument.holidayOverrides);
-    const result = createActivitiesFromRange(input, holidays);
-    if (!result.activities.length) {
-      showFormErrors(dom.activityFormErrors, ["El rango no contiene fechas programables. Incluye manualmente una fecha no laborable o cambia el rango."]);
-      return;
+    let created = [];
+    let createdSeries = null;
+    if (input.planningBucket === "quarantine") {
+      created = [createQuarantineActivity(input)];
+    } else {
+      const holidays = holidayMapForRange(input.date, input.endDate, appDocument.holidayOverrides);
+      const result = createActivitiesFromRange(input, holidays);
+      if (!result.activities.length) {
+        showFormErrors(dom.activityFormErrors, ["El rango no contiene fechas programables. Incluye manualmente una fecha no laborable o cambia el rango."]);
+        return;
+      }
+      created = result.activities;
+      createdSeries = result.series;
     }
     mutate(
       "activity_created",
-      `${result.activities.length} tarjeta${result.activities.length === 1 ? "" : "s"} creada${result.activities.length === 1 ? "" : "s"}`,
+      input.planningBucket === "quarantine"
+        ? "Pendiente guardado"
+        : `${created.length} tarjeta${created.length === 1 ? "" : "s"} creada${created.length === 1 ? "" : "s"}`,
       () => {
-        appDocument.activities.push(...result.activities);
-        if (result.series) appDocument.series.push(result.series);
+        appDocument.activities.push(...created);
+        if (createdSeries) appDocument.series.push(createdSeries);
       }
     );
     closeDialog("activityDialog");
-    renderActivityDrawer(result.activities[0].id);
+    renderActivityDrawer(created[0].id);
   } catch (error) {
     showFormErrors(dom.activityFormErrors, [error.message]);
   }
@@ -2391,7 +2695,9 @@ function openBulkStatusDialog() {
   dom.bulkStatusSummary.textContent = `${selectedActivityIds.size} tarjetas seleccionadas. El cambio sólo afectará esas tarjetas.`;
   setChildren(
     dom.bulkStatusValue,
-    ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label))
+    ...Object.entries(ACTIVITY_STATUSES)
+      .filter(([value]) => value !== "to_schedule")
+      .map(([value, label]) => option(value, label))
   );
   openDialog("bulkStatusDialog");
 }
@@ -2450,7 +2756,12 @@ function renderBulkEditControls() {
     setChildren(dom.bulkEditSelect, ...Object.entries(SERVICE_TYPES).map(([value, label]) => option(value, label)));
   } else if (field === "status") {
     dom.bulkEditSelect.hidden = false;
-    setChildren(dom.bulkEditSelect, ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label)));
+    setChildren(
+      dom.bulkEditSelect,
+      ...Object.entries(ACTIVITY_STATUSES)
+        .filter(([value]) => value !== "to_schedule")
+        .map(([value, label]) => option(value, label))
+    );
   } else if (field === "responsibleIds") {
     dom.bulkResponsiblePicker.hidden = false;
     const fragment = document.createDocumentFragment();
@@ -2594,6 +2905,15 @@ function exportCurrentMonthCsv() {
   showToast(`Listado de ${formatMonthTitle(year, month)} descargado.`);
 }
 
+function exportQuarantineCsv() {
+  const csv = buildQuarantineCsv(appDocument);
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  downloadBlob(csv, "text/csv;charset=utf-8", `pendientes_${identity}.csv`);
+  appendAudit("quarantine_csv_exported", "Listado de pendientes descargado");
+  scheduleSave();
+  showToast("Listado de pendientes descargado.");
+}
+
 function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
   context.font = `${bold ? "700 " : ""}${font}`;
   context.fillStyle = color;
@@ -2724,7 +3044,7 @@ function downloadProgrammingTemplate() {
   const example = [
     PROGRAMMING_COLUMNS,
     [
-      todayInBogota(), todayInBogota(), "Ejemplo Cliente", "Ejemplo Sede", "Pereira",
+      todayInBogota(), todayInBogota(), PLANNING_BUCKETS.calendar, "Ejemplo Cliente", "Ejemplo Sede", "Pereira",
       "Responsable Uno; Responsable Dos", SERVICE_TYPES.preventive,
       ACTIVITY_STATUSES.scheduled, "Fila de ejemplo: reemplazar o eliminar", "No"
     ]
@@ -2745,8 +3065,11 @@ function downloadProgrammingTemplate() {
     ["Una fila crea una actividad; un rango crea tarjetas independientes enlazadas."],
     ["Los nombres de cliente, sede y responsables deben coincidir exactamente con Catalogos."],
     ["Separe varios responsables con punto y coma (;)."],
+    [`Bandeja: ${Object.values(PLANNING_BUCKETS).join(" | ")}. Si se omite, se interpreta como Calendario.`],
     [`TipoServicio: ${Object.values(SERVICE_TYPES).join(" | ")}`],
     [`Estado: ${Object.values(ACTIVITY_STATUSES).join(" | ")}`],
+    ["Las filas Pendiente deben venir sin fechas y con estado Por programar."],
+    ["Las filas Calendario deben tener fecha y no pueden usar Por programar."],
     ["Cliente y Sede pueden quedar vacíos solamente para Administrativo."],
     ["IncluirNoLaborables acepta Sí/No. Por defecto domingos y festivos se omiten."],
     ["La importación no crea registros faltantes del catálogo."]
@@ -3097,7 +3420,9 @@ function initializeStaticOptions() {
   );
   setChildren(
     dom.bulkStatusValue,
-    ...Object.entries(ACTIVITY_STATUSES).map(([value, label]) => option(value, label))
+    ...Object.entries(ACTIVITY_STATUSES)
+      .filter(([value]) => value !== "to_schedule")
+      .map(([value, label]) => option(value, label))
   );
   dom.versionLabel.textContent = `Versión ${APP_VERSION} · festivos ${HOLIDAY_RULESET_VERSION}`;
   dom.betaBadge.hidden = RUNTIME_CHANNEL !== "beta";
@@ -3106,6 +3431,9 @@ function initializeStaticOptions() {
 function bindEvents() {
   dom.newActivityButton.addEventListener("click", () => openActivityDialog({
     date: appDocument.settings.currentDate || todayInBogota()
+  }));
+  dom.newQuarantineButton.addEventListener("click", () => openActivityDialog({
+    planningBucket: "quarantine"
   }));
   dom.importBaseButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.toggleCatalogButton.addEventListener("click", toggleCatalog);
@@ -3131,6 +3459,7 @@ function bindEvents() {
   dom.restoreButton.addEventListener("click", () => dom.restoreFileInput.click());
   dom.mergeJsonButton.addEventListener("click", () => dom.mergeJsonFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
+  dom.exportQuarantineCsvButton.addEventListener("click", exportQuarantineCsv);
   dom.exportImageButton.addEventListener("click", () => {
     exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
   });
@@ -3154,6 +3483,9 @@ function bindEvents() {
   dom.touchMoveButton.addEventListener("click", () => applyTouchDateAction("move"));
   dom.touchDuplicateButton.addEventListener("click", () => applyTouchDateAction("duplicate"));
   dom.touchExtendButton.addEventListener("click", () => applyTouchDateAction("extend"));
+  dom.quarantineForm.addEventListener("submit", handleQuarantineSubmit);
+  dom.quarantineAssignForm.addEventListener("submit", handleQuarantineAssignSubmit);
+  dom.quarantineAssignDate.addEventListener("change", renderQuarantineAssignWarning);
   dom.calendarSettingsForm.addEventListener("submit", handleCalendarSettingsSubmit);
   dom.requestPersistenceButton.addEventListener("click", requestStoragePersistence);
   dom.takeControlButton.addEventListener("click", async () => {
@@ -3193,6 +3525,13 @@ function bindEvents() {
     catalogTab = "responsibles";
     renderCatalog();
   });
+  dom.quarantineTab.addEventListener("click", () => {
+    catalogTab = "quarantine";
+    renderCatalog();
+  });
+  dom.catalogList.addEventListener("dragover", handlePlanningBucketDragOver);
+  dom.catalogList.addEventListener("dragleave", handlePlanningBucketDragLeave);
+  dom.catalogList.addEventListener("drop", handlePlanningBucketDrop);
   dom.newCatalogButton.addEventListener("click", () => openCatalogDialog(catalogTab === "responsibles" ? "responsible" : "client"));
   dom.closeDrawerButton.addEventListener("click", closeDrawer);
   dom.detailDrawer.addEventListener("cancel", (event) => {
