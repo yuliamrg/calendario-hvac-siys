@@ -1,59 +1,5 @@
 # Historial de cambios
 
-## [0.11.0-beta.1] - 2026-08-02
-
-### Corrección de línea de release
-
-- La línea activa de SIYS Operations se reencauza como `0.11.0-beta.1` porque
-  `v0.10.0` ya existe como release estable.
-- No se reescriben etiquetas ni commits históricos `0.10.0-beta.*`.
-- La raíz estable conserva `v0.10.0`; esta versión sólo prepara el siguiente
-  hito beta.
-
-## [0.10.0-beta.5] - 2026-08-02
-
-### Mejorado
-
-- La beta adopta la dirección visual **SIYS Operations**: superficies neutras,
-  jerarquía operativa y verde reservado para acciones y estados.
-- Las tarjetas usan superficies limpias y un marcador compacto de estado, sin
-  bloques saturados por tipo de responsable.
-- El detalle de actividad, filtros, catálogo, formularios, selección múltiple,
-  botones y modales comparten una geometría y contraste coherentes.
-- El modo oscuro beta recibe una paleta propia de superficies, bordes y texto;
-  el buscador y las acciones de selección mantienen contraste visible.
-- La cabecera del calendario conserva los nombres de los días y la beta se
-  valida en escritorio, mobile, claro y oscuro.
-
-### Compatibilidad
-
-- Sin cambios en esquema, IndexedDB, respaldos, exportaciones, persistencia ni
-  canal estable.
-
-## [0.10.0-beta.4] - 2026-08-02
-
-### Mejorado
-
-- El estado de la actividad vuelve a una señal compacta en la tarjeta beta:
-  icono con contorno y nombre accesible completo en tooltip y lector de pantalla.
-- Se elimina la palabra visible completa para conservar espacio para sede y
-  responsable.
-
-### Compatibilidad
-
-- Sin cambios en esquema, respaldos, exportaciones, persistencia ni canal estable.
-
-## [0.10.0-beta.3] - 2026-08-02
-
-### Mejorado
-
-- Las tarjetas de actividad muestran el estado en texto dentro del canal beta.
-- La etiqueta textual es exclusiva de beta para comparar el flujo con estable.
-
-### Compatibilidad
-
-- Sin cambios en esquema, respaldos, exportaciones, persistencia ni canal estable.
-
 ## [0.10.0] - 2026-08-01
 
 ### Promovido

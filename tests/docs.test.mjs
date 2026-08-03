@@ -15,23 +15,6 @@ test("el README enlaza documentación existente", () => {
   }
 });
 
-test("la distribución documenta que Pages publica main y la beta requiere merge", () => {
-  const pages = readFileSync(resolve(root, "docs", "GITHUB_PAGES.md"), "utf8");
-  assert.equal(existsSync(resolve(root, "docs", "GITHUB_PAGES.md")), true);
-  for (const required of [
-    "no publica cada rama",
-    "main",
-    "/beta/",
-    "stable-version.txt",
-    "PR a main",
-    "workflow de Pages",
-    "No ejecutar `workflow_dispatch` desde una rama",
-    "preview local"
-  ]) {
-    assert.match(pages, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
-  }
-});
-
 test("el manual documenta persistencia, filtros, plantilla y restauración", () => {
   const manual = readFileSync(resolve(root, "docs", "MANUAL_DE_USO.md"), "utf8");
   for (const required of [
@@ -118,10 +101,7 @@ test("los criterios de diseño documentan la evolución beta y sus puertas de pr
     "Accesibilidad e interacción",
     "Puertas de promoción beta → estable",
     "85/100",
-    "seis viewports",
-    "parche `0.x.y`",
-    "hito `0.x.0`",
-    "1.0.0"
+    "seis viewports"
   ]) {
     assert.match(criteria, new RegExp(required, "i"));
   }
@@ -135,16 +115,10 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
     "Semantic Versioning",
     "package.json",
     "APP_VERSION",
-    "0.10.1",
-    "0.10.1-beta.1",
-    "0.11.0-beta.1",
-    "0.11.0",
-    "1.0.0-beta.1",
-    "1.0.0",
+    "0.10.0-beta.1",
+    "0.10.0-beta.2",
     "0.10.0",
     "v0.10.0",
-    "stable-version.txt",
-    "no se reescriben",
     "0.9.1",
     "SCHEMA_VERSION",
     "0d05123",
@@ -156,20 +130,9 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
-  const lockfile = JSON.parse(readFileSync(resolve(root, "package-lock.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.11.0-beta.1");
-  assert.equal(lockfile.version, packageJson.version);
-  assert.equal(lockfile.packages[""].version, packageJson.version);
+  assert.equal(packageJson.version, "0.10.0");
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
-});
-
-test("la línea activa beta no reutiliza la base estable", () => {
-  const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
-  const stablePointer = readFileSync(resolve(root, "stable-version.txt"), "utf8").trim();
-  assert.equal(stablePointer, "v0.10.0");
-  assert.equal(packageJson.version, "0.11.0-beta.1");
-  assert.notEqual(packageJson.version, stablePointer.slice(1));
 });
 
 test("el contrato visual promovido se aplica a beta y estable", () => {
@@ -185,16 +148,4 @@ test("el contrato visual promovido se aplica a beta y estable", () => {
   assert.match(css, /--beta-card-payroll-bg: #23423e/);
   assert.match(css, /\.search-box input \{[\s\S]*background: transparent/);
   assert.match(css, /\.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);
-  assert.match(app, /RUNTIME_CHANNEL === "beta"/);
-  assert.match(app, /Estado: \$\{statusText\}/);
-  assert.match(css, /html\[data-channel="beta"\] \.quick-open/);
-});
-
-test("la dirección SIYS Operations permanece aislada en beta", () => {
-  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
-  assert.match(css, /html\[data-channel="beta"\] \{[\s\S]*--beta-accent: #176b57/);
-  assert.match(css, /html\[data-channel="beta"\]\[data-theme="dark"\][\s\S]*--beta-bg: #0e171a/);
-  assert.match(css, /html\[data-channel="beta"\] \.activity-card[\s\S]*box-shadow: inset 0 3px 0 var\(--beta-card-mark\)/);
-  assert.match(css, /html\[data-channel="beta"\] \.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);
-  assert.match(css, /html\[data-channel="beta"\] \.search-box:focus-within/);
 });

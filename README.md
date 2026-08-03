@@ -23,20 +23,6 @@ GitHub Pages ofrece dos canales:
 Cada canal tiene su propia IndexedDB. Los datos sólo pasan de uno a otro
 mediante una copia del cronograma elegida por el usuario.
 
-## Estado de versiones
-
-- Estable actual: `v0.10.0` en la raíz de Pages.
-- Beta activa: `0.11.0-beta.1` en `/beta/`.
-- Un arreglo compatible sobre la estable se publica como `0.10.1`; un hito
-  visible o una capacidad nueva se prepara como `0.11.0`.
-- `1.0.0` sólo se reserva para declarar estables los contratos de datos,
-  respaldos, importación/exportación y flujos principales.
-
-La beta se integra a `main` para probarse. Eso no cambia la raíz estable: la
-promoción requiere crear una etiqueta nueva `vX.Y.Z` y actualizar
-`stable-version.txt`. El flujo completo está en
-[Versionamiento](docs/VERSIONAMIENTO.md) y [Distribución](docs/DISTRIBUCION.md).
-
 ## Primer uso
 
 1. Abra `dist/calendario-hvac-siys.html`.
@@ -162,6 +148,5 @@ Documentación:
 - [Guía de Base Operativa](docs/BASE_OPERATIVA.md)
 - [Criterios de diseño y promoción beta](docs/CRITERIOS_DE_DISENO.md)
 - [Reglas de versionamiento](docs/VERSIONAMIENTO.md)
-- [Flujo de GitHub Pages y beta](docs/GITHUB_PAGES.md)
 - [Historial de cambios](CHANGELOG.md)
 - [Distribución y GitHub Pages](docs/DISTRIBUCION.md)

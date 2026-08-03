@@ -45,30 +45,17 @@ La auditoría falla si detecta:
   versionados;
 - patrones de token de GitHub dentro del HTML.
 
-El detalle de por qué una rama no aparece directamente en Pages y la secuencia
-rama → PR → `main` → `/beta/` está en
-[Flujo de GitHub Pages y beta](GITHUB_PAGES.md).
-
 ## Publicación manual de una versión
 
-1. Clasificar el cambio: parche (`0.10.1`), hito (`0.11.0`) o primera
-   estabilidad (`1.0.0`). La clasificación depende del impacto, no del tamaño
-   del diff.
-2. Si requiere validación beta, usar la base elegida con prerelease:
-   `0.10.1-beta.1`, `0.11.0-beta.1` o `1.0.0-beta.1`.
-3. Actualizar `package.json`, `package-lock.json` y `src/core.js`; ejecutar
-   `npm run build` para regenerar `dist/`.
-4. Ejecutar `npm run verify`, la prueba de navegador y revisar
-   `git diff --check`.
-5. Abrir el PR hacia `main`, esperar CI y probar `/beta/`.
-6. Para otra iteración del mismo objetivo, incrementar sólo `beta.n`.
-7. Cuando la beta sea aceptada, cambiar `X.Y.Z-beta.n` a `X.Y.Z`, verificar y
-   crear la etiqueta inmutable `vX.Y.Z` sobre el commit aprobado.
-8. Actualizar `stable-version.txt` a `vX.Y.Z` mediante un PR de promoción y
-   volver a ejecutar el smoke test sobre raíz estable y `/beta/`.
-
-Fusionar una beta a `main` sólo publica la línea beta. La raíz de Pages cambia
-únicamente cuando `stable-version.txt` apunta a una etiqueta nueva.
+1. Trabajar en una rama `feat/fase-*`.
+2. Ejecutar `npm run verify` y la prueba de navegador.
+3. Revisar `git diff --check` y `git status`.
+4. Abrir y aprobar el PR hacia `main`.
+5. Esperar CI y probar `/beta/`.
+6. Crear la etiqueta de la versión aceptada.
+7. Crear la etiqueta estable aceptada y actualizar `stable-version.txt` mediante
+   un PR de promoción.
+8. Ejecutar el smoke test sobre estable y beta.
 
 El smoke reproducible está en `tests/pages_smoke.py` y recibe `--url`,
 `--beta-url`, `--local-html` y una carpeta opcional `--artifacts`.

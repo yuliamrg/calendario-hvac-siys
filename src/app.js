@@ -1180,13 +1180,8 @@ function buildActivityCard(activity, maps) {
   const flags = createElement("span", "card-flags");
   const openDetail = createElement("button", "quick-open", STATUS_ICONS[activity.status] ?? "•");
   openDetail.type = "button";
-  const statusText = ACTIVITY_STATUSES[activity.status] ?? "Estado desconocido";
-  openDetail.title = RUNTIME_CHANNEL === "beta"
-    ? `Estado: ${statusText} · Abrir detalle`
-    : "Abrir detalle";
-  openDetail.setAttribute("aria-label", RUNTIME_CHANNEL === "beta"
-    ? `Estado: ${statusText}. Abrir detalle de ${title}`
-    : `Abrir detalle de ${title}`);
+  openDetail.title = "Abrir detalle";
+  openDetail.setAttribute("aria-label", `Abrir detalle de ${title}`);
   openDetail.addEventListener("click", (event) => {
     event.stopPropagation();
     renderActivityDrawer(activity.id);
