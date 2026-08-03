@@ -48,6 +48,7 @@
             <summary class="button">Compartir</summary>
             <div class="action-menu-panel">
               <button class="menu-action" id="exportCsvButton" type="button"><strong>Descargar listado del mes</strong><small>Archivo para revisar en Excel</small></button>
+              <button class="menu-action" id="exportQuarantineCsvButton" type="button"><strong>Descargar listado de pendientes</strong><small>Actividades sin fecha para revisar en Excel</small></button>
               <button class="menu-action" id="exportImageButton" type="button"><strong>Descargar imagen del cronograma</strong><small>Respeta la búsqueda y los filtros activos</small></button>
             </div>
           </details>
@@ -126,12 +127,14 @@
         <div class="segmented" role="tablist" aria-label="Tipo de catálogo">
           <button class="segment active" id="sitesTab" type="button" role="tab" aria-selected="true" data-tab="sites">Clientes y sedes</button>
           <button class="segment" id="responsiblesTab" type="button" role="tab" aria-selected="false" data-tab="responsibles">Responsables</button>
+          <button class="segment quarantine-tab" id="quarantineTab" type="button" role="tab" aria-selected="false" data-tab="quarantine" title="Actividades por programar">Pendiente <span class="tab-count" id="quarantineCount">0</span></button>
         </div>
         <label class="catalog-search">
           <span class="visually-hidden">Buscar en el catálogo</span>
           <input id="catalogSearch" type="search" placeholder="Filtrar catálogo…" autocomplete="off">
         </label>
         <p class="drag-hint" id="dragHint">Arrastra un cliente o una sede hasta un día.</p>
+        <button class="button small quarantine-add" id="newQuarantineButton" type="button" title="Crear una actividad sin fecha">＋ Nuevo pendiente</button>
         <div class="catalog-list" id="catalogList" data-testid="catalog-list"></div>
         <div class="empty-catalog" id="emptyCatalog">
           <span class="empty-icon" aria-hidden="true">▦</span>
@@ -222,7 +225,7 @@
       <div class="form-errors" id="activityFormErrors" role="alert" hidden></div>
       <input id="activityId" name="activityId" type="hidden">
 
-      <div class="form-section">
+      <div class="form-section" id="activityScheduleSection">
         <h3>Cuándo</h3>
         <div class="form-grid two-columns">
           <label>
@@ -248,7 +251,7 @@
             <span>Tipo de servicio</span>
             <select id="activityServiceType" name="serviceType" required data-testid="service-type"></select>
           </label>
-          <label>
+          <label id="activityStatusField">
             <span>Estado</span>
             <select id="activityStatus" name="status" required data-testid="activity-status"></select>
           </label>
@@ -359,6 +362,44 @@
       </div>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="activityDateActionDialog">Cancelar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="quarantineDialog" aria-labelledby="quarantineDialogTitle">
+    <form id="quarantineForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Bandeja Pendiente</p><h2 id="quarantineDialogTitle">Enviar a Pendiente</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="quarantineDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p id="quarantineSummary"></p>
+      <fieldset class="quarantine-scope" id="quarantineScopeFieldset">
+        <legend>Alcance</legend>
+        <label class="radio-row"><input type="radio" name="quarantineScope" value="single" checked><span>Sólo este día</span></label>
+        <label class="radio-row" id="quarantineSeriesScopeRow"><input type="radio" name="quarantineScope" value="series"><span>Toda la actividad</span></label>
+      </fieldset>
+        <p class="field-note">La tarjeta quedará como <strong>Pendiente</strong>, es decir, una actividad por programar. No conservará serie ni fecha.</p>
+      <div class="form-errors" id="quarantineErrors" role="alert" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="quarantineDialog">Cancelar</button>
+        <button class="button primary" id="confirmQuarantineButton" type="submit">Enviar a Pendiente</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="quarantineAssignDialog" aria-labelledby="quarantineAssignDialogTitle">
+    <form id="quarantineAssignForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Pendiente</p><h2 id="quarantineAssignDialogTitle">Asignar fecha</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="quarantineAssignDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p id="quarantineAssignSummary"></p>
+      <label><span>Fecha de programación</span><input id="quarantineAssignDate" type="date" required></label>
+      <div class="warning-list" id="quarantineAssignWarning" hidden></div>
+      <div class="form-errors" id="quarantineAssignErrors" role="alert" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="quarantineAssignDialog">Cancelar</button>
+        <button class="button primary" id="confirmQuarantineAssignButton" type="submit">Asignar fecha</button>
       </footer>
     </form>
   </dialog>
@@ -686,19 +727,18 @@
     </header>
     <div class="help-content">
       <ol>
-        <li>Importa la Base Operativa o crea registros manuales.</li>
-        <li>Arrastra un cliente o sede a una fecha, o usa <strong>Nueva actividad</strong>.</li>
-        <li>Haz clic en una tarjeta para ver todos sus datos y cambiar su estado.</li>
-        <li>Usa la casilla de cada tarjeta para seleccionar y mover varias a la vez.</li>
-        <li>En pantalla táctil, usa <strong>Mover · Duplicar · Ampliar</strong> desde el detalle.</li>
-        <li>Combina filtros de ciudad, cliente, sede, responsable, servicio y estado.</li>
-        <li>Descarga la vista filtrada como PNG o usa la plantilla Excel para una carga masiva.</li>
-        <li>Descarga un respaldo JSON con regularidad.</li>
+        <li>Importa la Base Operativa o crea una actividad nueva.</li>
+        <li>Arrastra un cliente o una sede a una fecha del calendario.</li>
+        <li>Haz clic en una tarjeta para revisar sus datos y actualizarla.</li>
+        <li>Usa <strong>Pendiente</strong> para guardar actividades que todavía no tienen fecha.</li>
+        <li>Para cambiar fechas, usa <strong>Mover</strong>, <strong>Duplicar</strong> o <strong>Ampliar</strong>.</li>
+        <li>Usa la búsqueda y los filtros para encontrar tarjetas rápidamente.</li>
+        <li>Descarga listados, imágenes o una copia del cronograma cuando lo necesites.</li>
       </ol>
       <div class="privacy-note">
-        <strong>Privacidad y persistencia</strong>
-        <p>La aplicación funciona sin conexión. Sus datos se guardan en IndexedDB dentro de este navegador y no se envían a ningún servidor. La importación de Excel excluye campos personales y de contacto.</p>
-        <p id="runtimeModeLabel"></p>
+        <strong>Para conservar tus datos</strong>
+        <p>El cronograma se guarda en este navegador. Descarga una copia con regularidad si necesitas conservarla o llevarla a otro equipo.</p>
+        <p id="runtimeModeLabel" class="visually-hidden" aria-hidden="true"></p>
       </div>
       <div class="legend">
         <span><i class="legend-color payroll"></i>Nómina</span>

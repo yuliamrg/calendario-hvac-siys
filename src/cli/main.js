@@ -11,8 +11,8 @@ Uso:
   calendary <grupo> <acción> --input respaldo.json [opciones]
 
 Grupos y acciones:
-  calendar  inspect | export-csv
-  activity  list | get | create | edit | move | duplicate | extend | status | bulk-edit | delete
+  calendar  inspect | export-csv | export-quarantine-csv
+  activity  list | get | create | edit | move | quarantine | assign-date | duplicate | extend | status | bulk-edit | delete
   catalog   list | upsert
   holiday   list | add | delete
   backup    restore | merge
@@ -46,7 +46,7 @@ const VALUE_OPTIONS = [
   "activity-id", "activity-ids", "target-date", "date", "end-date", "status", "scope",
   "common-scope", "status-scope", "type", "id", "override-id", "year", "month", "from", "to",
   "field", "value", "mode", "values", "client-id", "site-id", "city", "responsible-ids",
-  "service-type", "observations", "query", "active", "name", "reason"
+  "service-type", "planning-bucket", "observations", "query", "active", "name", "reason"
 ];
 const BOOLEAN_OPTIONS = ["dry-run", "yes", "allow-non-working", "quiet", "debug", "help", "version", "include-non-working"];
 
@@ -76,7 +76,8 @@ async function buildPayload(operation, values) {
   const map = {
     "activity-id": "activityId", "target-date": "targetDate", "end-date": "endDate",
     "common-scope": "commonScope", "status-scope": "statusScope", "override-id": "overrideId",
-    "client-id": "clientId", "site-id": "siteId", "service-type": "serviceType"
+    "client-id": "clientId", "site-id": "siteId", "service-type": "serviceType",
+    "planning-bucket": "planningBucket"
   };
   for (const key of VALUE_OPTIONS) {
     if (values[key] === undefined || ["input", "write", "source", "payload", "payload-file", "output", "csv-output"].includes(key)) continue;
@@ -90,7 +91,7 @@ async function buildPayload(operation, values) {
   if (values["include-non-working"]) payload.includeNonWorking = true;
   if (values["allow-non-working"]) payload.allowNonWorking = true;
   if (operation === "activity.edit" && !payload.patch) {
-    const patchFields = ["date", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status", "observations"];
+    const patchFields = ["date", "planningBucket", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status", "observations"];
     payload.patch = Object.fromEntries(patchFields.filter((key) => Object.hasOwn(payload, key)).map((key) => [key, payload[key]]));
     for (const key of patchFields) delete payload[key];
   }
@@ -164,7 +165,7 @@ export async function runCli(argv, io = {}) {
     const outcome = executeCalendarOperation(input.document, { operation: parsed.operation, payload }, {
       appVersion: input.document.appVersion
     });
-    if (parsed.operation === "calendar.export-csv") {
+    if (parsed.operation === "calendar.export-csv" || parsed.operation === "calendar.export-quarantine-csv") {
       if (values["csv-output"]) await writeNewTextFile(values["csv-output"], outcome.result.content);
       else stdout.write(outcome.result.content);
       return 0;

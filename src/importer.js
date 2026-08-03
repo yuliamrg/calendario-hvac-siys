@@ -1,6 +1,8 @@
 import {
   ACTIVITY_STATUSES,
+  PLANNING_BUCKETS,
   SERVICE_TYPES,
+  createQuarantineActivity,
   createActivitiesFromRange,
   generateSeriesDates,
   holidayMapForRange,
@@ -38,6 +40,7 @@ const MONTHS = Object.freeze([
 export const PROGRAMMING_COLUMNS = Object.freeze([
   "FechaInicio",
   "FechaFin",
+  "Bandeja",
   "Cliente",
   "Sede",
   "Ciudad",
@@ -47,6 +50,10 @@ export const PROGRAMMING_COLUMNS = Object.freeze([
   "Observaciones",
   "IncluirNoLaborables"
 ]);
+
+const REQUIRED_PROGRAMMING_COLUMNS = Object.freeze(
+  PROGRAMMING_COLUMNS.filter((column) => column !== "Bandeja")
+);
 
 const SOURCE_FIELDS = Object.freeze({
   cities: ["name", "zone"],
@@ -998,12 +1005,19 @@ function enumValue(value, entries) {
   )?.[0] ?? null;
 }
 
+function planningBucketValue(value) {
+  const key = normalizeText(value);
+  if (["quarantine", "cuarentena", "sin fecha", "por programar", "pendiente"].includes(key)) return "quarantine";
+  return enumValue(value, PLANNING_BUCKETS);
+}
+
 function truthyCell(value) {
   return ["si", "sí", "s", "true", "1", "x"].includes(normalizeText(value));
 }
 
 function programmingFingerprint(activity) {
   return [
+    activity.planningBucket ?? (activity.date == null ? "quarantine" : "calendar"),
     activity.date,
     activity.clientId ?? "",
     activity.siteId ?? "",
@@ -1022,10 +1036,11 @@ export function parseProgrammingWorkbook(workbook, document) {
   const table = sheetTable(workbook, "Programacion", warnings);
   const indexes = {};
   const structuralErrors = [];
-  for (const column of PROGRAMMING_COLUMNS) {
+  for (const column of REQUIRED_PROGRAMMING_COLUMNS) {
     indexes[column] = findHeader(table.headers, [column]);
     if (indexes[column] < 0) structuralErrors.push(`Falta la columna ${column}.`);
   }
+  indexes.Bandeja = findHeader(table.headers, ["Bandeja", "PlanningBucket", "Bucket"]);
   if (structuralErrors.length) {
     return { rows: [], structuralErrors, warnings, counts: { valid: 0, errors: 0, duplicates: 0, omitted: 0 } };
   }
@@ -1036,18 +1051,28 @@ export function parseProgrammingWorkbook(workbook, document) {
   for (const { row, rowNumber } of nonEmptyRows(table.rows)) {
     const errors = [];
     const rowWarnings = [];
+    const bucketValue = indexes.Bandeja >= 0 ? rowValue(row, indexes.Bandeja) : "calendar";
+    const planningBucket = planningBucketValue(bucketValue || "calendar");
+    if (!planningBucket) errors.push("Bandeja debe ser Calendario o Pendiente.");
+
     let startDate = "";
     let endDate = "";
-    try {
-      startDate = excelDateToISO(rowValue(row, indexes.FechaInicio));
-      if (!startDate) throw new TypeError("FechaInicio está vacía.");
-    } catch (error) {
-      errors.push(`FechaInicio: ${error.message}`);
-    }
-    try {
-      endDate = excelDateToISO(rowValue(row, indexes.FechaFin)) || startDate;
-    } catch (error) {
-      errors.push(`FechaFin: ${error.message}`);
+    if (planningBucket === "quarantine") {
+      if (present(rowValue(row, indexes.FechaInicio)) || present(rowValue(row, indexes.FechaFin))) {
+        errors.push("Las filas Pendiente deben venir sin FechaInicio ni FechaFin.");
+      }
+    } else {
+      try {
+        startDate = excelDateToISO(rowValue(row, indexes.FechaInicio));
+        if (!startDate) throw new TypeError("FechaInicio está vacía.");
+      } catch (error) {
+        errors.push(`FechaInicio: ${error.message}`);
+      }
+      try {
+        endDate = excelDateToISO(rowValue(row, indexes.FechaFin)) || startDate;
+      } catch (error) {
+        errors.push(`FechaFin: ${error.message}`);
+      }
     }
 
     const clientLabel = cleanLabel(rowValue(row, indexes.Cliente), 200);
@@ -1057,6 +1082,12 @@ export function parseProgrammingWorkbook(workbook, document) {
     const status = enumValue(rowValue(row, indexes.Estado), ACTIVITY_STATUSES);
     if (!serviceType) errors.push("TipoServicio no coincide con el catálogo permitido.");
     if (!status) errors.push("Estado no coincide con el catálogo permitido.");
+    if (planningBucket === "quarantine" && status && status !== "to_schedule") {
+      errors.push("Las filas Pendiente deben tener estado Por programar.");
+    }
+    if (planningBucket === "calendar" && status === "to_schedule") {
+      errors.push("Las filas de Calendario no pueden tener estado Por programar.");
+    }
 
     let clientId = null;
     let siteId = null;
@@ -1102,7 +1133,7 @@ export function parseProgrammingWorkbook(workbook, document) {
     const observations = safeText(rowValue(row, indexes.Observaciones), 5000);
     let dates = [];
     let omitted = [];
-    if (startDate && endDate) {
+    if (planningBucket === "calendar" && startDate && endDate) {
       try {
         const holidays = holidayMapForRange(startDate, endDate, document.holidayOverrides);
         ({ included: dates, omitted } = generateSeriesDates(startDate, endDate, holidays, includeNonWorking));
@@ -1115,8 +1146,9 @@ export function parseProgrammingWorkbook(workbook, document) {
     }
 
     const input = {
-      date: startDate,
-      endDate,
+      date: planningBucket === "quarantine" ? null : startDate,
+      endDate: planningBucket === "quarantine" ? null : endDate,
+      planningBucket,
       clientId,
       siteId,
       city,
@@ -1126,7 +1158,8 @@ export function parseProgrammingWorkbook(workbook, document) {
       observations,
       includeNonWorking
     };
-    const fingerprints = dates.map((date) => programmingFingerprint({ ...input, date }));
+    const fingerprintDates = planningBucket === "quarantine" ? [null] : dates;
+    const fingerprints = fingerprintDates.map((date) => programmingFingerprint({ ...input, date }));
     const duplicate = fingerprints.length > 0 && fingerprints.every((fingerprint) =>
       existingFingerprints.has(fingerprint) || fileFingerprints.has(fingerprint)
     );
@@ -1168,11 +1201,17 @@ export function applyProgrammingImport(
   const result = structuredClone(document);
   const created = [];
   for (const row of candidates) {
-    const holidays = holidayMapForRange(row.input.date, row.input.endDate, result.holidayOverrides);
-    const generated = createActivitiesFromRange(row.input, holidays, { idFactory, now });
-    result.activities.push(...generated.activities);
-    if (generated.series) result.series.push(generated.series);
-    created.push(...generated.activities);
+    if (row.input.planningBucket === "quarantine") {
+      const activity = createQuarantineActivity(row.input, { idFactory, now });
+      result.activities.push(activity);
+      created.push(activity);
+    } else {
+      const holidays = holidayMapForRange(row.input.date, row.input.endDate, result.holidayOverrides);
+      const generated = createActivitiesFromRange(row.input, holidays, { idFactory, now });
+      result.activities.push(...generated.activities);
+      if (generated.series) result.series.push(generated.series);
+      created.push(...generated.activities);
+    }
   }
   result.audit ??= [];
   result.audit.push({

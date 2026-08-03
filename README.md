@@ -47,8 +47,14 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
 - El calendario empieza en lunes y muestra domingos y festivos colombianos.
 - Una tarjeta admite varios responsables, separados entre nómina y
   contratistas.
-- Los estados son: Programada, Confirmada, En ejecución, Terminada,
-  No ejecutada y Cancelada.
+- Los tipos incluyen Preventivo, Correctivo, Emergencia, Diagnóstico, Garantía
+  y Administrativo; los estados incluyen Programada, Confirmada, En ejecución,
+  Terminada, No ejecutada, Cancelada y Por programar.
+- La pestaña **Pendiente** funciona como bandeja de actividades sin fecha.
+  Son actividades por programar: permite crear, enviar o arrastrar una tarjeta
+  desde el calendario, asignar fecha o arrastrarla al calendario; una
+  actividad multifecha puede independizarse por día o convertirse completa con
+  confirmación y Deshacer.
 - Puede seleccionar varias tarjetas con su casilla o con `Ctrl`/`Cmd`, moverlas
   juntas o cambiarles el estado.
 - Con teclado, entre al calendario con `Tab` y recorra las fechas con las
@@ -71,10 +77,13 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
   **Festivos y ajustes** (símbolo `◉`).
 - **Compartir > Descargar listado del mes** genera la programación del mes visible con columnas
   separadas para personal de nómina y contratistas.
+- **Compartir > Descargar listado de pendientes** genera un CSV independiente
+  compatible con Excel; las actividades sin fecha no entran en el listado mensual.
 - **Filtros** combina varias ciudades, clientes, sedes, responsables, servicios
   y estados; **PNG** descarga exactamente esa vista.
 - **Plantilla** e **Importar programación** permiten una carga masiva Excel con
-  validación previa, detección de duplicados y una sola operación deshacible.
+  validación previa, columna opcional `Bandeja`, detección de duplicados y una
+  sola operación deshacible.
 
 ## Persistencia y copias de seguridad
 

@@ -11,8 +11,8 @@ const root = resolve(import.meta.dirname, "..");
 const bin = resolve(root, "bin", "calendary.js");
 const NOW = "2026-08-03T12:00:00.000Z";
 const ALL_OPERATIONS = [
-  "calendar.inspect", "calendar.export-csv",
-  "activity.list", "activity.get", "activity.create", "activity.edit", "activity.move",
+  "calendar.inspect", "calendar.export-csv", "calendar.export-quarantine-csv",
+  "activity.list", "activity.get", "activity.create", "activity.edit", "activity.move", "activity.quarantine", "activity.assign-date",
   "activity.duplicate", "activity.extend", "activity.status", "activity.bulk-edit", "activity.delete",
   "catalog.list", "catalog.upsert", "holiday.list", "holiday.add", "holiday.delete",
   "backup.restore", "backup.merge"
@@ -71,7 +71,7 @@ test("ruta e2e de la CLI cubre el contrato completo y sus controles operativos",
 
     const version = invoke(["--version"]);
     assertExit(version);
-    assert.match(version.stdout.trim(), /^0\.11\.0$/);
+    assert.match(version.stdout.trim(), /^0\.12\.0-beta\.1$/);
     const help = invoke(["--help"]);
     assertExit(help);
     assert.match(help.stdout, /activity\s+list \| get \| create/);
@@ -158,6 +158,22 @@ test("ruta e2e de la CLI cubre el contrato completo y sus controles operativos",
     });
     assert.equal(edited.result.result.activityIds.length, 3);
 
+    const pendingCreated = await writeOperation("activity", "create", {
+      planningBucket: "quarantine", clientId: "client-1", siteId: "site-1", city: "Pereira",
+      responsibleIds: ["person-1"], serviceType: "warranty", status: "to_schedule", observations: "Pendiente e2e"
+    });
+    const pendingId = pendingCreated.result.result.activityIds[0];
+    const pendingList = readOperation("activity", "list", { planningBuckets: ["quarantine"], serviceTypes: ["warranty"] });
+    assert.deepEqual(pendingList.result.items.map((item) => item.id), [pendingId]);
+    const quarantined = await writeOperation("activity", "quarantine", {
+      activityId: seriesIds[0], scope: "single"
+    });
+    assert.equal(quarantined.result.result.activityId, seriesIds[0]);
+    const assigned = await writeOperation("activity", "assign-date", {
+      activityId: seriesIds[0], targetDate: "2026-08-06"
+    });
+    assert.equal(assigned.result.result.status, "scheduled");
+
     const blockedMoveOutput = resolve(directory, "blocked-move.json");
     used.add("activity.move");
     const blockedMove = invoke([
@@ -218,6 +234,16 @@ test("ruta e2e de la CLI cubre el contrato completo y sus controles operativos",
     const csvContent = await readFile(csv, "utf8");
     assert.match(csvContent, /Fecha/);
     assert.match(csvContent, /Ruta editada/);
+
+    const quarantineCsv = resolve(directory, "pendientes.csv");
+    used.add("calendar.export-quarantine-csv");
+    const quarantineCsvResult = invoke([
+      "calendar", "export-quarantine-csv", "--input", current, "--csv-output", quarantineCsv
+    ]);
+    assertExit(quarantineCsvResult);
+    const quarantineCsvContent = await readFile(quarantineCsv, "utf8");
+    assert.match(quarantineCsvContent, /Bandeja/);
+    assert.match(quarantineCsvContent, /Pendiente e2e/);
 
     const beforeMerge = current;
     const incomingOutput = resolve(directory, "incoming.json");

@@ -3,26 +3,32 @@ import {
   APP_VERSION,
   BULK_EDIT_FIELDS,
   HOLIDAY_RULESET_VERSION,
+  PLANNING_BUCKETS,
   RESPONSIBLE_TYPES,
   SCHEMA_VERSION,
   SERVICE_TYPES,
   activityIdsForScope,
   activityMatchesFilters,
   addDaysISO,
+  assignQuarantineDate,
   applyBulkEdit,
   applyStatus,
   buildMonthlyCsv,
+  buildQuarantineCsv,
   colombianHolidays,
   compareISODate,
   createActivitiesFromRange,
+  createQuarantineActivity,
   deleteActivities,
   differenceInDays,
   duplicateActivities,
   extendActivity,
   holidayMapForRange,
   isNonWorkingDate,
+  isQuarantineActivity,
   makeId,
   mergeBackupDocument,
+  moveActivityToQuarantine,
   moveActivities,
   normalizeText,
   parseISODate,
@@ -42,6 +48,8 @@ export const CALENDAR_OPERATIONS = Object.freeze({
   "activity.create": Object.freeze({ readOnly: false, destructive: false }),
   "activity.edit": Object.freeze({ readOnly: false, destructive: false }),
   "activity.move": Object.freeze({ readOnly: false, destructive: false }),
+  "activity.quarantine": Object.freeze({ readOnly: false, destructive: false }),
+  "activity.assign-date": Object.freeze({ readOnly: false, destructive: false }),
   "activity.duplicate": Object.freeze({ readOnly: false, destructive: false }),
   "activity.extend": Object.freeze({ readOnly: false, destructive: false }),
   "activity.status": Object.freeze({ readOnly: false, destructive: false }),
@@ -49,6 +57,7 @@ export const CALENDAR_OPERATIONS = Object.freeze({
   "activity.delete": Object.freeze({ readOnly: false, destructive: true }),
   "catalog.list": Object.freeze({ readOnly: true, destructive: false }),
   "catalog.upsert": Object.freeze({ readOnly: false, destructive: false }),
+  "calendar.export-quarantine-csv": Object.freeze({ readOnly: true, destructive: false }),
   "holiday.list": Object.freeze({ readOnly: true, destructive: false }),
   "holiday.add": Object.freeze({ readOnly: false, destructive: false }),
   "holiday.delete": Object.freeze({ readOnly: false, destructive: true }),
@@ -149,6 +158,8 @@ function activityView(activity, maps) {
     id: activity.id,
     seriesId: activity.seriesId ?? null,
     date: activity.date,
+    planningBucket: activity.planningBucket ?? "calendar",
+    planningBucketLabel: PLANNING_BUCKETS[activity.planningBucket ?? "calendar"] ?? activity.planningBucket,
     clientId: activity.clientId ?? null,
     clientName: maps.clients.get(activity.clientId)?.name ?? null,
     siteId: activity.siteId ?? null,
@@ -242,7 +253,10 @@ function finalizeMutation(source, draft, { operation, now, result, warnings, aud
 }
 
 function inspectCalendar(document) {
-  const dates = document.activities.map((item) => item.date).sort(compareISODate);
+  const dates = document.activities
+    .map((item) => item.date)
+    .filter((date) => typeof date === "string")
+    .sort(compareISODate);
   return {
     calendar: structuredClone(document.calendarMeta),
     appVersion: document.appVersion,
@@ -262,7 +276,7 @@ function inspectCalendar(document) {
 
 function listActivities(document, payload) {
   allowOnly(payload, [
-    "from", "to", "clientId", "siteId", "city", "responsibleIds", "serviceTypes", "statuses", "query"
+    "from", "to", "clientId", "siteId", "city", "responsibleIds", "serviceTypes", "statuses", "planningBuckets", "query"
   ]);
   if (payload.from) parseISODate(payload.from);
   if (payload.to) parseISODate(payload.to);
@@ -277,34 +291,66 @@ function listActivities(document, payload) {
     sites: payload.siteId ? [payload.siteId] : [],
     responsibles: payload.responsibleIds ?? [],
     serviceTypes: payload.serviceTypes ?? [],
-    statuses: payload.statuses ?? []
+    statuses: payload.statuses ?? [],
+    planningBuckets: payload.planningBuckets ?? []
   };
   return document.activities
-    .filter((activity) => !payload.from || compareISODate(activity.date, payload.from) >= 0)
-    .filter((activity) => !payload.to || compareISODate(activity.date, payload.to) <= 0)
+    .filter((activity) => !payload.from || (typeof activity.date === "string" && compareISODate(activity.date, payload.from) >= 0))
+    .filter((activity) => !payload.to || (typeof activity.date === "string" && compareISODate(activity.date, payload.to) <= 0))
     .filter((activity) => activityMatchesFilters(activity, filters, maps))
-    .sort((a, b) => compareISODate(a.date, b.date) || a.id.localeCompare(b.id))
+    .sort((a, b) => {
+      if (a.date === null && b.date !== null) return 1;
+      if (a.date !== null && b.date === null) return -1;
+      return compareISODate(a.date ?? "", b.date ?? "") || a.id.localeCompare(b.id);
+    })
     .map((activity) => activityView(activity, maps));
 }
 
 function createActivity(document, payload, context) {
   allowOnly(payload, [
-    "date", "endDate", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status",
+    "date", "endDate", "planningBucket", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status",
     "observations", "includeNonWorking", "forceIncludeDates"
   ]);
+  const planningBucket = payload.planningBucket ?? "calendar";
+  if (!Object.hasOwn(PLANNING_BUCKETS, planningBucket)) {
+    fail("VALIDATION_FAILED", "La bandeja de planificación no es válida.");
+  }
   const input = {
-    date: payload.date,
-    endDate: payload.endDate || payload.date,
+    date: planningBucket === "quarantine" ? null : payload.date,
+    endDate: planningBucket === "quarantine" ? null : (payload.endDate || payload.date),
+    planningBucket,
     clientId: payload.clientId || null,
     siteId: payload.siteId || null,
     city: safeText(payload.city, 120) || null,
     responsibleIds: [...new Set((payload.responsibleIds ?? []).map(String).filter(Boolean))],
     serviceType: payload.serviceType,
-    status: payload.status ?? "scheduled",
+    status: payload.status ?? (planningBucket === "quarantine" ? "to_schedule" : "scheduled"),
     observations: safeText(payload.observations, 5000),
     includeNonWorking: Boolean(payload.includeNonWorking),
     forceIncludeDates: payload.forceIncludeDates ?? []
   };
+  if (planningBucket === "quarantine") {
+    if (payload.date !== undefined && payload.date !== null) {
+      fail("VALIDATION_FAILED", "Una actividad Pendiente debe crearse sin fecha.");
+    }
+    if (payload.endDate !== undefined && payload.endDate !== null) {
+      fail("VALIDATION_FAILED", "Una actividad Pendiente debe crearse sin fecha final.");
+    }
+    if (input.status !== "to_schedule") {
+      fail("VALIDATION_FAILED", "Una actividad Pendiente debe tener estado Por programar.");
+    }
+    const referenceCandidate = { ...input, date: null, endDate: null, status: "to_schedule" };
+    const errors = validateActivity(referenceCandidate);
+    if (errors.length) fail("VALIDATION_FAILED", [...new Set(errors)].join(" "));
+    validateReferences(document, referenceCandidate);
+    const activity = createQuarantineActivity(input, context);
+    document.activities.push(activity);
+    return {
+      result: { activityIds: [activity.id], seriesId: null, omittedDates: [] },
+      warnings: [],
+      audit: { action: "activity_created", detail: "Pendiente creado" }
+    };
+  }
   const referenceCandidate = { ...input, date: input.date };
   const errors = validateActivity(referenceCandidate);
   if (errors.length) fail("VALIDATION_FAILED", [...new Set(errors)].join(" "));
@@ -339,7 +385,7 @@ function editActivity(document, payload, now) {
   const existing = ensureActivity(document, payload.activityId);
   const patch = ensureObject(payload.patch, "patch");
   allowOnly(patch, [
-    "date", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status", "observations"
+    "date", "planningBucket", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status", "observations"
   ]);
   if (!Object.keys(patch).length) fail("INVALID_REQUEST", "patch no contiene cambios.");
   const commonScope = payload.commonScope ?? "single";
@@ -349,8 +395,25 @@ function editActivity(document, payload, now) {
   if (!existing.seriesId && (commonScope !== "single" || statusScope !== "single")) {
     fail("INVALID_REQUEST", "Una actividad sin serie solo admite alcance single.");
   }
-  const warnings = patch.date
-    ? requireNonWorkingDecision(document, [patch.date], payload.allowNonWorking)
+
+  const targetBucket = patch.planningBucket ?? existing.planningBucket ?? "calendar";
+  if (!Object.hasOwn(PLANNING_BUCKETS, targetBucket)) {
+    fail("VALIDATION_FAILED", "La bandeja de planificación no es válida.");
+  }
+  if (targetBucket === "quarantine") {
+    if (existing.seriesId) {
+      fail("INVALID_REQUEST", "Una actividad de varios días debe enviarse a Pendiente desde su acción específica.");
+    }
+    if (patch.date !== undefined && patch.date !== null) {
+      fail("VALIDATION_FAILED", "Una actividad Pendiente debe quedar sin fecha.");
+    }
+    if (patch.status !== undefined && patch.status !== "to_schedule") {
+      fail("VALIDATION_FAILED", "Una actividad Pendiente debe tener estado Por programar.");
+    }
+  }
+  const targetDate = Object.hasOwn(patch, "date") ? patch.date : existing.date;
+  const warnings = targetBucket === "calendar" && targetDate
+    ? requireNonWorkingDecision(document, [targetDate], payload.allowNonWorking)
     : [];
   const commonFields = ["clientId", "siteId", "city", "responsibleIds", "serviceType", "observations"];
   const commonPatch = Object.fromEntries(commonFields.filter((field) => Object.hasOwn(patch, field)).map((field) => [field, patch[field]]));
@@ -364,7 +427,22 @@ function editActivity(document, payload, now) {
   const drafts = document.activities.map((activity) => {
     const draft = structuredClone(activity);
     if (commonIds.has(activity.id)) Object.assign(draft, commonPatch);
-    if (activity.id === existing.id && Object.hasOwn(patch, "date")) draft.date = patch.date;
+    if (activity.id === existing.id) {
+      if (Object.hasOwn(patch, "date")) draft.date = patch.date;
+      if (Object.hasOwn(patch, "planningBucket")) draft.planningBucket = targetBucket;
+      if (targetBucket === "quarantine") {
+        draft.date = null;
+        draft.planningBucket = "quarantine";
+        draft.status = "to_schedule";
+        draft.seriesId = null;
+        draft.completedAt = null;
+      } else if (existing.planningBucket === "quarantine") {
+        draft.planningBucket = "calendar";
+        draft.seriesId = null;
+        if (!Object.hasOwn(patch, "status")) draft.status = "scheduled";
+        draft.completedAt = draft.status === "completed" ? (draft.completedAt || now) : null;
+      }
+    }
     if (statusIds.has(activity.id) && Object.hasOwn(patch, "status")) {
       draft.status = patch.status;
       draft.completedAt = patch.status === "completed" ? (draft.completedAt || now) : null;
@@ -382,12 +460,14 @@ function editActivity(document, payload, now) {
     const draft = drafts[index];
     const previousDate = activity.date;
     const previousStatus = activity.status;
+    const previousBucket = activity.planningBucket ?? "calendar";
     const commonChanged = commonIds.has(activity.id) && commonFields.some(
       (field) => JSON.stringify(activity[field] ?? null) !== JSON.stringify(draft[field] ?? null)
     );
     const dateChanged = activity.id === existing.id && previousDate !== draft.date;
     const statusChanged = statusIds.has(activity.id) && previousStatus !== draft.status;
-    if (!commonChanged && !dateChanged && !statusChanged) continue;
+    const bucketChanged = activity.id === existing.id && previousBucket !== draft.planningBucket;
+    if (!commonChanged && !dateChanged && !statusChanged && !bucketChanged) continue;
     Object.assign(activity, draft, { updatedAt: now });
     activity.history ??= [];
     if (commonChanged) activity.history.push({
@@ -395,6 +475,12 @@ function editActivity(document, payload, now) {
       action: "edited",
       detail: commonScope === "series" ? "Datos comunes editados en toda la actividad" : "Datos editados sólo para este día",
       scope: commonScope
+    });
+    if (bucketChanged) activity.history.push({
+      at: now,
+      action: "planning_bucket_changed",
+      detail: `${PLANNING_BUCKETS[previousBucket]} → ${PLANNING_BUCKETS[draft.planningBucket]}`,
+      scope: "single"
     });
     if (dateChanged) activity.history.push({
       at: now,
@@ -548,6 +634,16 @@ function executeHandler(operation, document, payload, context) {
       }
     };
   }
+  if (operation === "calendar.export-quarantine-csv") {
+    allowOnly(payload, []);
+    return {
+      result: {
+        content: buildQuarantineCsv(document),
+        mimeType: "text/csv;charset=utf-8",
+        fileName: "pendientes.csv"
+      }
+    };
+  }
   if (operation === "activity.list") return { result: { items: listActivities(document, payload) } };
   if (operation === "activity.get") {
     allowOnly(payload, ["activityId"]);
@@ -555,6 +651,38 @@ function executeHandler(operation, document, payload, context) {
   }
   if (operation === "activity.create") return createActivity(document, payload, context);
   if (operation === "activity.edit") return editActivity(document, payload, context.now);
+  if (operation === "activity.quarantine") {
+    allowOnly(payload, ["activityId", "scope"]);
+    const scope = payload.scope ?? "single";
+    const moved = moveActivityToQuarantine(document, payload.activityId, scope, context.now);
+    return {
+      result: {
+        activityId: moved.activity.id,
+        removedActivityIds: moved.removed.map((item) => item.id),
+        scope: moved.scope
+      },
+      audit: {
+        action: "activity_quarantined",
+        detail: scope === "series" ? "Toda la actividad pasó a Pendiente" : "Una fecha pasó a Pendiente"
+      }
+    };
+  }
+  if (operation === "activity.assign-date") {
+    allowOnly(payload, ["activityId", "targetDate", "allowNonWorking"]);
+    const targetDate = requireText(payload.targetDate, "targetDate", 10);
+    parseISODate(targetDate);
+    const holidays = holidayMapForRange(targetDate, targetDate, document.holidayOverrides);
+    const warnings = requireNonWorkingDecision(document, [targetDate], payload.allowNonWorking);
+    const assigned = assignQuarantineDate(document, payload.activityId, targetDate, holidays, {
+      allowNonWorking: Boolean(payload.allowNonWorking),
+      now: context.now
+    });
+    return {
+      result: { activityId: assigned.id, date: assigned.date, status: assigned.status },
+      warnings,
+      audit: { action: "quarantine_assigned", detail: "Pendiente devuelto al calendario" }
+    };
+  }
   if (operation === "activity.move" || operation === "activity.duplicate") {
     allowOnly(payload, operation === "activity.move"
       ? ["activityIds", "targetDate", "anchorId", "mode", "allowNonWorking"]
@@ -565,6 +693,9 @@ function executeHandler(operation, document, payload, context) {
     const mode = operation === "activity.move" ? (payload.mode ?? "preserve") : "preserve";
     if (!['preserve', 'same'].includes(mode)) fail("INVALID_REQUEST", "mode no es válido.");
     const anchorId = payload.anchorId ?? ids[0];
+    if (document.activities.some((activity) => ids.includes(activity.id) && isQuarantineActivity(activity))) {
+      fail("VALIDATION_FAILED", "Una actividad Pendiente debe asignarse desde la bandeja antes de moverla.");
+    }
     const dates = movementDates(document, ids, targetDate, anchorId, mode);
     const warnings = requireNonWorkingDecision(document, dates, payload.allowNonWorking);
     if (operation === "activity.move") {

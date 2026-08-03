@@ -632,7 +632,7 @@ body.catalog-collapsed .catalog-panel {
 
 .segmented {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding: 3px;
   border-radius: 9px;
   background: #edf2eb;
@@ -646,12 +646,43 @@ body.catalog-collapsed .catalog-panel {
   background: transparent;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.1;
 }
 
 .segment.active {
   color: var(--green-800);
   background: white;
   box-shadow: 0 2px 8px rgba(50, 77, 52, 0.1);
+}
+
+.quarantine-tab {
+  color: var(--warning-ink);
+}
+
+.tab-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  margin-left: 3px;
+  padding: 0 4px;
+  border-radius: 999px;
+  color: var(--warning-ink);
+  background: var(--warning-bg);
+  font-size: 10px;
+}
+
+@media (max-width: 360px) {
+  .segment {
+    padding-inline: 3px;
+    font-size: 10px;
+  }
+}
+
+.quarantine-add {
+  width: 100%;
+  color: var(--interactive-ink);
+  background: var(--interactive-bg);
 }
 
 .catalog-search input {
@@ -670,6 +701,40 @@ body.catalog-collapsed .catalog-panel {
   min-height: 0;
   overflow: auto;
   padding-right: 3px;
+}
+
+.catalog-list.pending-drop-zone {
+  min-height: 150px;
+  padding: 4px;
+  border: 1px dashed transparent;
+  border-radius: 10px;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.catalog-list.pending-drop-zone.drag-over {
+  border-color: var(--interactive-ink);
+  background: color-mix(in srgb, var(--interactive-bg) 58%, transparent);
+}
+
+.pending-drop-placeholder {
+  display: grid;
+  min-height: 132px;
+  place-content: center;
+  gap: 5px;
+  padding: 18px 14px;
+  color: var(--muted);
+  text-align: center;
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.pending-drop-placeholder strong {
+  color: var(--ink);
+}
+
+.pending-drop-placeholder span {
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .catalog-client-group {
@@ -998,6 +1063,21 @@ body.catalog-collapsed .catalog-panel {
   outline-offset: 1px;
 }
 
+.activity-card.quarantine-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-left-color: var(--warning);
+  color: var(--ink);
+  background: var(--warning-bg);
+  cursor: grab;
+}
+
+.quarantine-card .quarantine-assign {
+  grid-column: 1 / -1;
+  width: 100%;
+  color: var(--interactive-ink);
+  background: var(--surface);
+}
+
 .activity-select {
   width: 14px;
   height: 14px;
@@ -1169,6 +1249,11 @@ body.catalog-collapsed .catalog-panel {
 .status-badge.cancelled {
   color: var(--error-ink);
   background: var(--error-bg);
+}
+
+.status-badge.to_schedule {
+  color: var(--warning-ink);
+  background: var(--warning-bg);
 }
 
 .history-list {
