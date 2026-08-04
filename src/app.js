@@ -76,7 +76,10 @@ const SUPABASE_CONFIG = globalThis.__SIYS_SUPABASE_CONFIG__ ?? {
   url: "",
   publishableKey: ""
 };
-const CLOUD_MODE = RUNTIME_CHANNEL !== "local" && isSupabaseConfigEnabled(SUPABASE_CONFIG);
+// Supabase is deliberately beta-only. The stable channel remains the original
+// local/IndexedDB release even if the Pages job exposes cloud variables while
+// verifying a future stable tag.
+const CLOUD_MODE = RUNTIME_CHANNEL === "beta" && isSupabaseConfigEnabled(SUPABASE_CONFIG);
 const CLOUD_CALENDAR_KEY = RUNTIME_CHANNEL === "beta"
   ? "calendario-hvac-siys-beta"
   : "calendario-hvac-siys";

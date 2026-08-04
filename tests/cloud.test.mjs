@@ -61,7 +61,7 @@ test("el adaptador autentica, crea el calendario inicial y usa revisión optimis
       });
     }
     if (url.includes("/rest/v1/calendars?legacy_id=")) return response([]);
-    if (url.includes("/rest/v1/calendars?select=")) return response([calendar], 201);
+    if (url.includes("/rest/v1/rpc/create_calendar_for_current_user")) return response([calendar], 201);
     if (url.includes("/rest/v1/calendar_members?")) return response([{ role: "owner" }]);
     if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "GET") return response([]);
     if (url.includes("/rest/v1/calendar_documents?select=")) return response([{
@@ -94,6 +94,12 @@ test("el adaptador autentica, crea el calendario inicial y usa revisión optimis
   const created = await persistence.initialize({ initialDocument });
   assert.equal(created.revision, 0);
   assert.equal(persistence.getCalendar().id, "calendar-1");
+  const bootstrapCall = calls.find(({ url }) => url.includes("/rest/v1/rpc/create_calendar_for_current_user"));
+  assert.deepEqual(JSON.parse(bootstrapCall.options.body), {
+    requested_legacy_id: "calendario-test",
+    requested_name: "Cronograma HVAC",
+    requested_coordinator: ""
+  });
 
   const saved = await persistence.write({
     ...initialDocument,
