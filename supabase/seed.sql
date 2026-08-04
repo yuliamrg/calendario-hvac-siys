@@ -1,0 +1,2 @@
+-- Intentionally empty: production and local test data must never be committed.
+-- Add synthetic fixtures only in a separate local-only workflow when needed.
