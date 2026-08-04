@@ -7,24 +7,29 @@
 - `dist/calendario-hvac-siys.html`, listo para copiar y abrir localmente.
 - `dist/index.html`, entrada publicada por GitHub Pages.
 
-Ambos contienen HTML, CSS, JavaScript y SheetJS en un solo archivo. Los enlaces
-a las leyes sólo se abren por decisión del usuario; la aplicación no realiza
-solicitudes a servidores ni APIs.
+Ambos contienen HTML, CSS, JavaScript y SheetJS en un solo archivo. El build
+local sin variables cloud conserva el modo IndexedDB; el workflow de Pages
+inyecta `SIYS_SUPABASE_URL` y `SIYS_SUPABASE_PUBLISHABLE_KEY` para activar Auth
+y PostgREST. La clave `publishable` puede viajar en el frontend; la
+`service_role` y la contraseña de Postgres nunca deben hacerlo.
 
 ## Persistencia
 
-GitHub Pages no agrega backend. IndexedDB continúa guardando por origen, perfil
-y navegador:
+GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
+mientras Pages o el VPS sirve el HTML. El archivo local mantiene IndexedDB por
+origen, perfil y navegador. La publicación cloud guarda en Supabase:
 
-- `https://yuliamrg.github.io/calendario-hvac-siys/` tiene una base local.
-- `https://yuliamrg.github.io/calendario-hvac-siys/beta/` utiliza una base beta
-  diferente.
+- `https://yuliamrg.github.io/calendario-hvac-siys/` usa el calendario cloud
+  estable.
+- `https://yuliamrg.github.io/calendario-hvac-siys/beta/` usa el calendario cloud
+  beta del mismo proyecto.
 - `file:///.../calendario-hvac-siys.html` tiene otra base local.
-- otro equipo, perfil, Chrome o Edge empieza con otra base.
+- sin una cuenta de Supabase no se puede abrir el calendario cloud.
 
-Recargar o volver a abrir el mismo origen en el mismo perfil conserva los
-datos. Borrar datos del sitio los elimina. Para mover información se debe
-exportar JSON en el origen anterior y restaurarlo en el nuevo.
+La cuenta de Supabase permite abrir el mismo calendario desde otro equipo.
+Para migrar datos locales se debe exportar JSON en el origen anterior y
+restaurarlo en el nuevo. Las copias siguen siendo necesarias para recuperación
+operativa.
 
 Dos pestañas del mismo origen comparten IndexedDB y usan el bloqueo de edición.
 Dos equipos no se sincronizan y no deben tratarse como una vista general.
@@ -39,7 +44,7 @@ dual: la raíz se obtiene de la etiqueta indicada en `stable-version.txt` y
 La auditoría falla si detecta:
 
 - marcadores de build sin reemplazar;
-- recursos ejecutables externos o APIs de red;
+- recursos ejecutables externos o una API de red fuera del adaptador Supabase;
 - diferencias entre los dos HTML;
 - archivos QA, copias de la Base Operativa, XLSX, CSV, PNG o respaldos
   versionados;

@@ -8,6 +8,7 @@ const paths = {
   core: resolve(root, "src", "core.js"),
   contract: resolve(root, "src", "calendar-contract.js"),
   importer: resolve(root, "src", "importer.js"),
+  cloud: resolve(root, "src", "cloud.js"),
   app: resolve(root, "src", "app.js"),
   vendor: resolve(root, "vendor", "xlsx.full.min.js"),
   license: resolve(root, "vendor", "LICENSE.txt"),
@@ -18,12 +19,13 @@ const paths = {
   pagesOutput: resolve(root, "dist", "index.html")
 };
 
-const [template, css, core, contract, importer, app, vendor, license, notice, brandIcon] = await Promise.all([
+const [template, css, core, contract, importer, cloud, app, vendor, license, notice, brandIcon] = await Promise.all([
   readFile(paths.template, "utf8"),
   readFile(paths.css, "utf8"),
   readFile(paths.core, "utf8"),
   readFile(paths.contract, "utf8"),
   readFile(paths.importer, "utf8"),
+  readFile(paths.cloud, "utf8"),
   readFile(paths.app, "utf8"),
   readFile(paths.vendor, "utf8"),
   readFile(paths.license, "utf8"),
@@ -36,7 +38,8 @@ const requiredTokens = [
   "/*__SHEETJS__*/",
   "/*__APP_JS__*/",
   "<!--__LICENSE__-->",
-  "__SIYS_SYNC_ICON__"
+  "__SIYS_SYNC_ICON__",
+  "__SIYS_SUPABASE_CONFIG_VALUE__"
 ];
 for (const token of requiredTokens) {
   if (!template.includes(token)) {
@@ -55,7 +58,7 @@ ${license.replaceAll("--", "—")}
 -->`;
 
 const stripLocalImports = (source) => source.replace(
-  /import\s*\{[\s\S]*?\}\s*from\s*["']\.\/(?:core|calendar-contract|importer)\.js["'];?\s*/g,
+  /import\s*\{[\s\S]*?\}\s*from\s*["']\.\/(?:core|calendar-contract|importer|cloud)\.js["'];?\s*/g,
   ""
 );
 
@@ -67,7 +70,13 @@ const slots = {
 };
 const escapeInlineScript = (source) => source.replace(/<\/script/gi, "<\\/script");
 const escapeInlineStyle = (source) => source.replace(/<\/style/gi, "<\\/style");
-const appBundle = `${core}\n\n${stripLocalImports(contract)}\n\n${stripLocalImports(importer)}\n\n${stripLocalImports(app)}`;
+const appBundle = `${core}\n\n${stripLocalImports(contract)}\n\n${stripLocalImports(importer)}\n\n${cloud}\n\n${stripLocalImports(app)}`;
+
+const supabaseConfig = {
+  enabled: Boolean(process.env.SIYS_SUPABASE_URL?.trim() && process.env.SIYS_SUPABASE_PUBLISHABLE_KEY?.trim()),
+  url: process.env.SIYS_SUPABASE_URL?.trim() ?? "",
+  publishableKey: process.env.SIYS_SUPABASE_PUBLISHABLE_KEY?.trim() ?? ""
+};
 
 const slottedTemplate = template
   .replace("/*__APP_CSS__*/", slots.css)
@@ -80,6 +89,7 @@ const html = slottedTemplate
   .replace(slots.vendor, () => escapeInlineScript(vendor))
   .replace(slots.app, () => escapeInlineScript(appBundle))
   .replace(slots.license, () => licenseComment)
+  .replace("__SIYS_SUPABASE_CONFIG_VALUE__", () => JSON.stringify(supabaseConfig))
   .replaceAll("__SIYS_SYNC_ICON__", `data:image/svg+xml;base64,${brandIcon.toString("base64")}`);
 
 const remainingMarkers = [

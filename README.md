@@ -1,32 +1,34 @@
 # SIYS Sync
 
-Herramienta local para programar servicios HVAC en un calendario mensual. El
+Herramienta para programar servicios HVAC en un calendario mensual. El
 entregable listo para usar es:
 
 `dist/calendario-hvac-siys.html`
 
-No requiere instalación, servidor ni conexión a internet. Se abre con doble
-clic en Chrome o Microsoft Edge y guarda la información en el perfil local del
-navegador mediante IndexedDB.
+El archivo abierto con doble clic conserva un modo local sin instalación y
+guarda la información mediante IndexedDB. La publicación HTTP construida con
+las variables de Supabase usa Auth, PostgREST y la base compartida del proyecto
+cloud; el frontend sigue siendo un artefacto estático que puede servirse desde
+GitHub Pages o desde el VPS.
 
 El repositorio también incluye la CLI local `calendary` para inspeccionar y
 modificar copias JSON sin acceder directamente a IndexedDB. Consulte la
 [guía de la CLI](docs/CLI.md), el [contrato compartido](docs/CONTRATO_CALENDARIO.md)
 y el [runbook de respaldos](docs/OPERACION_RESPALDOS_JSON.md).
 
-También puede abrirse desde GitHub Pages. Esa opción sigue siendo estática: los
-datos se guardan en el navegador que abre el sitio y no se sincronizan. La
-versión local y la versión Pages usan almacenamientos separados; la opción
-**Descargar copia del cronograma** permite trasladar la programación entre
-ambas. El archivo usa internamente el formato JSON.
+También puede abrirse desde GitHub Pages. En esta rama, Pages se construye con
+Supabase y los datos dejan de depender del navegador. El archivo local sigue
+usando IndexedDB para conservar una ruta offline y de recuperación; la opción
+**Descargar copia del cronograma** permite trasladar una programación local al
+entorno cloud mediante **Recuperar una copia**.
 
 GitHub Pages ofrece dos canales:
 
 - estable: `https://yuliamrg.github.io/calendario-hvac-siys/`;
 - beta: `https://yuliamrg.github.io/calendario-hvac-siys/beta/`.
 
-Cada canal tiene su propia IndexedDB. Los datos sólo pasan de uno a otro
-mediante una copia del cronograma elegida por el usuario.
+Los canales cloud usan la misma base administrada, pero mantienen calendarios
+lógicos separados (`calendario-hvac-siys` y `calendario-hvac-siys-beta`).
 
 ## Primer uso
 
@@ -85,11 +87,36 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
   validación previa, columna opcional `Bandeja`, detección de duplicados y una
   sola operación deshacible.
 
-## Persistencia y copias de seguridad
+## Persistencia cloud y copias de seguridad
 
-Los datos permanecen únicamente en el navegador y equipo donde se usó el
-archivo. Borrar los datos del navegador, cambiar de perfil o usar otro equipo
-no traslada la programación.
+El proyecto Supabase de esta rama es `calendario-hvac-siys-dev`
+(`toxeasjfwxbniuuwfimz`). La migración se aplica con:
+
+```powershell
+npx supabase link --project-ref toxeasjfwxbniuuwfimz
+npx supabase db push --linked
+```
+
+La aplicación HTTP pide una cuenta de Supabase y guarda el documento JSON en
+`public.calendar_documents`, protegido por RLS y asociado a un calendario y a
+su membresía. Sólo se debe incluir en el frontend la URL y la clave
+`publishable`; nunca la `service_role` ni la contraseña de Postgres.
+
+El workflow de Pages necesita las variables de repositorio
+`SIYS_SUPABASE_URL` y `SIYS_SUPABASE_PUBLISHABLE_KEY`. La URL de Auth ya permite
+los canales estable y BETA de GitHub Pages. Si el VPS usa otro dominio, debe
+añadirse como redirect URL en la configuración de Auth antes de publicar allí.
+
+El primer acceso cloud crea el calendario para la cuenta autenticada. Para
+abrirlo desde otro equipo, inicia sesión con la misma cuenta; el acceso de
+otras cuentas se puede añadir después mediante membresías de Supabase.
+
+## Persistencia local y copias de seguridad
+
+El archivo local permanece únicamente en el navegador y equipo donde se usó.
+Borrar los datos del navegador, cambiar de perfil o usar otro equipo no traslada
+la programación local. El modo cloud no sustituye las copias JSON: permiten
+recuperar una base local, revisar cambios y migrar datos entre entornos.
 
 Use **Gestionar > Descargar copia del cronograma** regularmente y guárdela en
 una carpeta sincronizada o protegida. La copia incluye el nombre del cronograma,

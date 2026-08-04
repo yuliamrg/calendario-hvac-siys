@@ -17,6 +17,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SIYS_SUPABASE_URL: ${{ vars.SIYS_SUPABASE_URL }}
+      SIYS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SIYS_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Resolve stable version
@@ -34,6 +37,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Verify Supabase deployment configuration
+        shell: bash
+        run: |
+          test -n "$SIYS_SUPABASE_URL"
+          test -n "$SIYS_SUPABASE_PUBLISHABLE_KEY"
       - name: Verify beta source
         run: npm run verify
       - name: Verify stable source

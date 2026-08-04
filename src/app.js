@@ -55,6 +55,11 @@ import {
   parseBaseWorkbook,
   parseProgrammingWorkbook
 } from "./importer.js";
+import {
+  createSupabasePersistence,
+  isSupabaseConfigEnabled,
+  SupabaseCloudConflictError
+} from "./cloud.js";
 
 const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
   ? "beta"
@@ -66,6 +71,15 @@ const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
   : "calendario-hvac-siys";
 const DATABASE_VERSION = 1;
 const DOCUMENT_STORE = "documents";
+const SUPABASE_CONFIG = globalThis.__SIYS_SUPABASE_CONFIG__ ?? {
+  enabled: false,
+  url: "",
+  publishableKey: ""
+};
+const CLOUD_MODE = RUNTIME_CHANNEL !== "local" && isSupabaseConfigEnabled(SUPABASE_CONFIG);
+const CLOUD_CALENDAR_KEY = RUNTIME_CHANNEL === "beta"
+  ? "calendario-hvac-siys-beta"
+  : "calendario-hvac-siys";
 const MAX_VISIBLE_CARDS = 3;
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const SERVICE_SHORT = {
@@ -116,6 +130,9 @@ let responsibleRenderTimer = null;
 let storageAvailable = true;
 let hasEditControl = false;
 let editLockTimer = null;
+let cloudPersistence = null;
+let cloudAuthMode = "sign-in";
+let cloudAuthWaiter = null;
 const tabId = crypto.randomUUID();
 const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
@@ -300,6 +317,75 @@ function setSaveIndicator(state, text) {
   dom.saveIndicatorText.textContent = text;
 }
 
+function setCloudAuthMode(mode) {
+  cloudAuthMode = mode === "sign-up" ? "sign-up" : "sign-in";
+  const signUp = cloudAuthMode === "sign-up";
+  dom.cloudAuthDialogTitle.textContent = signUp ? "Crear acceso a SIYS Sync" : "Conectar con SIYS Sync";
+  dom.cloudAuthIntro.textContent = signUp
+    ? "Crea una cuenta para que el cronograma pueda abrirse desde más de un equipo."
+    : "Inicia sesión para acceder al cronograma guardado en Supabase.";
+  dom.cloudAuthSubmitButton.textContent = signUp ? "Crear cuenta" : "Iniciar sesión";
+  dom.cloudAuthModeButton.textContent = signUp ? "Ya tengo una cuenta" : "Crear una cuenta";
+  dom.cloudAuthDisplayNameField.hidden = !signUp;
+  dom.cloudAuthPassword.autocomplete = signUp ? "new-password" : "current-password";
+}
+
+function openCloudAuthDialog(message = "") {
+  if (!dom.cloudAuthDialog) return;
+  setCloudAuthMode(cloudAuthMode);
+  showFormErrors(dom.cloudAuthErrors, message ? [message] : []);
+  dom.cloudAuthDialog.hidden = false;
+  if (!dom.cloudAuthDialog.open) dom.cloudAuthDialog.showModal();
+  window.setTimeout(() => dom.cloudAuthEmail.focus(), 0);
+}
+
+function waitForCloudAuthentication() {
+  openCloudAuthDialog();
+  return new Promise((resolve, reject) => {
+    cloudAuthWaiter = { resolve, reject };
+  });
+}
+
+async function handleCloudAuthSubmit(event) {
+  event.preventDefault();
+  if (!cloudPersistence) return;
+  const email = dom.cloudAuthEmail.value.trim();
+  const password = dom.cloudAuthPassword.value;
+  const displayName = dom.cloudAuthDisplayName.value.trim();
+  if (!email || !password || (cloudAuthMode === "sign-up" && password.length < 6)) {
+    showFormErrors(dom.cloudAuthErrors, ["Escribe un correo y una contraseña de al menos 6 caracteres."]);
+    return;
+  }
+  dom.cloudAuthSubmitButton.disabled = true;
+  showFormErrors(dom.cloudAuthErrors, []);
+  try {
+    const result = cloudAuthMode === "sign-up"
+      ? await cloudPersistence.signUp(email, password, displayName)
+      : { session: await cloudPersistence.signIn(email, password) };
+    if (!result.session) {
+      setCloudAuthMode("sign-in");
+      showFormErrors(dom.cloudAuthErrors, [
+        "La cuenta se creó. Revisa el correo de confirmación y luego inicia sesión."
+      ]);
+      return;
+    }
+    const waiter = cloudAuthWaiter;
+    cloudAuthWaiter = null;
+    dom.cloudAuthDialog.close();
+    waiter?.resolve(result.session);
+  } catch (error) {
+    showFormErrors(dom.cloudAuthErrors, [error.message]);
+  } finally {
+    dom.cloudAuthSubmitButton.disabled = false;
+  }
+}
+
+async function handleCloudSignOut() {
+  if (!cloudPersistence || !window.confirm("¿Cerrar sesión de Supabase en este equipo?")) return;
+  await cloudPersistence.signOut();
+  window.location.reload();
+}
+
 function openDatabase() {
   return new Promise((resolve, reject) => {
     if (!("indexedDB" in window)) {
@@ -320,6 +406,10 @@ function openDatabase() {
 }
 
 function readStoredDocument(key) {
+  if (CLOUD_MODE) {
+    if (key !== "current") return Promise.resolve(null);
+    return cloudPersistence.read().then((record) => record?.document ?? null);
+  }
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readonly");
     const request = transaction.objectStore(DOCUMENT_STORE).get(key);
@@ -329,6 +419,7 @@ function readStoredDocument(key) {
 }
 
 function readStoredRecord(key) {
+  if (CLOUD_MODE) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readonly");
     const request = transaction.objectStore(DOCUMENT_STORE).get(key);
@@ -377,8 +468,8 @@ async function releaseEditLock() {
 
 function renderAccessMode() {
   document.body.classList.toggle("read-only", !hasEditControl);
-  dom.accessBanner.hidden = hasEditControl || !storageAvailable;
-  dom.takeControlButton.hidden = hasEditControl || !storageAvailable;
+  dom.accessBanner.hidden = hasEditControl || (!storageAvailable && !CLOUD_MODE);
+  dom.takeControlButton.hidden = CLOUD_MODE || hasEditControl || !storageAvailable;
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
@@ -419,7 +510,7 @@ async function heartbeatEditLock() {
 }
 
 async function initializeEditLock() {
-  if (!database || !storageAvailable) return;
+  if (CLOUD_MODE || !database || !storageAvailable) return;
   setEditControl(await claimEditLock());
   editLockTimer = window.setInterval(() => {
     heartbeatEditLock().catch(() => {});
@@ -444,6 +535,7 @@ async function initializeEditLock() {
 }
 
 function writeStoredDocument(documentSnapshot) {
+  if (CLOUD_MODE) return cloudPersistence.write(documentSnapshot);
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
     const store = transaction.objectStore(DOCUMENT_STORE);
@@ -470,6 +562,7 @@ function writeStoredDocument(documentSnapshot) {
 }
 
 function replaceCurrentDocument(documentSnapshot) {
+  if (CLOUD_MODE) return cloudPersistence.write(documentSnapshot);
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
     transaction.objectStore(DOCUMENT_STORE).put({
@@ -484,6 +577,7 @@ function replaceCurrentDocument(documentSnapshot) {
 }
 
 function clearStoredDocuments() {
+  if (CLOUD_MODE) return Promise.resolve();
   if (!database) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
@@ -509,15 +603,38 @@ function scheduleSave({ immediate = false } = {}) {
       saveChain = saveChain
         .then(() => writeStoredDocument(snapshot))
         .then(() => {
-          setSaveIndicator("saved", "Guardado");
+          setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
           const waiters = saveWaiters;
           saveWaiters = [];
           waiters.forEach((waiter) => waiter());
         })
-        .catch((error) => {
-          storageAvailable = false;
-          setSaveIndicator("error", "Sin guardado local");
-          showToast(`No se pudo guardar en el navegador: ${error.message}`, { type: "error", duration: 9000 });
+        .catch(async (error) => {
+          if (CLOUD_MODE && error instanceof SupabaseCloudConflictError) {
+            try {
+              const latest = await cloudPersistence.read();
+              if (latest?.document) {
+                appDocument = sanitizeDocument(latest.document);
+                renderAll();
+                setSaveIndicator("error", "Se requiere recargar");
+                showToast("Otro dispositivo guardó cambios. Se cargó la versión más reciente; revisa antes de editar de nuevo.", {
+                  type: "error",
+                  duration: 11000
+                });
+              }
+            } catch (reloadError) {
+              showToast(`No se pudo actualizar desde Supabase: ${reloadError.message}`, {
+                type: "error",
+                duration: 9000
+              });
+            }
+          } else {
+            storageAvailable = false;
+            setSaveIndicator("error", CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local");
+            showToast(`${CLOUD_MODE ? "No se pudo guardar en Supabase" : "No se pudo guardar en el navegador"}: ${error.message}`, {
+              type: "error",
+              duration: 9000
+            });
+          }
           const waiters = saveWaiters;
           saveWaiters = [];
           waiters.forEach((waiter) => waiter());
@@ -930,6 +1047,16 @@ function renderBackupReminder() {
 }
 
 async function renderStorageStatus() {
+  if (CLOUD_MODE) {
+    const user = cloudPersistence?.getUser();
+    dom.storageStatusTitle.textContent = "Datos guardados en Supabase";
+    dom.storageStatusText.textContent = user?.email
+      ? `Base compartida · ${user.email}`
+      : "Base compartida · sesión autenticada";
+    dom.requestPersistenceButton.hidden = true;
+    dom.cloudSignOutButton.hidden = false;
+    return;
+  }
   dom.storageStatusTitle.textContent = "Datos guardados solamente en este navegador";
   if (!navigator.storage) {
     dom.storageStatusText.textContent = "Guardado en este navegador · Descarga copias periódicas para proteger tus datos.";
@@ -1016,6 +1143,7 @@ function clearActivitySelection() {
 }
 
 function runtimeMode() {
+  if (CLOUD_MODE) return RUNTIME_CHANNEL === "beta" ? "Supabase · BETA" : "Supabase";
   if (RUNTIME_CHANNEL === "beta") return "GitHub Pages BETA";
   return location.protocol === "https:" && /\.github\.io$/i.test(location.hostname)
     ? "GitHub Pages"
@@ -1050,7 +1178,9 @@ function renderCalendarIdentity() {
   dom.calendarIdentity.textContent = coordinator
     ? `${appDocument.calendarMeta.name} · ${coordinator}`
     : appDocument.calendarMeta.name;
-  dom.runtimeModeLabel.textContent = "Los datos se guardan en este navegador. Descarga una copia para conservarlos.";
+  dom.runtimeModeLabel.textContent = CLOUD_MODE
+    ? "Los datos se guardan en la base compartida de Supabase. Descarga copias JSON como respaldo adicional."
+    : "Los datos se guardan en este navegador. Descarga una copia para conservarlos.";
 }
 
 function renderAll() {
@@ -2774,7 +2904,10 @@ async function handleResetDataSubmit(event) {
     closeDialog("resetDataDialog");
     closeDrawer();
     renderAll();
-    setSaveIndicator(storageAvailable ? "saved" : "error", storageAvailable ? "Guardado" : "Sin guardado local");
+    setSaveIndicator(
+      storageAvailable ? "saved" : "error",
+      storageAvailable ? (CLOUD_MODE ? "Guardado en Supabase" : "Guardado") : (CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local")
+    );
     showToast("Los datos persistentes se reiniciaron. El respaldo quedó en Descargas.", { duration: 8500 });
   } catch (error) {
     showFormErrors(dom.resetDataErrors, [`No se pudo reiniciar: ${error.message}`]);
@@ -3251,7 +3384,10 @@ async function handleBaseFile(event) {
     setSaveIndicator("saved", "Guardado");
     openDialog("importDialog");
   } catch (error) {
-    setSaveIndicator(storageAvailable ? "saved" : "error", storageAvailable ? "Guardado" : "Sin guardado local");
+    setSaveIndicator(
+      storageAvailable ? "saved" : "error",
+      storageAvailable ? (CLOUD_MODE ? "Guardado en Supabase" : "Guardado") : (CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local")
+    );
     showToast(`No se pudo importar el Excel: ${error.message}`, { type: "error", duration: 9000 });
   }
 }
@@ -3310,6 +3446,14 @@ function initializeStaticOptions() {
 }
 
 function bindEvents() {
+  dom.cloudAuthForm?.addEventListener("submit", handleCloudAuthSubmit);
+  dom.cloudAuthModeButton?.addEventListener("click", () => {
+    setCloudAuthMode(cloudAuthMode === "sign-up" ? "sign-in" : "sign-up");
+    showFormErrors(dom.cloudAuthErrors, []);
+  });
+  dom.cloudSignOutButton?.addEventListener("click", () => {
+    handleCloudSignOut().catch((error) => showToast(`No se pudo cerrar sesión: ${error.message}`, { type: "error" }));
+  });
   dom.newActivityButton.addEventListener("click", () => openActivityDialog({
     date: appDocument.settings.currentDate || todayInBogota()
   }));
@@ -3557,6 +3701,27 @@ function bindEvents() {
 }
 
 async function loadInitialDocument() {
+  if (CLOUD_MODE) {
+    try {
+      cloudPersistence = createSupabasePersistence(SUPABASE_CONFIG, {
+        calendarKey: CLOUD_CALENDAR_KEY
+      });
+      const restored = await cloudPersistence.restoreSession();
+      if (!restored) await waitForCloudAuthentication();
+      const initial = createDefaultDocument();
+      const current = await cloudPersistence.initialize({ initialDocument: initial });
+      storageAvailable = true;
+      return current?.document ? sanitizeDocument(current.document) : initial;
+    } catch (error) {
+      storageAvailable = false;
+      setSaveIndicator("error", "Sin conexión con Supabase");
+      showToast(`No se pudo abrir el cronograma cloud: ${error.message}`, {
+        type: "error",
+        duration: 15000
+      });
+      throw error;
+    }
+  }
   try {
     database = await openDatabase();
     const stored = await readStoredDocument("current");
@@ -3595,7 +3760,10 @@ async function initialize() {
   applyCatalogPreference();
   applyThemePreference();
   appDocument = await loadInitialDocument();
-  if (storageAvailable) {
+  if (CLOUD_MODE && storageAvailable) {
+    const canEdit = cloudPersistence?.canEdit() ?? false;
+    setEditControl(canEdit, canEdit ? "" : "Tu cuenta tiene acceso de solo lectura a este cronograma.");
+  } else if (storageAvailable) {
     await initializeEditLock();
   } else {
     setEditControl(true);
@@ -3607,7 +3775,7 @@ async function initialize() {
   }
   renderAll();
   await renderStorageStatus();
-  if (storageAvailable) setSaveIndicator("saved", "Guardado");
+  if (storageAvailable) setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
   document.body.dataset.ready = "true";
   window.dispatchEvent(new CustomEvent("calendario-hvac-ready"));
 }

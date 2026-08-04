@@ -12,6 +12,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      SIYS_SUPABASE_URL: ${{ vars.SIYS_SUPABASE_URL }}
+      SIYS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SIYS_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

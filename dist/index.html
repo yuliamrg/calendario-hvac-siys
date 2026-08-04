@@ -2722,6 +2722,9 @@ html[data-channel="stable"] .storage-banner.compact-status {
 }
 
   </style>
+  <script>
+    globalThis.__SIYS_SUPABASE_CONFIG__ = {"enabled":true,"url":"https://toxeasjfwxbniuuwfimz.supabase.co","publishableKey":"sb_publishable_58XBtUycmDw4yqTLuk_k4A_RgBnv64p"};
+  </script>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -2797,7 +2800,28 @@ html[data-channel="stable"] .storage-banner.compact-status {
         <span id="storageStatusText">Comprobando protección del almacenamiento…</span>
       </div>
       <button class="button small" id="requestPersistenceButton" type="button" hidden>Proteger almacenamiento</button>
+      <button class="button small ghost" id="cloudSignOutButton" type="button" hidden>Cerrar sesión</button>
     </section>
+
+    <dialog class="modal compact-modal cloud-auth-modal" id="cloudAuthDialog" aria-labelledby="cloudAuthDialogTitle" hidden>
+      <form id="cloudAuthForm" novalidate>
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Persistencia compartida</p>
+            <h2 id="cloudAuthDialogTitle">Conectar con SIYS Sync</h2>
+          </div>
+        </header>
+        <p class="modal-intro" id="cloudAuthIntro">Inicia sesión para acceder al cronograma guardado en Supabase.</p>
+        <div class="form-errors" id="cloudAuthErrors" role="alert" hidden></div>
+        <label><span>Correo</span><input id="cloudAuthEmail" type="email" autocomplete="email" required></label>
+        <label><span>Contraseña</span><input id="cloudAuthPassword" type="password" autocomplete="current-password" minlength="6" required></label>
+        <label id="cloudAuthDisplayNameField" hidden><span>Nombre visible</span><input id="cloudAuthDisplayName" type="text" autocomplete="name" maxlength="160"></label>
+        <footer class="modal-footer">
+          <button class="button ghost" id="cloudAuthModeButton" type="button">Crear una cuenta</button>
+          <button class="button primary" id="cloudAuthSubmitButton" type="submit">Iniciar sesión</button>
+        </footer>
+      </form>
+    </dialog>
 
     <section class="backup-banner" id="backupBanner" hidden>
       <div>
@@ -7539,6 +7563,394 @@ export function applyProgrammingImport(
 }
 
 
+const SESSION_KEY_PREFIX = "siys-sync-supabase-session";
+
+function compactMessage(value, fallback = "Ocurrió un error en Supabase.") {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object") {
+    for (const key of ["msg", "message", "error_description", "error"]) {
+      if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
+    }
+  }
+  return fallback;
+}
+
+function normalizeConfig(config = {}) {
+  return {
+    enabled: config.enabled === true,
+    url: String(config.url ?? "").replace(/\/+$/, ""),
+    publishableKey: String(config.publishableKey ?? "")
+  };
+}
+
+export function isSupabaseConfigEnabled(config) {
+  const normalized = normalizeConfig(config);
+  return normalized.enabled && Boolean(normalized.url && normalized.publishableKey);
+}
+
+export class SupabaseCloudError extends Error {
+  constructor(message, { status = 0, code = "", details = null } = {}) {
+    super(message);
+    this.name = "SupabaseCloudError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+export class SupabaseCloudConflictError extends SupabaseCloudError {
+  constructor(message = "El cronograma cambió en otro dispositivo.") {
+    super(message, { status: 409, code: "cloud_conflict" });
+    this.name = "SupabaseCloudConflictError";
+  }
+}
+
+export class SupabaseCloudAuthRequiredError extends SupabaseCloudError {
+  constructor(message = "Se necesita una sesión de Supabase.") {
+    super(message, { status: 401, code: "auth_required" });
+    this.name = "SupabaseCloudAuthRequiredError";
+  }
+}
+
+function sessionFromAuthPayload(payload) {
+  const candidate = payload?.session ?? payload;
+  if (!candidate?.access_token) return null;
+  const expiresIn = Number(candidate.expires_in) || 3600;
+  return {
+    access_token: candidate.access_token,
+    refresh_token: candidate.refresh_token ?? "",
+    token_type: candidate.token_type ?? "bearer",
+    expires_in: expiresIn,
+    expires_at: Number(candidate.expires_at) || Math.floor(Date.now() / 1000) + expiresIn,
+    user: candidate.user ?? payload?.user ?? null
+  };
+}
+
+function responsePayload(text) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+export function createSupabasePersistence(config, {
+  calendarKey = "calendario-hvac-siys",
+  fetchImpl = globalThis.fetch?.bind(globalThis),
+  storage = globalThis.localStorage
+} = {}) {
+  const normalized = normalizeConfig(config);
+  if (!isSupabaseConfigEnabled(normalized)) {
+    throw new SupabaseCloudError("La configuración de Supabase está incompleta.", {
+      code: "invalid_config"
+    });
+  }
+  if (typeof fetchImpl !== "function") {
+    throw new SupabaseCloudError("Este navegador no permite conexiones a Supabase.", {
+      code: "fetch_unavailable"
+    });
+  }
+
+  const sessionKey = `${SESSION_KEY_PREFIX}:${calendarKey}`;
+  let session = null;
+  let user = null;
+  let calendar = null;
+  let calendarRole = null;
+  let remoteRevision = null;
+
+  function readSession() {
+    try {
+      const parsed = JSON.parse(storage?.getItem(sessionKey) ?? "null");
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function persistSession(nextSession) {
+    session = nextSession;
+    user = nextSession?.user ?? null;
+    try {
+      if (nextSession) storage?.setItem(sessionKey, JSON.stringify(nextSession));
+      else storage?.removeItem(sessionKey);
+    } catch {
+      // The access token still works for this page even if storage is unavailable.
+    }
+    return session;
+  }
+
+  async function parseResponse(response) {
+    const text = await response.text();
+    const payload = responsePayload(text);
+    if (response.ok) return payload;
+    throw new SupabaseCloudError(compactMessage(payload, `Supabase respondió ${response.status}.`), {
+      status: response.status,
+      code: payload?.code ?? payload?.error_code ?? "",
+      details: payload
+    });
+  }
+
+  async function authRequest(path, { method = "POST", body, headers = {} } = {}) {
+    let response;
+    try {
+      response = await fetchImpl(`${normalized.url}/auth/v1/${path}`, {
+        method,
+        headers: {
+          apikey: normalized.publishableKey,
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          ...headers
+        },
+        body: body === undefined ? undefined : JSON.stringify(body)
+      });
+    } catch (error) {
+      throw new SupabaseCloudError(`No fue posible conectar con Supabase: ${error.message}`, {
+        code: "network_error",
+        details: error
+      });
+    }
+    return parseResponse(response);
+  }
+
+  async function refreshSession() {
+    const current = session ?? readSession();
+    if (!current?.refresh_token) {
+      persistSession(null);
+      return null;
+    }
+    try {
+      const payload = await authRequest("token?grant_type=refresh_token", {
+        body: { refresh_token: current.refresh_token }
+      });
+      const nextSession = sessionFromAuthPayload(payload);
+      if (!nextSession) throw new SupabaseCloudAuthRequiredError("Supabase no devolvió una sesión válida.");
+      return persistSession(nextSession);
+    } catch {
+      persistSession(null);
+      return null;
+    }
+  }
+
+  async function restoreSession() {
+    const stored = session ?? readSession();
+    if (!stored?.access_token) {
+      persistSession(null);
+      return null;
+    }
+    const expiresAt = Number(stored.expires_at) || 0;
+    if (expiresAt * 1000 <= Date.now() + 60_000) return refreshSession();
+    session = stored;
+    user = stored.user ?? null;
+    return session;
+  }
+
+  async function restRequest(path, {
+    method = "GET",
+    body,
+    headers = {},
+    retry = true
+  } = {}) {
+    if (!session?.access_token) throw new SupabaseCloudAuthRequiredError();
+    let response;
+    try {
+      response = await fetchImpl(`${normalized.url}${path}`, {
+        method,
+        headers: {
+          apikey: normalized.publishableKey,
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          ...headers
+        },
+        body: body === undefined ? undefined : JSON.stringify(body)
+      });
+    } catch (error) {
+      throw new SupabaseCloudError(`No fue posible conectar con Supabase: ${error.message}`, {
+        code: "network_error",
+        details: error
+      });
+    }
+    if (response.status === 401 && retry && session.refresh_token) {
+      const refreshed = await refreshSession();
+      if (refreshed) return restRequest(path, { method, body, headers, retry: false });
+    }
+    return parseResponse(response);
+  }
+
+  async function loadUser() {
+    if (!session?.access_token) throw new SupabaseCloudAuthRequiredError();
+    try {
+      const payload = await authRequest("user", { method: "GET" });
+      return payload;
+    } catch (error) {
+      if (error.status !== 401 || !session.refresh_token) throw error;
+      const refreshed = await refreshSession();
+      if (!refreshed) throw new SupabaseCloudAuthRequiredError();
+      return loadUser();
+    }
+  }
+
+  async function signIn(email, password) {
+    const payload = await authRequest("token?grant_type=password", {
+      body: { email: email.trim(), password }
+    });
+    const nextSession = sessionFromAuthPayload(payload);
+    if (!nextSession) throw new SupabaseCloudAuthRequiredError("No se recibió una sesión de Supabase.");
+    persistSession(nextSession);
+    return nextSession;
+  }
+
+  async function signUp(email, password, displayName = "") {
+    const payload = await authRequest("signup", {
+      body: {
+        email: email.trim(),
+        password,
+        data: displayName.trim() ? { display_name: displayName.trim() } : undefined
+      }
+    });
+    const nextSession = sessionFromAuthPayload(payload);
+    if (nextSession) persistSession(nextSession);
+    return { session: nextSession, requiresConfirmation: !nextSession };
+  }
+
+  async function signOut() {
+    if (session?.access_token) {
+      try {
+        await authRequest("logout", { method: "POST" });
+      } catch {
+        // Removing the local session is still the correct fallback.
+      }
+    }
+    calendar = null;
+    remoteRevision = null;
+    persistSession(null);
+  }
+
+  async function listCalendar() {
+    const query = `/rest/v1/calendars?legacy_id=eq.${encodeURIComponent(calendarKey)}&select=id,name,coordinator,created_by,updated_at&limit=1`;
+    return await restRequest(query);
+  }
+
+  async function ensureCalendar({ name, coordinator }) {
+    let rows = await listCalendar();
+    if (!rows.length) {
+      try {
+        rows = await restRequest("/rest/v1/calendars?select=id,name,coordinator,created_by,updated_at", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: [{
+            legacy_id: calendarKey,
+            name: String(name || "Cronograma HVAC").trim() || "Cronograma HVAC",
+            coordinator: String(coordinator || "").trim(),
+            created_by: user.id
+          }]
+        });
+      } catch (error) {
+        if (error.status !== 409) throw error;
+        rows = await listCalendar();
+      }
+    }
+    if (!rows.length) {
+      throw new SupabaseCloudError(
+        "La cuenta autenticada no tiene acceso a este cronograma. Usa la misma cuenta que lo creó o agrega una membresía desde Supabase.",
+        { code: "calendar_not_accessible" }
+      );
+    }
+    calendar = rows[0];
+    const memberQuery = `/rest/v1/calendar_members?calendar_id=eq.${encodeURIComponent(calendar.id)}&user_id=eq.${encodeURIComponent(user.id)}&select=role&limit=1`;
+    const memberships = await restRequest(memberQuery);
+    calendarRole = memberships[0]?.role ?? null;
+    if (!calendarRole) {
+      throw new SupabaseCloudError("La cuenta autenticada no tiene una membresía válida en este cronograma.", {
+        code: "membership_missing"
+      });
+    }
+    return calendar;
+  }
+
+  async function read() {
+    if (!calendar) throw new SupabaseCloudError("El cronograma cloud aún no está inicializado.");
+    const query = `/rest/v1/calendar_documents?calendar_id=eq.${encodeURIComponent(calendar.id)}&select=document,revision,schema_version,updated_at,updated_by&limit=1`;
+    const rows = await restRequest(query);
+    const record = rows[0] ?? null;
+    remoteRevision = record ? Number(record.revision) || 0 : null;
+    return record
+      ? { document: record.document, revision: remoteRevision, updatedAt: record.updated_at ?? null }
+      : null;
+  }
+
+  async function write(documentSnapshot) {
+    if (!calendar) throw new SupabaseCloudError("El cronograma cloud aún no está inicializado.");
+    const nextRevision = remoteRevision === null ? 0 : remoteRevision + 1;
+    const payload = {
+      document: documentSnapshot,
+      revision: nextRevision,
+      schema_version: Number(documentSnapshot?.schemaVersion) || 4
+    };
+    let rows;
+    if (remoteRevision === null) {
+      rows = await restRequest("/rest/v1/calendar_documents?select=document,revision,updated_at,updated_by", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: [{ calendar_id: calendar.id, ...payload }]
+      });
+    } else {
+      const query = `/rest/v1/calendar_documents?calendar_id=eq.${encodeURIComponent(calendar.id)}&revision=eq.${encodeURIComponent(String(remoteRevision))}&select=document,revision,updated_at,updated_by`;
+      rows = await restRequest(query, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: payload
+      });
+      if (!rows.length) throw new SupabaseCloudConflictError();
+    }
+    const record = rows[0];
+    remoteRevision = Number(record?.revision ?? nextRevision);
+    await restRequest(`/rest/v1/calendars?id=eq.${encodeURIComponent(calendar.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: {
+        name: String(documentSnapshot?.calendarMeta?.name || calendar.name).trim() || calendar.name,
+        coordinator: String(documentSnapshot?.calendarMeta?.coordinator || "").trim()
+      }
+    });
+    return { revision: remoteRevision, updatedAt: record?.updated_at ?? null };
+  }
+
+  async function initialize({ initialDocument }) {
+    if (!session) throw new SupabaseCloudAuthRequiredError();
+    if (!user?.id) {
+      user = session.user ?? await loadUser();
+      session.user = user;
+      persistSession(session);
+    }
+    await ensureCalendar({
+      name: initialDocument?.calendarMeta?.name,
+      coordinator: initialDocument?.calendarMeta?.coordinator
+    });
+    const current = await read();
+    if (current) return current;
+    await write(initialDocument);
+    return { document: initialDocument, revision: remoteRevision };
+  }
+
+  return Object.freeze({
+    calendarKey,
+    restoreSession,
+    signIn,
+    signUp,
+    signOut,
+    initialize,
+    read,
+    write,
+    getSession: () => session,
+    getUser: () => user,
+    getCalendar: () => calendar,
+    getRole: () => calendarRole,
+    canEdit: () => calendarRole === "owner" || calendarRole === "editor"
+  });
+}
+
+
 const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
   ? "beta"
   : location.protocol === "file:"
@@ -7549,6 +7961,15 @@ const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
   : "calendario-hvac-siys";
 const DATABASE_VERSION = 1;
 const DOCUMENT_STORE = "documents";
+const SUPABASE_CONFIG = globalThis.__SIYS_SUPABASE_CONFIG__ ?? {
+  enabled: false,
+  url: "",
+  publishableKey: ""
+};
+const CLOUD_MODE = RUNTIME_CHANNEL !== "local" && isSupabaseConfigEnabled(SUPABASE_CONFIG);
+const CLOUD_CALENDAR_KEY = RUNTIME_CHANNEL === "beta"
+  ? "calendario-hvac-siys-beta"
+  : "calendario-hvac-siys";
 const MAX_VISIBLE_CARDS = 3;
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const SERVICE_SHORT = {
@@ -7599,6 +8020,9 @@ let responsibleRenderTimer = null;
 let storageAvailable = true;
 let hasEditControl = false;
 let editLockTimer = null;
+let cloudPersistence = null;
+let cloudAuthMode = "sign-in";
+let cloudAuthWaiter = null;
 const tabId = crypto.randomUUID();
 const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
@@ -7783,6 +8207,75 @@ function setSaveIndicator(state, text) {
   dom.saveIndicatorText.textContent = text;
 }
 
+function setCloudAuthMode(mode) {
+  cloudAuthMode = mode === "sign-up" ? "sign-up" : "sign-in";
+  const signUp = cloudAuthMode === "sign-up";
+  dom.cloudAuthDialogTitle.textContent = signUp ? "Crear acceso a SIYS Sync" : "Conectar con SIYS Sync";
+  dom.cloudAuthIntro.textContent = signUp
+    ? "Crea una cuenta para que el cronograma pueda abrirse desde más de un equipo."
+    : "Inicia sesión para acceder al cronograma guardado en Supabase.";
+  dom.cloudAuthSubmitButton.textContent = signUp ? "Crear cuenta" : "Iniciar sesión";
+  dom.cloudAuthModeButton.textContent = signUp ? "Ya tengo una cuenta" : "Crear una cuenta";
+  dom.cloudAuthDisplayNameField.hidden = !signUp;
+  dom.cloudAuthPassword.autocomplete = signUp ? "new-password" : "current-password";
+}
+
+function openCloudAuthDialog(message = "") {
+  if (!dom.cloudAuthDialog) return;
+  setCloudAuthMode(cloudAuthMode);
+  showFormErrors(dom.cloudAuthErrors, message ? [message] : []);
+  dom.cloudAuthDialog.hidden = false;
+  if (!dom.cloudAuthDialog.open) dom.cloudAuthDialog.showModal();
+  window.setTimeout(() => dom.cloudAuthEmail.focus(), 0);
+}
+
+function waitForCloudAuthentication() {
+  openCloudAuthDialog();
+  return new Promise((resolve, reject) => {
+    cloudAuthWaiter = { resolve, reject };
+  });
+}
+
+async function handleCloudAuthSubmit(event) {
+  event.preventDefault();
+  if (!cloudPersistence) return;
+  const email = dom.cloudAuthEmail.value.trim();
+  const password = dom.cloudAuthPassword.value;
+  const displayName = dom.cloudAuthDisplayName.value.trim();
+  if (!email || !password || (cloudAuthMode === "sign-up" && password.length < 6)) {
+    showFormErrors(dom.cloudAuthErrors, ["Escribe un correo y una contraseña de al menos 6 caracteres."]);
+    return;
+  }
+  dom.cloudAuthSubmitButton.disabled = true;
+  showFormErrors(dom.cloudAuthErrors, []);
+  try {
+    const result = cloudAuthMode === "sign-up"
+      ? await cloudPersistence.signUp(email, password, displayName)
+      : { session: await cloudPersistence.signIn(email, password) };
+    if (!result.session) {
+      setCloudAuthMode("sign-in");
+      showFormErrors(dom.cloudAuthErrors, [
+        "La cuenta se creó. Revisa el correo de confirmación y luego inicia sesión."
+      ]);
+      return;
+    }
+    const waiter = cloudAuthWaiter;
+    cloudAuthWaiter = null;
+    dom.cloudAuthDialog.close();
+    waiter?.resolve(result.session);
+  } catch (error) {
+    showFormErrors(dom.cloudAuthErrors, [error.message]);
+  } finally {
+    dom.cloudAuthSubmitButton.disabled = false;
+  }
+}
+
+async function handleCloudSignOut() {
+  if (!cloudPersistence || !window.confirm("¿Cerrar sesión de Supabase en este equipo?")) return;
+  await cloudPersistence.signOut();
+  window.location.reload();
+}
+
 function openDatabase() {
   return new Promise((resolve, reject) => {
     if (!("indexedDB" in window)) {
@@ -7803,6 +8296,10 @@ function openDatabase() {
 }
 
 function readStoredDocument(key) {
+  if (CLOUD_MODE) {
+    if (key !== "current") return Promise.resolve(null);
+    return cloudPersistence.read().then((record) => record?.document ?? null);
+  }
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readonly");
     const request = transaction.objectStore(DOCUMENT_STORE).get(key);
@@ -7812,6 +8309,7 @@ function readStoredDocument(key) {
 }
 
 function readStoredRecord(key) {
+  if (CLOUD_MODE) return Promise.resolve(null);
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readonly");
     const request = transaction.objectStore(DOCUMENT_STORE).get(key);
@@ -7860,8 +8358,8 @@ async function releaseEditLock() {
 
 function renderAccessMode() {
   document.body.classList.toggle("read-only", !hasEditControl);
-  dom.accessBanner.hidden = hasEditControl || !storageAvailable;
-  dom.takeControlButton.hidden = hasEditControl || !storageAvailable;
+  dom.accessBanner.hidden = hasEditControl || (!storageAvailable && !CLOUD_MODE);
+  dom.takeControlButton.hidden = CLOUD_MODE || hasEditControl || !storageAvailable;
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
@@ -7902,7 +8400,7 @@ async function heartbeatEditLock() {
 }
 
 async function initializeEditLock() {
-  if (!database || !storageAvailable) return;
+  if (CLOUD_MODE || !database || !storageAvailable) return;
   setEditControl(await claimEditLock());
   editLockTimer = window.setInterval(() => {
     heartbeatEditLock().catch(() => {});
@@ -7927,6 +8425,7 @@ async function initializeEditLock() {
 }
 
 function writeStoredDocument(documentSnapshot) {
+  if (CLOUD_MODE) return cloudPersistence.write(documentSnapshot);
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
     const store = transaction.objectStore(DOCUMENT_STORE);
@@ -7953,6 +8452,7 @@ function writeStoredDocument(documentSnapshot) {
 }
 
 function replaceCurrentDocument(documentSnapshot) {
+  if (CLOUD_MODE) return cloudPersistence.write(documentSnapshot);
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
     transaction.objectStore(DOCUMENT_STORE).put({
@@ -7967,6 +8467,7 @@ function replaceCurrentDocument(documentSnapshot) {
 }
 
 function clearStoredDocuments() {
+  if (CLOUD_MODE) return Promise.resolve();
   if (!database) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
@@ -7992,15 +8493,38 @@ function scheduleSave({ immediate = false } = {}) {
       saveChain = saveChain
         .then(() => writeStoredDocument(snapshot))
         .then(() => {
-          setSaveIndicator("saved", "Guardado");
+          setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
           const waiters = saveWaiters;
           saveWaiters = [];
           waiters.forEach((waiter) => waiter());
         })
-        .catch((error) => {
-          storageAvailable = false;
-          setSaveIndicator("error", "Sin guardado local");
-          showToast(`No se pudo guardar en el navegador: ${error.message}`, { type: "error", duration: 9000 });
+        .catch(async (error) => {
+          if (CLOUD_MODE && error instanceof SupabaseCloudConflictError) {
+            try {
+              const latest = await cloudPersistence.read();
+              if (latest?.document) {
+                appDocument = sanitizeDocument(latest.document);
+                renderAll();
+                setSaveIndicator("error", "Se requiere recargar");
+                showToast("Otro dispositivo guardó cambios. Se cargó la versión más reciente; revisa antes de editar de nuevo.", {
+                  type: "error",
+                  duration: 11000
+                });
+              }
+            } catch (reloadError) {
+              showToast(`No se pudo actualizar desde Supabase: ${reloadError.message}`, {
+                type: "error",
+                duration: 9000
+              });
+            }
+          } else {
+            storageAvailable = false;
+            setSaveIndicator("error", CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local");
+            showToast(`${CLOUD_MODE ? "No se pudo guardar en Supabase" : "No se pudo guardar en el navegador"}: ${error.message}`, {
+              type: "error",
+              duration: 9000
+            });
+          }
           const waiters = saveWaiters;
           saveWaiters = [];
           waiters.forEach((waiter) => waiter());
@@ -8413,6 +8937,16 @@ function renderBackupReminder() {
 }
 
 async function renderStorageStatus() {
+  if (CLOUD_MODE) {
+    const user = cloudPersistence?.getUser();
+    dom.storageStatusTitle.textContent = "Datos guardados en Supabase";
+    dom.storageStatusText.textContent = user?.email
+      ? `Base compartida · ${user.email}`
+      : "Base compartida · sesión autenticada";
+    dom.requestPersistenceButton.hidden = true;
+    dom.cloudSignOutButton.hidden = false;
+    return;
+  }
   dom.storageStatusTitle.textContent = "Datos guardados solamente en este navegador";
   if (!navigator.storage) {
     dom.storageStatusText.textContent = "Guardado en este navegador · Descarga copias periódicas para proteger tus datos.";
@@ -8499,6 +9033,7 @@ function clearActivitySelection() {
 }
 
 function runtimeMode() {
+  if (CLOUD_MODE) return RUNTIME_CHANNEL === "beta" ? "Supabase · BETA" : "Supabase";
   if (RUNTIME_CHANNEL === "beta") return "GitHub Pages BETA";
   return location.protocol === "https:" && /\.github\.io$/i.test(location.hostname)
     ? "GitHub Pages"
@@ -8533,7 +9068,9 @@ function renderCalendarIdentity() {
   dom.calendarIdentity.textContent = coordinator
     ? `${appDocument.calendarMeta.name} · ${coordinator}`
     : appDocument.calendarMeta.name;
-  dom.runtimeModeLabel.textContent = "Los datos se guardan en este navegador. Descarga una copia para conservarlos.";
+  dom.runtimeModeLabel.textContent = CLOUD_MODE
+    ? "Los datos se guardan en la base compartida de Supabase. Descarga copias JSON como respaldo adicional."
+    : "Los datos se guardan en este navegador. Descarga una copia para conservarlos.";
 }
 
 function renderAll() {
@@ -10257,7 +10794,10 @@ async function handleResetDataSubmit(event) {
     closeDialog("resetDataDialog");
     closeDrawer();
     renderAll();
-    setSaveIndicator(storageAvailable ? "saved" : "error", storageAvailable ? "Guardado" : "Sin guardado local");
+    setSaveIndicator(
+      storageAvailable ? "saved" : "error",
+      storageAvailable ? (CLOUD_MODE ? "Guardado en Supabase" : "Guardado") : (CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local")
+    );
     showToast("Los datos persistentes se reiniciaron. El respaldo quedó en Descargas.", { duration: 8500 });
   } catch (error) {
     showFormErrors(dom.resetDataErrors, [`No se pudo reiniciar: ${error.message}`]);
@@ -10734,7 +11274,10 @@ async function handleBaseFile(event) {
     setSaveIndicator("saved", "Guardado");
     openDialog("importDialog");
   } catch (error) {
-    setSaveIndicator(storageAvailable ? "saved" : "error", storageAvailable ? "Guardado" : "Sin guardado local");
+    setSaveIndicator(
+      storageAvailable ? "saved" : "error",
+      storageAvailable ? (CLOUD_MODE ? "Guardado en Supabase" : "Guardado") : (CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local")
+    );
     showToast(`No se pudo importar el Excel: ${error.message}`, { type: "error", duration: 9000 });
   }
 }
@@ -10793,6 +11336,14 @@ function initializeStaticOptions() {
 }
 
 function bindEvents() {
+  dom.cloudAuthForm?.addEventListener("submit", handleCloudAuthSubmit);
+  dom.cloudAuthModeButton?.addEventListener("click", () => {
+    setCloudAuthMode(cloudAuthMode === "sign-up" ? "sign-in" : "sign-up");
+    showFormErrors(dom.cloudAuthErrors, []);
+  });
+  dom.cloudSignOutButton?.addEventListener("click", () => {
+    handleCloudSignOut().catch((error) => showToast(`No se pudo cerrar sesión: ${error.message}`, { type: "error" }));
+  });
   dom.newActivityButton.addEventListener("click", () => openActivityDialog({
     date: appDocument.settings.currentDate || todayInBogota()
   }));
@@ -11040,6 +11591,27 @@ function bindEvents() {
 }
 
 async function loadInitialDocument() {
+  if (CLOUD_MODE) {
+    try {
+      cloudPersistence = createSupabasePersistence(SUPABASE_CONFIG, {
+        calendarKey: CLOUD_CALENDAR_KEY
+      });
+      const restored = await cloudPersistence.restoreSession();
+      if (!restored) await waitForCloudAuthentication();
+      const initial = createDefaultDocument();
+      const current = await cloudPersistence.initialize({ initialDocument: initial });
+      storageAvailable = true;
+      return current?.document ? sanitizeDocument(current.document) : initial;
+    } catch (error) {
+      storageAvailable = false;
+      setSaveIndicator("error", "Sin conexión con Supabase");
+      showToast(`No se pudo abrir el cronograma cloud: ${error.message}`, {
+        type: "error",
+        duration: 15000
+      });
+      throw error;
+    }
+  }
   try {
     database = await openDatabase();
     const stored = await readStoredDocument("current");
@@ -11078,7 +11650,10 @@ async function initialize() {
   applyCatalogPreference();
   applyThemePreference();
   appDocument = await loadInitialDocument();
-  if (storageAvailable) {
+  if (CLOUD_MODE && storageAvailable) {
+    const canEdit = cloudPersistence?.canEdit() ?? false;
+    setEditControl(canEdit, canEdit ? "" : "Tu cuenta tiene acceso de solo lectura a este cronograma.");
+  } else if (storageAvailable) {
     await initializeEditLock();
   } else {
     setEditControl(true);
@@ -11090,7 +11665,7 @@ async function initialize() {
   }
   renderAll();
   await renderStorageStatus();
-  if (storageAvailable) setSaveIndicator("saved", "Guardado");
+  if (storageAvailable) setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
   document.body.dataset.ready = "true";
   window.dispatchEvent(new CustomEvent("calendario-hvac-ready"));
 }
