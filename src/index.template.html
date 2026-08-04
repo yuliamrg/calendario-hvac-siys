@@ -9,6 +9,9 @@
   <style>
 /*__APP_CSS__*/
   </style>
+  <script>
+    globalThis.__SIYS_SUPABASE_CONFIG__ = __SIYS_SUPABASE_CONFIG_VALUE__;
+  </script>
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -84,7 +87,28 @@
         <span id="storageStatusText">Comprobando protección del almacenamiento…</span>
       </div>
       <button class="button small" id="requestPersistenceButton" type="button" hidden>Proteger almacenamiento</button>
+      <button class="button small ghost" id="cloudSignOutButton" type="button" hidden>Cerrar sesión</button>
     </section>
+
+    <dialog class="modal compact-modal cloud-auth-modal" id="cloudAuthDialog" aria-labelledby="cloudAuthDialogTitle" hidden>
+      <form id="cloudAuthForm" novalidate>
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">Persistencia compartida</p>
+            <h2 id="cloudAuthDialogTitle">Conectar con SIYS Sync</h2>
+          </div>
+        </header>
+        <p class="modal-intro" id="cloudAuthIntro">Inicia sesión para acceder al cronograma guardado en Supabase.</p>
+        <div class="form-errors" id="cloudAuthErrors" role="alert" hidden></div>
+        <label><span>Correo</span><input id="cloudAuthEmail" type="email" autocomplete="email" required></label>
+        <label><span>Contraseña</span><input id="cloudAuthPassword" type="password" autocomplete="current-password" minlength="6" required></label>
+        <label id="cloudAuthDisplayNameField" hidden><span>Nombre visible</span><input id="cloudAuthDisplayName" type="text" autocomplete="name" maxlength="160"></label>
+        <footer class="modal-footer">
+          <button class="button ghost" id="cloudAuthModeButton" type="button">Crear una cuenta</button>
+          <button class="button primary" id="cloudAuthSubmitButton" type="submit">Iniciar sesión</button>
+        </footer>
+      </form>
+    </dialog>
 
     <section class="backup-banner" id="backupBanner" hidden>
       <div>
