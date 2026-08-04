@@ -117,6 +117,7 @@ def run_phone_flow(browser, uri: str, artifacts: Path) -> dict:
     page.fill("#activityObservations", "Flujo táctil responsive")
     page.locator("#activityForm button[type=submit]").click()
     expect(page.locator("#mobileAgendaList .activity-card")).to_have_count(1)
+    expect(page.locator("#mobileAgendaList .service-code")).to_have_text("AD")
     wait_saved(page)
     wait_activity_count(page, 1)
 

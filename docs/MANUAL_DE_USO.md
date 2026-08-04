@@ -29,8 +29,12 @@ Arrastre un cliente o sede a una fecha, haga clic en el fondo del día o pulse
 varios responsables, tipo de servicio, estado y observaciones.
 
 Los servicios disponibles son mantenimiento preventivo, mantenimiento
-correctivo, llamada de emergencia, diagnóstico, garantía y administrativo.
-Los estados son: Programada, Confirmada, En ejecución, Terminada, No ejecutada,
+correctivo, llamada de emergencia, diagnóstico, garantía y administrativo. En la
+vista previa, la segunda línea de cada tarjeta inicia con un código corto: `MP`
+(mantenimiento preventivo), `MC` (mantenimiento correctivo), `EM` (emergencia),
+`DG` (diagnóstico), `GA` (garantía) o `AD` (administrativo). El nombre completo
+se conserva en el detalle y en la información accesible de la tarjeta. Los estados son:
+Programada, Confirmada, En ejecución, Terminada, No ejecutada,
 Cancelada y Por programar. Una actividad confirmada exige al menos un
 responsable.
 
