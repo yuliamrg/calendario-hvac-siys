@@ -357,6 +357,9 @@ def launch_and_check(
     activity_id = state["activities"][0]["id"]
     card = page.locator(f'[data-activity-id="{activity_id}"]')
     expect(card).to_have_class(re.compile(r"\bmixed\b"))
+    expect(card.locator(".service-code")).to_have_text("MP")
+    expect(card).to_have_attribute("data-service-code", "MP")
+    expect(card).to_have_attribute("aria-label", re.compile(r"tipo de servicio: Mantenimiento preventivo"))
     if "open" in (page.locator("#detailDrawer").get_attribute("class") or ""):
         page.locator("#closeDrawerButton").click()
         page.wait_for_timeout(300)
