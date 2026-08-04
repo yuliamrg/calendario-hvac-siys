@@ -19,8 +19,8 @@ GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages o el VPS sirve el HTML. El archivo local mantiene IndexedDB por
 origen, perfil y navegador. La publicación cloud guarda en Supabase:
 
-- `https://yuliamrg.github.io/calendario-hvac-siys/` usa el calendario cloud
-  estable.
+- `https://yuliamrg.github.io/calendario-hvac-siys/` conserva el calendario local
+  de la versión estable `v0.11.0`.
 - `https://yuliamrg.github.io/calendario-hvac-siys/beta/` usa el calendario cloud
   beta del mismo proyecto.
 - `file:///.../calendario-hvac-siys.html` tiene otra base local.

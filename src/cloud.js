@@ -269,21 +269,18 @@ export function createSupabasePersistence(config, {
   async function ensureCalendar({ name, coordinator }) {
     let rows = await listCalendar();
     if (!rows.length) {
-      try {
-        rows = await restRequest("/rest/v1/calendars?select=id,name,coordinator,created_by,updated_at", {
-          method: "POST",
-          headers: { Prefer: "return=representation" },
-          body: [{
-            legacy_id: calendarKey,
-            name: String(name || "Cronograma HVAC").trim() || "Cronograma HVAC",
-            coordinator: String(coordinator || "").trim(),
-            created_by: user.id
-          }]
-        });
-      } catch (error) {
-        if (error.status !== 409) throw error;
-        rows = await listCalendar();
-      }
+      // The server derives created_by from auth.uid(). This avoids trusting a
+      // client-supplied UUID and makes the first calendar creation compatible
+      // with the calendars INSERT RLS policy.
+      const created = await restRequest("/rest/v1/rpc/create_calendar_for_current_user", {
+        method: "POST",
+        body: {
+          requested_legacy_id: calendarKey,
+          requested_name: String(name || "Cronograma HVAC").trim() || "Cronograma HVAC",
+          requested_coordinator: String(coordinator || "").trim()
+        }
+      });
+      rows = Array.isArray(created) ? created : created ? [created] : [];
     }
     if (!rows.length) {
       throw new SupabaseCloudError(
