@@ -151,7 +151,7 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.12.0-beta.1");
+  assert.equal(packageJson.version, "0.13.0-beta.1");
   assert.equal(readFileSync(resolve(root, "stable-version.txt"), "utf8").trim(), "v0.11.0");
   assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
 });
