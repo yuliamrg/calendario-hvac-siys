@@ -183,13 +183,12 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 ### Estable y beta
 
 La raíz de GitHub Pages contiene la versión estable actual `v0.11.0`, que
-incluye la CLI local para respaldos JSON. `/beta/` contiene la beta
-`v0.12.0-beta.1` y mantiene una insignia BETA para probar la bandeja Pendiente
-y los nuevos tipos de servicio. Ambos canales pueden compartir la interfaz
-aprobada, pero usan bases IndexedDB diferentes, incluso si se abren en pestañas
-del mismo navegador. La versión visible y el `channel` del respaldo deben
-comprobarse antes de trasladar datos.
-Nunca se copian datos automáticamente entre ellos.
+incluye la CLI local para respaldos JSON y conserva IndexedDB. `/beta/` contiene
+la beta `v0.13.0-beta.1`, mantiene una insignia BETA y usa Supabase Auth y la
+base cloud compartida para guardar el cronograma. La versión visible y el
+`channel` del respaldo deben comprobarse antes de trasladar datos. Los datos
+locales no se copian automáticamente a Supabase: deben exportarse como JSON y
+recuperarse dentro de la beta.
 
 ### Reiniciar el navegador
 
