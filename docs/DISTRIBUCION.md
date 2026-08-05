@@ -87,11 +87,13 @@ estable separada:
    0.14.0-beta.N a 0.14.0 en package.json, package-lock.json y APP_VERSION.
 3. Regenerar dist/ y ejecutar las pruebas de estable.
 4. Crear v0.14.0 sobre ese commit estable.
-5. Actualizar stable-version.txt a v0.14.0 mediante un PR hacia main.
+5. Actualizar stable-version.txt al tag normal promovido mediante un PR hacia
+   main.
 6. Esperar Deploy GitHub Pages.
 7. Verificar la raíz estable y /beta/.
-8. Si el canal beta continúa, iniciar en main la siguiente línea
-   0.15.0-beta.1; si se pausa, documentar la pausa.
+8. Si el canal beta continúa, iniciar en main la siguiente línea MINOR
+   correspondiente; en este repositorio es 0.14.0-beta.1. Si se pausa,
+   documentar la pausa.
 
 El tag estable nunca debe apuntar a un artefacto que todavía muestre una
 versión beta.

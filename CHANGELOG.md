@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## [0.14.0-beta.1] - 2026-08-05
+
+### Línea de desarrollo
+
+- Se abre la siguiente línea beta después de promover `0.13.0-beta.2` a
+  `0.13.0`; las nuevas implementaciones se incorporarán aquí.
+
+### Compatibilidad
+
+- Este baseline conserva el esquema 4, los respaldos, la CLI y la separación
+  de persistencia entre estable local y beta cloud.
+
 ## [0.13.0] - 2026-08-05
 
 ### Promovido

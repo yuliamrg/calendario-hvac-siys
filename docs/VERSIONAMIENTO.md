@@ -161,10 +161,12 @@ La promoción es una publicación separada de la beta:
    package.json, package-lock.json y APP_VERSION.
 3. Regenerar dist/ y ejecutar todas las validaciones de estable.
 4. Crear el tag estable sobre ese commit: v0.14.0.
-5. Actualizar stable-version.txt a v0.14.0 mediante un PR hacia main.
+5. Actualizar stable-version.txt al tag normal promovido mediante un PR hacia
+   main.
 6. Esperar el despliegue y verificar la raíz estable y /beta/.
-7. Si el canal beta continúa, iniciar en main la siguiente línea
-   0.15.0-beta.1. Si no continúa, documentar explícitamente la pausa.
+7. Si el canal beta continúa, iniciar en main la siguiente línea MINOR
+   correspondiente. Para este repositorio, después de v0.13.0 es
+   0.14.0-beta.1. Si no continúa, documentar explícitamente la pausa.
 
 El tag estable no debe apuntar a un commit cuyo APP_VERSION aún tenga
 el sufijo beta.
@@ -194,7 +196,7 @@ Para promover a estable, además:
 ## 10. Estado de transición de este repositorio
 
 - La estable vigente es v0.13.0.
-- La beta publicada vigente es 0.13.0-beta.2.
+- La beta publicada vigente es 0.14.0-beta.1.
 - 0.12.0-beta.1 y 0.13.0-beta.1 forman parte del historial beta y no fueron
   promovidas a estable.
 - El repositorio conserva evidencia de 0.13.0-beta.1, pero debe verificarse
