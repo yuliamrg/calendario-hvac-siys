@@ -26,8 +26,9 @@ frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 | Local | dist/calendario-hvac-siys.html | Leer la versión visible del archivo. |
 
 stable-version.txt es un puntero de distribución, no la fuente de la versión
-de main. Por eso puede contener v0.11.0 mientras main contiene
-0.13.0-beta.2.
+de main. Después de esta promoción apunta a v0.13.0; cuando se inicie la
+siguiente línea beta, main tendrá una prerelease distinta mientras la raíz
+estable seguirá usando ese tag normal.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable conserva el calendario local y
