@@ -194,8 +194,9 @@ La raíz de GitHub Pages contiene la estable `v0.14.1` y `/beta/` contiene la
 línea beta correspondiente; ambos usan Supabase Auth y la base cloud
 compartida, con calendarios lógicos independientes. La versión visible y el
 `channel` del respaldo deben comprobarse antes de trasladar datos. Los datos
-locales no se copian automáticamente a Supabase: deben exportarse como JSON y
-recuperarse dentro del canal autorizado.
+locales no se copian a un calendario cloud que ya tenga datos: deben exportarse
+como JSON y recuperarse dentro del canal autorizado, salvo la migración inicial
+protegida descrita a continuación.
 
 Al actualizar la stable por primera vez, SIYS Sync puede trasladar
 automáticamente su documento IndexedDB anterior si el calendario Supabase está
