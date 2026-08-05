@@ -29,8 +29,12 @@ Arrastre un cliente o sede a una fecha, haga clic en el fondo del día o pulse
 varios responsables, tipo de servicio, estado y observaciones.
 
 Los servicios disponibles son mantenimiento preventivo, mantenimiento
-correctivo, llamada de emergencia, diagnóstico, garantía y administrativo.
-Los estados son: Programada, Confirmada, En ejecución, Terminada, No ejecutada,
+correctivo, llamada de emergencia, diagnóstico, garantía y administrativo. En la
+vista previa, la segunda línea de cada tarjeta inicia con un código corto: `MP`
+(mantenimiento preventivo), `MC` (mantenimiento correctivo), `EM` (emergencia),
+`DG` (diagnóstico), `GA` (garantía) o `AD` (administrativo). El nombre completo
+se conserva en el detalle y en la información accesible de la tarjeta. Los estados son:
+Programada, Confirmada, En ejecución, Terminada, No ejecutada,
 Cancelada y Por programar. Una actividad confirmada exige al menos un
 responsable.
 
@@ -184,7 +188,7 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 La raíz de GitHub Pages contiene la versión estable actual `v0.11.0`, que
 incluye la CLI local para respaldos JSON y conserva IndexedDB. `/beta/` contiene
-la beta `v0.13.0-beta.1`, mantiene una insignia BETA y usa Supabase Auth y la
+la beta `v0.13.0-beta.2`, mantiene una insignia BETA y usa Supabase Auth y la
 base cloud compartida para guardar el cronograma. La versión visible y el
 `channel` del respaldo deben comprobarse antes de trasladar datos. Los datos
 locales no se copian automáticamente a Supabase: deben exportarse como JSON y

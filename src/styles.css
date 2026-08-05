@@ -1108,6 +1108,11 @@ body.catalog-collapsed .catalog-panel {
   line-height: 1.1;
 }
 
+.service-code {
+  display: inline-block;
+  font-weight: 800;
+}
+
 .card-flags {
   display: flex;
   flex-direction: column;

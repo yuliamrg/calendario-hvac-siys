@@ -85,6 +85,14 @@ const CLOUD_CALENDAR_KEY = RUNTIME_CHANNEL === "beta"
   : "calendario-hvac-siys";
 const MAX_VISIBLE_CARDS = 3;
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const SERVICE_CODES = Object.freeze({
+  preventive: "MP",
+  corrective: "MC",
+  emergency: "EM",
+  diagnostic: "DG",
+  warranty: "GA",
+  administrative: "AD"
+});
 const SERVICE_SHORT = {
   preventive: "Preventivo",
   corrective: "Correctivo",
@@ -1406,10 +1414,19 @@ function handlePlanningBucketDrop(event) {
 }
 
 function buildActivityCard(activity, maps, { quarantine = false } = {}) {
+  const client = maps.clients.get(activity.clientId);
+  const site = maps.sites.get(activity.siteId);
+  const serviceLabel = SERVICE_TYPES[activity.serviceType] ?? "Tipo de servicio";
+  const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
+  const title = activity.serviceType === "administrative" && !client
+    ? "Administrativo"
+    : client?.name ?? serviceLabel ?? "Cliente sin catálogo";
   const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
   card.draggable = hasEditControl;
   card.dataset.activityId = activity.id;
-  card.setAttribute("aria-label", `${maps.clients.get(activity.clientId)?.name ?? SERVICE_TYPES[activity.serviceType] ?? "Actividad"} ${maps.sites.get(activity.siteId)?.name ?? ""}, ${ACTIVITY_STATUSES[activity.status]}`);
+  card.dataset.serviceCode = serviceCode;
+  card.title = `Tipo de servicio: ${serviceLabel}`;
+  card.setAttribute("aria-label", `${title}${site?.name ? `, ${site.name}` : ""}, tipo de servicio: ${serviceLabel}, estado: ${ACTIVITY_STATUSES[activity.status]}`);
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
 
   const checkbox = document.createElement("input");
@@ -1427,22 +1444,24 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   card.append(checkbox);
 
   const copyBlock = createElement("span", "activity-copy");
-  const client = maps.clients.get(activity.clientId);
-  const site = maps.sites.get(activity.siteId);
-  const title = activity.serviceType === "administrative" && !client
-    ? "Administrativo"
-    : client?.name ?? SERVICE_TYPES[activity.serviceType] ?? "Cliente sin catálogo";
   const assigned = activity.responsibleIds
     .map((id) => maps.responsibles.get(id))
     .filter(Boolean)
     .map((item) => item.initials || displayInitialsFor(item.name))
     .join(" · ");
   copyBlock.append(createElement("strong", "", title));
-  copyBlock.append(createElement("small", "", [
+  const metadata = [
     site?.name || activity.city,
     assigned || "Sin responsable",
     quarantine ? PLANNING_BUCKETS.quarantine : ""
-  ].filter(Boolean).join(" · ")));
+  ].filter(Boolean).join(" · ");
+  const small = createElement("small");
+  const serviceCodeElement = createElement("span", "service-code", serviceCode);
+  serviceCodeElement.title = `${serviceCode}: ${serviceLabel}`;
+  serviceCodeElement.setAttribute("aria-hidden", "true");
+  small.append(serviceCodeElement);
+  if (metadata) small.append(document.createTextNode(` · ${metadata}`));
+  copyBlock.append(small);
   card.append(copyBlock);
 
   const flags = createElement("span", "card-flags");

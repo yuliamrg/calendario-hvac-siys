@@ -1,5 +1,19 @@
 # Historial de cambios
 
+## [0.13.0-beta.2] - 2026-08-05
+
+### Mejorado
+
+- Las tarjetas muestran un código corto para el tipo de servicio: `MP`, `MC`,
+  `EM`, `DG`, `GA` o `AD`.
+- El nombre completo del servicio permanece disponible en el detalle y en la
+  etiqueta accesible de la tarjeta.
+
+### Compatibilidad
+
+- Sin cambios en el esquema 4, la persistencia cloud, los respaldos ni el
+  canal estable.
+
 ## [0.10.0] - 2026-08-01
 
 ### Promovido
