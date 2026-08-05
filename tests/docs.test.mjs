@@ -11,7 +11,7 @@ test("el README enlaza documentación existente", () => {
   const links = [...readme.matchAll(/\]\(([^)]+\.md)\)/g)].map((match) => match[1]);
   assert.ok(links.length >= 3);
   for (const link of links) {
-    assert.equal(existsSync(resolve(root, link)), true, `No existe ${link}`);
+    assert.equal(existsSync(resolve(root, link)), true, "No existe " + link);
   }
 });
 
@@ -31,7 +31,7 @@ test("el runbook fija el flujo seguro de respaldos JSON", () => {
     "Combinar otra copia",
     "nunca se sobrescribe"
   ]) {
-    assert.ok(runbook.includes(required), `Falta documentar ${required}`);
+    assert.ok(runbook.includes(required), "Falta documentar " + required);
   }
 });
 
@@ -134,26 +134,36 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
   for (const required of [
     "Semantic Versioning",
     "package.json",
+    "package-lock.json",
     "APP_VERSION",
-    "0.10.0-beta.1",
-    "0.10.0-beta.2",
-    "0.10.0",
-    "v0.10.0",
-    "0.9.1",
+    "0.14.0-beta.1",
+    "0.14.0-beta.2",
+    "0.14.0",
+    "0.15.0-beta.1",
+    "0.13.0-beta.2",
     "SCHEMA_VERSION",
-    "0d05123",
+    "CONTRACT_VERSION",
+    "formatVersion",
+    "stable-version.txt",
+    "npm run version:check",
+    "npm run release:check",
+    "npm run goal:check",
     "npm run verify"
   ]) {
     assert.match(versioning, new RegExp(required.replace(/[.]/g, "\\."), "i"));
   }
 });
 
-test("la versión de release está sincronizada entre package, núcleo e interfaz", () => {
+test("la versión de release está sincronizada entre package, lock, núcleo y estable", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  const packageLock = JSON.parse(readFileSync(resolve(root, "package-lock.json"), "utf8"));
   const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
-  assert.equal(packageJson.version, "0.13.0-beta.2");
-  assert.equal(readFileSync(resolve(root, "stable-version.txt"), "utf8").trim(), "v0.11.0");
-  assert.match(core, new RegExp(`APP_VERSION = \\"${packageJson.version.replace(/[.]/g, "\\.")}\\"`));
+  const stableTag = readFileSync(resolve(root, "stable-version.txt"), "utf8").trim();
+  assert.match(packageJson.version, /^0\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/);
+  assert.match(stableTag, /^v\d+\.\d+\.\d+$/);
+  assert.equal(packageLock.version, packageJson.version);
+  assert.equal(packageLock.packages[""].version, packageJson.version);
+  assert.match(core, new RegExp('APP_VERSION = "' + packageJson.version.replace(/[.]/g, "\\.") + '"'));
 });
 
 test("el contrato visual promovido se aplica a beta y estable", () => {

@@ -22,6 +22,7 @@ jobs:
           node-version: 20
       - run: npm test
       - run: npm run build
+      - run: npm run version:check
       - run: npm run audit
       - name: Verify generated distribution
         run: git diff --exit-code -- dist/
