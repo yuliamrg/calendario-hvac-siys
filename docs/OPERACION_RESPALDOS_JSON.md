@@ -7,10 +7,10 @@ una base de datos compartida.
 
 ## Estado y alcance
 
-El checkout estable actual es `v0.13.0` e incluye `bin/calendary.js`, el
-contrato compartido y las pruebas de la CLI. La CLI opera únicamente sobre
-copias JSON y no accede directamente a IndexedDB. La interfaz y la CLI usan la
-misma frontera de escritura.
+La línea publicada incluye `bin/calendary.js`, el contrato compartido y las
+pruebas de la CLI. La CLI opera únicamente sobre copias JSON y no accede
+directamente a IndexedDB ni a Supabase. La interfaz y la CLI usan la misma
+frontera de escritura.
 
 Una **actividad de calendario** no es una orden real creada en SIYS.net. Si se
 necesita crear una orden en SIYS, debe usarse el flujo y contrato de SIYS
@@ -51,15 +51,16 @@ Ejemplo:
 
 ## Canales, perfiles y versiones
 
-Los canales tienen almacenamiento IndexedDB separado. El archivo sólo debe
-volver al mismo canal y perfil del que salió, salvo que se haya autorizado un
-traslado explícito.
+El archivo local usa IndexedDB separado. Stable y beta usan Supabase, pero cada
+canal conserva un calendario lógico distinto. El archivo sólo debe volver al
+mismo canal y perfil del que salió, salvo que se haya autorizado un traslado
+explícito.
 
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
-| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `v0.13.0` | Uso operativo aprobado |
-| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | Leer el encabezado y el JSON | Pruebas; no promover automáticamente |
-| Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | Almacenamiento local separado |
+| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `v0.14.0` al completar la promoción | Uso operativo aprobado; Supabase/Auth |
+| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | Leer el encabezado y el JSON | Supabase/Auth; calendario beta separado |
+| Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | IndexedDB y sin autenticación |
 
 Antes de modificar un archivo se registran: URL, canal, perfil de Chrome,
 versión visible, `appVersion` del JSON, `schemaVersion`, revisión, fecha de

@@ -150,12 +150,16 @@ omiten por defecto y se pueden incluir expresamente.
 
 ## 7. Persistencia, pestañas y copias de seguridad
 
-IndexedDB guarda el documento dentro del perfil del navegador y del origen:
+El archivo local usa IndexedDB dentro del perfil del navegador y del origen.
+Las publicaciones de GitHub Pages guardan el documento autenticado en
+Supabase:
 
-- el archivo local y GitHub Pages tienen bases separadas;
+- el archivo local, estable y beta tienen almacenamientos separados;
 - Chrome y Edge no comparten datos;
 - dos perfiles del mismo navegador no comparten datos;
-- copiar la carpeta HTML no copia la programación.
+- copiar la carpeta HTML no copia la programación local;
+- stable usa `calendario-hvac-siys` y beta usa `calendario-hvac-siys-beta` dentro
+  del mismo proyecto Supabase.
 
 **Proteger almacenamiento** solicita persistencia al navegador. La concesión
 reduce la posibilidad de liberación automática, pero no garantiza una copia de
@@ -186,13 +190,12 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages contiene la versión estable actual `v0.13.0`, que
-incluye la CLI local para respaldos JSON y conserva IndexedDB. `/beta/` contiene
-la beta `v0.14.0-beta.1`, mantiene una insignia BETA y usa Supabase Auth y la
-base cloud compartida para guardar el cronograma. La versión visible y el
+La raíz de GitHub Pages contiene la estable `v0.14.0` y `/beta/` contiene la
+línea beta correspondiente; ambos usan Supabase Auth y la base cloud
+compartida, con calendarios lógicos independientes. La versión visible y el
 `channel` del respaldo deben comprobarse antes de trasladar datos. Los datos
 locales no se copian automáticamente a Supabase: deben exportarse como JSON y
-recuperarse dentro del canal beta.
+recuperarse dentro del canal autorizado.
 
 ### Reiniciar el navegador
 

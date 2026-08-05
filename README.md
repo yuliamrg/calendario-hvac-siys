@@ -28,8 +28,10 @@ GitHub Pages ofrece dos canales:
 - beta: `https://yuliamrg.github.io/calendario-hvac-siys/beta/`.
 
 La beta usa la base administrada de Supabase con el calendario lógico
-`calendario-hvac-siys-beta`; la raíz estable conserva el almacenamiento local
-de `v0.13.0`. Las bases de estable y beta permanecen separadas.
+`calendario-hvac-siys-beta`. La promoción de esta línea habilita la misma base
+cloud para la raíz estable, con el calendario lógico
+`calendario-hvac-siys`. Las bases de estable y beta permanecen separadas para
+que probar la beta no reemplace el cronograma operativo.
 
 ## Primer uso
 
@@ -98,10 +100,11 @@ npx supabase link --project-ref toxeasjfwxbniuuwfimz
 npx supabase db push --linked
 ```
 
-La aplicación beta pide una cuenta de Supabase y guarda el documento JSON en
-`public.calendar_documents`, protegido por RLS y asociado a un calendario y a
-su membresía. Sólo se debe incluir en el frontend la URL y la clave
-`publishable`; nunca la `service_role` ni la contraseña de Postgres.
+La aplicación publicada pide una cuenta de Supabase y guarda el documento JSON
+en `public.calendar_documents`, protegido por RLS y asociado a un calendario y
+a su membresía. Sólo se debe incluir en el frontend la URL y la clave
+`publishable`; nunca la `service_role` ni la contraseña de Postgres. El archivo
+local continúa usando IndexedDB y no necesita autenticación.
 
 El workflow de Pages necesita las variables de repositorio
 `SIYS_SUPABASE_URL` y `SIYS_SUPABASE_PUBLISHABLE_KEY`. La URL de Auth ya permite

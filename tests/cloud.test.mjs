@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   createSupabasePersistence,
   isSupabaseConfigEnabled,
-  SupabaseCloudConflictError
+  shouldUseSupabaseCloud,
+  SupabaseCloudConflictError,
+  supabaseCalendarKeyForChannel
 } from "../src/cloud.js";
 
 function response(payload, status = 200) {
@@ -35,6 +37,20 @@ test("la configuración cloud exige una clave publishable y no acepta una vacía
   assert.equal(isSupabaseConfigEnabled({ enabled: true, url: "https://example.supabase.co", publishableKey: "sb_publishable_demo" }), true);
   assert.equal(isSupabaseConfigEnabled({ enabled: true, url: "https://example.supabase.co", publishableKey: "" }), false);
   assert.equal(isSupabaseConfigEnabled({ enabled: false, url: "https://example.supabase.co", publishableKey: "sb_publishable_demo" }), false);
+});
+
+test("stable y beta habilitan Supabase con calendarios cloud separados", () => {
+  const config = {
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  };
+  assert.equal(shouldUseSupabaseCloud("stable", config), true);
+  assert.equal(shouldUseSupabaseCloud("beta", config), true);
+  assert.equal(shouldUseSupabaseCloud("local", config), false);
+  assert.equal(shouldUseSupabaseCloud("stable", { ...config, enabled: false }), false);
+  assert.equal(supabaseCalendarKeyForChannel("stable"), "calendario-hvac-siys");
+  assert.equal(supabaseCalendarKeyForChannel("beta"), "calendario-hvac-siys-beta");
 });
 
 test("el adaptador autentica, crea el calendario inicial y usa revisión optimista", async () => {

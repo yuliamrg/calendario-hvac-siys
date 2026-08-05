@@ -14,8 +14,8 @@ npm run build genera dos archivos idénticos de la versión de trabajo:
 Ambos contienen HTML, CSS, JavaScript y SheetJS en un solo archivo. El build
 local sin variables cloud conserva IndexedDB; el workflow de Pages inyecta
 SIYS_SUPABASE_URL y SIYS_SUPABASE_PUBLISHABLE_KEY para activar Auth y
-PostgREST sólo en el canal beta. La clave publishable puede viajar en el
-frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
+PostgREST en los canales estable y beta. La clave publishable puede viajar en
+el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
 ## Canales
 
@@ -31,8 +31,8 @@ siguiente línea beta, main tendrá una prerelease distinta mientras la raíz
 estable seguirá usando ese tag normal.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
-mientras Pages sirve el HTML. La raíz estable conserva el calendario local y
-el canal beta usa el calendario cloud del mismo proyecto.
+mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo
+proyecto Supabase, pero cada uno apunta a un calendario lógico separado.
 
 ## Automatización
 
@@ -92,7 +92,7 @@ estable separada:
 6. Esperar Deploy GitHub Pages.
 7. Verificar la raíz estable y /beta/.
 8. Si el canal beta continúa, iniciar en main la siguiente línea MINOR
-   correspondiente; en este repositorio es 0.14.0-beta.1. Si se pausa,
+   correspondiente; en este repositorio es 0.15.0-beta.1. Si se pausa,
    documentar la pausa.
 
 El tag estable nunca debe apuntar a un artefacto que todavía muestre una
@@ -100,11 +100,12 @@ versión beta.
 
 ## Persistencia y respaldos
 
-- GitHub Pages estable y beta tienen orígenes y canales separados.
-- Dos pestañas del mismo origen comparten IndexedDB y usan el bloqueo de
-  edición.
-- Dos equipos no se sincronizan por IndexedDB y no deben tratarse como una vista
-  general.
+- GitHub Pages estable y beta tienen rutas y calendarios lógicos separados,
+  aunque compartan el proyecto Supabase.
+- Las sesiones Auth y las revisiones cloud se guardan por calendario; una cuenta
+  con membresía puede abrir el canal correspondiente desde otro equipo.
+- El archivo local continúa separado en IndexedDB y no se sincroniza solo con
+  Supabase.
 - Antes de restaurar un respaldo se comprueban URL, canal, versión visible,
   appVersion, schemaVersion, revision y perfil del navegador.
 - No se sube un respaldo beta a estable ni uno estable a beta sin una

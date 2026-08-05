@@ -119,8 +119,9 @@ a la estable será 0.14.1 o 0.14.1-beta.1 si se prueba primero como beta.
 | HOLIDAY_RULESET_VERSION | Reglas legales de festivos | Cambia cuando cambia la tabla o regla legal; se documenta aparte de SemVer. |
 
 La promoción `v0.13.0-beta.2` → `v0.13.0` fue compatible con el esquema 4,
-respaldos, CLI y persistencia local. La estable y la beta actual usan esquema 4,
-pero conservan bases separadas; Supabase sigue restringido al canal beta.
+respaldos, CLI y persistencia local. La promoción de la línea `0.14.0` conserva
+ese contrato y cambia la persistencia publicada de la raíz estable a Supabase;
+stable y beta mantienen calendarios lógicos separados dentro del mismo proyecto.
 
 ## 6. Canales de distribución
 
@@ -129,8 +130,8 @@ pero conservan bases separadas; Supabase sigue restringido al canal beta.
   insignia BETA.
 - El hecho de que package.json en main diga una beta no cambia la versión
   estable de la raíz.
-- Supabase sólo se activa en el canal beta; la estable conserva el canal local
-  hasta una decisión explícita de promoción.
+- Supabase se activa en estable y beta cuando Pages inyecta la configuración
+  pública; el archivo local conserva IndexedDB sin autenticación.
 - Los respaldos se validan por URL, canal, versión visible, appVersion,
   schemaVersion, revision y perfil de navegador antes de restaurarse.
 
@@ -165,8 +166,8 @@ La promoción es una publicación separada de la beta:
    main.
 6. Esperar el despliegue y verificar la raíz estable y /beta/.
 7. Si el canal beta continúa, iniciar en main la siguiente línea MINOR
-   correspondiente. Para este repositorio, después de v0.13.0 es
-   0.14.0-beta.1. Si no continúa, documentar explícitamente la pausa.
+   correspondiente. Para este repositorio, después de v0.14.0 es
+   0.15.0-beta.1. Si no continúa, documentar explícitamente la pausa.
 
 El tag estable no debe apuntar a un commit cuyo APP_VERSION aún tenga
 el sufijo beta.
@@ -195,8 +196,8 @@ Para promover a estable, además:
 
 ## 10. Estado de transición de este repositorio
 
-- La estable vigente es v0.13.0.
-- La beta publicada vigente es 0.14.0-beta.1.
+- La estable vigente es v0.13.0 hasta completar la promoción de la línea 0.14.0.
+- La beta publicada vigente en esta línea es 0.14.0-beta.2.
 - 0.12.0-beta.1 y 0.13.0-beta.1 forman parte del historial beta y no fueron
   promovidas a estable.
 - El repositorio conserva evidencia de 0.13.0-beta.1, pero debe verificarse

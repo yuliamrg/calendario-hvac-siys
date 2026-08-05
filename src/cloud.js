@@ -23,6 +23,16 @@ export function isSupabaseConfigEnabled(config) {
   return normalized.enabled && Boolean(normalized.url && normalized.publishableKey);
 }
 
+export function shouldUseSupabaseCloud(runtimeChannel, config) {
+  return ["stable", "beta"].includes(runtimeChannel) && isSupabaseConfigEnabled(config);
+}
+
+export function supabaseCalendarKeyForChannel(runtimeChannel) {
+  return runtimeChannel === "beta"
+    ? "calendario-hvac-siys-beta"
+    : "calendario-hvac-siys";
+}
+
 export class SupabaseCloudError extends Error {
   constructor(message, { status = 0, code = "", details = null } = {}) {
     super(message);

@@ -1,5 +1,22 @@
 # Historial de cambios
 
+## [0.14.0-beta.2] - 2026-08-05
+
+### Persistencia cloud
+
+- Stable y beta activan Supabase Auth y PostgREST cuando Pages inyecta la
+  configuración pública del proyecto.
+- Cada canal conserva su calendario lógico (`calendario-hvac-siys` para stable
+  y `calendario-hvac-siys-beta` para beta), sin mezclar ni reemplazar datos.
+- Se agrega un smoke autenticado de lectura para verificar Auth, la base cloud,
+  el canal del respaldo y el esquema publicado sin escribir datos de operación.
+
+### Compatibilidad
+
+- Este cambio conserva el esquema 4, los respaldos, la CLI y la separación de
+  calendarios entre canales. La promoción estable de esta línea activará la
+  misma persistencia cloud en la raíz de GitHub Pages.
+
 ## [0.14.0-beta.1] - 2026-08-05
 
 ### Línea de desarrollo

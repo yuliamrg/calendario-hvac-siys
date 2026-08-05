@@ -57,8 +57,9 @@ import {
 } from "./importer.js";
 import {
   createSupabasePersistence,
-  isSupabaseConfigEnabled,
-  SupabaseCloudConflictError
+  shouldUseSupabaseCloud,
+  SupabaseCloudConflictError,
+  supabaseCalendarKeyForChannel
 } from "./cloud.js";
 
 const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
@@ -76,13 +77,11 @@ const SUPABASE_CONFIG = globalThis.__SIYS_SUPABASE_CONFIG__ ?? {
   url: "",
   publishableKey: ""
 };
-// Supabase remains beta-only by release policy. The stable channel uses its
-// own local/IndexedDB calendar even if the Pages job exposes cloud variables
-// while verifying the stable tag.
-const CLOUD_MODE = RUNTIME_CHANNEL === "beta" && isSupabaseConfigEnabled(SUPABASE_CONFIG);
-const CLOUD_CALENDAR_KEY = RUNTIME_CHANNEL === "beta"
-  ? "calendario-hvac-siys-beta"
-  : "calendario-hvac-siys";
+// Both published channels use the same Supabase project, while each channel
+// keeps an independent logical calendar to prevent beta data from replacing
+// the stable calendar.
+const CLOUD_MODE = shouldUseSupabaseCloud(RUNTIME_CHANNEL, SUPABASE_CONFIG);
+const CLOUD_CALENDAR_KEY = supabaseCalendarKeyForChannel(RUNTIME_CHANNEL);
 const MAX_VISIBLE_CARDS = 3;
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const SERVICE_CODES = Object.freeze({
