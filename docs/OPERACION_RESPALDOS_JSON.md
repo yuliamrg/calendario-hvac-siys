@@ -58,7 +58,7 @@ explícito.
 
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
-| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `v0.14.0` | Uso operativo aprobado; Supabase/Auth |
+| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `v0.14.1` | Uso operativo aprobado; Supabase/Auth |
 | Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | Leer el encabezado y el JSON | Supabase/Auth; calendario beta separado |
 | Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | IndexedDB y sin autenticación |
 

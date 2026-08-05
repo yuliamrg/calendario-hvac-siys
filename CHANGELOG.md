@@ -1,5 +1,20 @@
 # Historial de cambios
 
+## [0.14.1] - 2026-08-05
+
+### Corrección de continuidad stable
+
+- La stable conserva los datos locales que existían antes de activar Supabase:
+  los migra una sola vez cuando el calendario cloud está vacío.
+- No se sobrescribe un calendario cloud con datos, no se mezcla beta y la base
+  IndexedDB original permanece disponible como respaldo local.
+- Se corrige la migración de sesiones heredadas a la clave Auth compartida.
+
+### Compatibilidad
+
+- Mantiene esquema 4, respaldos, CLI, RLS y el calendario cloud estable
+  `calendario-hvac-siys`.
+
 ## [0.15.0-beta.2] - 2026-08-05
 
 ### Continuidad de datos

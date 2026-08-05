@@ -190,7 +190,7 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages contiene la estable `v0.14.0` y `/beta/` contiene la
+La raíz de GitHub Pages contiene la estable `v0.14.1` y `/beta/` contiene la
 línea beta correspondiente; ambos usan Supabase Auth y la base cloud
 compartida, con calendarios lógicos independientes. La versión visible y el
 `channel` del respaldo deben comprobarse antes de trasladar datos. Los datos

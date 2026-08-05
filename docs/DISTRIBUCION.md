@@ -26,7 +26,7 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 | Local | dist/calendario-hvac-siys.html | Leer la versión visible del archivo. |
 
 stable-version.txt es un puntero de distribución, no la fuente de la versión
-de main. Después de esta promoción apunta a v0.14.0; cuando se inicie la
+de main. Después de esta promoción apunta a v0.14.1; cuando se inicie la
 siguiente línea beta, main tendrá una prerelease distinta mientras la raíz
 estable seguirá usando ese tag normal.
 
