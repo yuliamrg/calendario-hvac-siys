@@ -1,5 +1,12 @@
 # Historial de cambios
 
+## [0.15.0-beta.3] - 2026-08-05
+
+### Nueva iteración beta
+
+- Continúa la siguiente línea de desarrollo después del parche stable
+  `0.14.1`; conserva la migración segura y la separación de calendarios.
+
 ## [0.14.1] - 2026-08-05
 
 ### Corrección de continuidad stable
