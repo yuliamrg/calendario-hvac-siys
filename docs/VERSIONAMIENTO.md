@@ -197,7 +197,7 @@ Para promover a estable, además:
 ## 10. Estado de transición de este repositorio
 
 - La estable vigente es v0.13.0 hasta completar la promoción de la línea 0.14.0.
-- La beta publicada vigente en esta línea es 0.14.0-beta.2.
+- La beta publicada vigente en esta línea es 0.14.0-beta.3.
 - 0.12.0-beta.1 y 0.13.0-beta.1 forman parte del historial beta y no fueron
   promovidas a estable.
 - El repositorio conserva evidencia de 0.13.0-beta.1, pero debe verificarse

@@ -113,7 +113,9 @@ añadirse como redirect URL en la configuración de Auth antes de publicar allí
 
 El primer acceso cloud crea el calendario para la cuenta autenticada. Para
 abrirlo desde otro equipo, inicia sesión con la misma cuenta; el acceso de
-otras cuentas se puede añadir después mediante membresías de Supabase.
+otras cuentas se puede añadir después mediante membresías de Supabase. En el
+mismo origen, la sesión se reutiliza entre stable y beta, pero los calendarios
+lógicos siguen separados.
 
 ## Persistencia local y copias de seguridad
 

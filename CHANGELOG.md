@@ -1,5 +1,19 @@
 # Historial de cambios
 
+## [0.14.0-beta.3] - 2026-08-05
+
+### Autenticación compartida
+
+- La sesión de Supabase se comparte entre stable y beta en el mismo origen,
+  con migración de las claves por canal usadas por las primeras betas.
+- Cerrar sesión elimina la sesión compartida y las claves heredadas sin tocar
+  los calendarios cloud.
+
+### Compatibilidad
+
+- Esta iteración conserva calendarios lógicos separados y no modifica datos
+  operativos; sólo evita autenticaciones duplicadas entre canales.
+
 ## [0.14.0-beta.2] - 2026-08-05
 
 ### Persistencia cloud

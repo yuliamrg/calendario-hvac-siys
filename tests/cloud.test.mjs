@@ -53,6 +53,45 @@ test("stable y beta habilitan Supabase con calendarios cloud separados", () => {
   assert.equal(supabaseCalendarKeyForChannel("beta"), "calendario-hvac-siys-beta");
 });
 
+test("la sesión de Supabase se comparte entre canales sin compartir sus calendarios", async () => {
+  const storage = storageMock();
+  const session = {
+    access_token: "access-1",
+    refresh_token: "refresh-1",
+    expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const beta = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    calendarKey: "calendario-hvac-siys-beta",
+    fetchImpl: async (url) => url.includes("/auth/v1/token?grant_type=password")
+      ? response(session)
+      : response({}, 500),
+    storage
+  });
+  const stableWithAuth = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    calendarKey: "calendario-hvac-siys",
+    fetchImpl: async (url) => url.includes("/auth/v1/token?grant_type=password")
+      ? response(session)
+      : response({}, 500),
+    storage
+  });
+  await stableWithAuth.signIn("test@example.com", "secret123");
+  const restored = await beta.restoreSession();
+  assert.equal(restored.access_token, "access-1");
+  assert.deepEqual(beta.getUser(), session.user);
+  assert.equal(storage.getItem("siys-sync-supabase-session:calendario-hvac-siys"), null);
+  assert.ok(storage.getItem("siys-sync-supabase-session"));
+});
+
 test("el adaptador autentica, crea el calendario inicial y usa revisión optimista", async () => {
   const calls = [];
   const initialDocument = {

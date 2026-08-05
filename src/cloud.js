@@ -1,4 +1,6 @@
 const SESSION_KEY_PREFIX = "siys-sync-supabase-session";
+const STABLE_CALENDAR_KEY = "calendario-hvac-siys";
+const BETA_CALENDAR_KEY = "calendario-hvac-siys-beta";
 
 function compactMessage(value, fallback = "Ocurrió un error en Supabase.") {
   if (typeof value === "string" && value.trim()) return value.trim();
@@ -97,7 +99,12 @@ export function createSupabasePersistence(config, {
     });
   }
 
-  const sessionKey = `${SESSION_KEY_PREFIX}:${calendarKey}`;
+  const sessionKey = SESSION_KEY_PREFIX;
+  const legacySessionKeys = [
+    `${SESSION_KEY_PREFIX}:${calendarKey}`,
+    `${SESSION_KEY_PREFIX}:${STABLE_CALENDAR_KEY}`,
+    `${SESSION_KEY_PREFIX}:${BETA_CALENDAR_KEY}`
+  ].filter((key, index, keys) => keys.indexOf(key) === index);
   let session = null;
   let user = null;
   let calendar = null;
@@ -106,8 +113,11 @@ export function createSupabasePersistence(config, {
 
   function readSession() {
     try {
-      const parsed = JSON.parse(storage?.getItem(sessionKey) ?? "null");
-      return parsed && typeof parsed === "object" ? parsed : null;
+      for (const key of [sessionKey, ...legacySessionKeys]) {
+        const parsed = JSON.parse(storage?.getItem(key) ?? "null");
+        if (parsed && typeof parsed === "object") return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -269,6 +279,11 @@ export function createSupabasePersistence(config, {
     calendar = null;
     remoteRevision = null;
     persistSession(null);
+    try {
+      legacySessionKeys.forEach((key) => storage?.removeItem(key));
+    } catch {
+      // The shared session has already been removed when storage is unavailable.
+    }
   }
 
   async function listCalendar() {
