@@ -7,7 +7,7 @@ una base de datos compartida.
 
 ## Estado y alcance
 
-El checkout estable actual es `v0.11.0` e incluye `bin/calendary.js`, el
+El checkout estable actual es `v0.13.0` e incluye `bin/calendary.js`, el
 contrato compartido y las pruebas de la CLI. La CLI opera únicamente sobre
 copias JSON y no accede directamente a IndexedDB. La interfaz y la CLI usan la
 misma frontera de escritura.
@@ -57,7 +57,7 @@ traslado explícito.
 
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
-| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `v0.11.0` | Uso operativo aprobado |
+| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `v0.13.0` | Uso operativo aprobado |
 | Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | Leer el encabezado y el JSON | Pruebas; no promover automáticamente |
 | Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | Almacenamiento local separado |
 

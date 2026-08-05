@@ -71,7 +71,8 @@ test("ruta e2e de la CLI cubre el contrato completo y sus controles operativos",
 
     const version = invoke(["--version"]);
     assertExit(version);
-    assert.match(version.stdout.trim(), /^0\.13\.0-beta\.2$/);
+    const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+    assert.equal(version.stdout.trim(), packageJson.version);
     const help = invoke(["--help"]);
     assertExit(help);
     assert.match(help.stdout, /activity\s+list \| get \| create/);

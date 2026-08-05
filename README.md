@@ -29,7 +29,7 @@ GitHub Pages ofrece dos canales:
 
 La beta usa la base administrada de Supabase con el calendario lógico
 `calendario-hvac-siys-beta`; la raíz estable conserva el almacenamiento local
-de `v0.11.0`.
+de `v0.13.0`. Las bases de estable y beta permanecen separadas.
 
 ## Primer uso
 

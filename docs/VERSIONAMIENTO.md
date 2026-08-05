@@ -118,9 +118,9 @@ a la estable será 0.14.1 o 0.14.1-beta.1 si se prueba primero como beta.
 | calendarMeta.revision | Estado de un cronograma | Aumenta por una mutación real del documento; no es una release. |
 | HOLIDAY_RULESET_VERSION | Reglas legales de festivos | Cambia cuando cambia la tabla o regla legal; se documenta aparte de SemVer. |
 
-La versión estable puede tener otro SCHEMA_VERSION que main. En particular, la
-estable v0.11.0 usa esquema 3 y la beta actual usa esquema 4; la estable no
-debe recibir documentos nuevos de esquema 4 sin una promoción compatible.
+La promoción `v0.13.0-beta.2` → `v0.13.0` fue compatible con el esquema 4,
+respaldos, CLI y persistencia local. La estable y la beta actual usan esquema 4,
+pero conservan bases separadas; Supabase sigue restringido al canal beta.
 
 ## 6. Canales de distribución
 
@@ -193,7 +193,7 @@ Para promover a estable, además:
 
 ## 10. Estado de transición de este repositorio
 
-- La estable vigente es v0.11.0.
+- La estable vigente es v0.13.0.
 - La beta publicada vigente es 0.13.0-beta.2.
 - 0.12.0-beta.1 y 0.13.0-beta.1 forman parte del historial beta y no fueron
   promovidas a estable.

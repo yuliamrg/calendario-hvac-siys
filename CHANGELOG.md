@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## [0.13.0] - 2026-08-05
+
+### Promovido
+
+- La beta probada `0.13.0-beta.2` pasa a ser la versión estable `0.13.0`.
+- La versión estable incorpora los códigos cortos de servicio y el contrato
+  de esquema 4, respaldos y CLI que fueron validados en la beta.
+
+### Compatibilidad
+
+- La estable conserva el almacenamiento local IndexedDB y su base separada;
+  Supabase continúa restringido al canal beta hasta una decisión explícita.
+
 ## [0.13.0-beta.2] - 2026-08-05
 
 ### Mejorado
