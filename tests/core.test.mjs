@@ -27,6 +27,8 @@ import {
   moveActivities,
   normalizeFilterArray,
   parseBackup,
+  reorderActivities,
+  runtimeChannelForLocation,
   sanitizeDocument,
   startOfMondayWeek
 } from "../src/core.js";
@@ -37,6 +39,42 @@ test("el calendario mensual siempre inicia lunes y contiene 42 días", () => {
   assert.equal(grid[0], "2026-06-29");
   assert.equal(grid.at(-1), "2026-08-09");
   assert.equal(startOfMondayWeek("2026-08-01"), "2026-07-27");
+});
+
+test("el canal local conserva IndexedDB en archivo y servidores de desarrollo", () => {
+  assert.equal(runtimeChannelForLocation({ protocol: "file:", hostname: "", pathname: "/dist/index.html" }), "local");
+  assert.equal(runtimeChannelForLocation({ protocol: "http:", hostname: "localhost", pathname: "/" }), "local");
+  assert.equal(runtimeChannelForLocation({ protocol: "http:", hostname: "127.0.0.1", pathname: "/" }), "local");
+  assert.equal(runtimeChannelForLocation({ protocol: "https:", hostname: "yuliamrg.github.io", pathname: "/calendario-hvac-siys/beta/" }), "beta");
+  assert.equal(runtimeChannelForLocation({ protocol: "https:", hostname: "yuliamrg.github.io", pathname: "/calendario-hvac-siys/" }), "stable");
+});
+
+test("el orden manual de tarjetas se conserva dentro del mismo día", () => {
+  const document = createDefaultDocument("2026-07-30", "2026-07-01T00:00:00.000Z");
+  const base = {
+    seriesId: null,
+    date: "2026-07-30",
+    planningBucket: "calendar",
+    clientId: null,
+    siteId: null,
+    city: null,
+    responsibleIds: [],
+    serviceType: "administrative",
+    status: "scheduled",
+    observations: "",
+    completedAt: null,
+    history: []
+  };
+  document.activities.push(
+    { ...base, id: "a", sortOrder: 0, createdAt: "2026-07-01T00:00:00.000Z", updatedAt: "2026-07-01T00:00:00.000Z" },
+    { ...base, id: "b", sortOrder: 1, createdAt: "2026-07-01T00:01:00.000Z", updatedAt: "2026-07-01T00:01:00.000Z" },
+    { ...base, id: "c", sortOrder: 2, createdAt: "2026-07-01T00:02:00.000Z", updatedAt: "2026-07-01T00:02:00.000Z" }
+  );
+  const order = reorderActivities(document, ["c"], { targetId: "a", position: "before", now: "2026-07-30T12:00:00.000Z" });
+  assert.deepEqual(order, ["c", "a", "b"]);
+  assert.deepEqual(document.activities.sort((a, b) => a.sortOrder - b.sortOrder).map((item) => item.id), ["c", "a", "b"]);
+  assert.equal(document.activities.find((item) => item.id === "c").history.at(-1).action, "reordered");
+  assert.deepEqual(reorderActivities(document, ["c"], { position: "first" }), []);
 });
 
 test("el cálculo gregoriano de Pascua cubre años normales y bisiestos", () => {

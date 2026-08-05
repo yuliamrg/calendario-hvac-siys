@@ -36,6 +36,7 @@ Los errores exponen `CalendarContractError.code`: `INVALID_REQUEST`,
 | `activity.create` | fecha/rango o `planningBucket: "quarantine"`, referencias, servicio, estado, observaciones y política no laborable | IDs, serie y fechas omitidas |
 | `activity.edit` | `{ activityId, patch, commonScope, statusScope, allowNonWorking }`; `patch` admite `planningBucket` | IDs y campos cambiados |
 | `activity.move` | `{ activityIds, targetDate, anchorId?, mode?, allowNonWorking? }` | movimientos |
+| `activity.reorder` | `{ activityIds, targetId?, targetDate?, position: "first"|"last"|"before"|"after" }` | orden persistente dentro del mismo día |
 | `activity.quarantine` | `{ activityId, scope?: "single"|"series" }` | tarjeta representante y fechas retiradas |
 | `activity.assign-date` | `{ activityId, targetDate, allowNonWorking? }` | tarjeta devuelta a `calendar` como `scheduled` |
 | `activity.duplicate` | `{ activityIds, targetDate, anchorId?, allowNonWorking? }` | IDs nuevos |
@@ -59,6 +60,11 @@ existir y ser coherentes. En esquema 4, una actividad `quarantine` usa
 `date: null`, `status: "to_schedule"` y `seriesId: null`; una actividad del
 calendario usa `planningBucket: "calendar"` y fecha válida. Los documentos
 anteriores se migran al calendario.
+
+`activity.reorder` sólo acepta tarjetas del calendario que pertenezcan al mismo
+día. `targetId` se usa con `before` o `after`; `first` y `last` no requieren una
+tarjeta destino. El orden se persiste como una extensión compatible del documento
+actual y se aplica también a la agenda y a las exportaciones.
 
 ## Límites de la CLI MVP
 

@@ -17,6 +17,7 @@ import {
   buildMonthlyCsv,
   buildQuarantineCsv,
   colombianHolidays,
+  compareActivityOrder,
   compareISODate,
   createBackupEnvelope,
   createDefaultDocument,
@@ -38,6 +39,7 @@ import {
   normalizeText,
   parseISODate,
   parseBackup,
+  runtimeChannelForLocation,
   safeText,
   sanitizeDocument,
   todayInBogota,
@@ -63,11 +65,7 @@ import {
   supabaseCalendarKeyForChannel
 } from "./cloud.js";
 
-const RUNTIME_CHANNEL = location.pathname.includes("/beta/")
-  ? "beta"
-  : location.protocol === "file:"
-    ? "local"
-    : "stable";
+const RUNTIME_CHANNEL = runtimeChannelForLocation(location);
 const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
   ? "calendario-hvac-siys-beta"
   : "calendario-hvac-siys";
@@ -1288,8 +1286,11 @@ function updateCatalogSemantics() {
 }
 
 function applyDesignContract() {
-  if (!["beta", "stable"].includes(RUNTIME_CHANNEL)) return;
-  document.documentElement.dataset.channel = RUNTIME_CHANNEL;
+  if (!["beta", "stable", "local"].includes(RUNTIME_CHANNEL)) return;
+  // Local keeps its own runtime and IndexedDB, but intentionally inherits the
+  // approved beta visual contract until a local-only visual contract exists.
+  document.documentElement.dataset.channel = RUNTIME_CHANNEL === "local" ? "beta" : RUNTIME_CHANNEL;
+  document.documentElement.dataset.runtimeChannel = RUNTIME_CHANNEL;
   document.querySelector(".segmented[role=\"tablist\"]")?.setAttribute("aria-orientation", "horizontal");
   dom.catalogList.setAttribute("role", "tabpanel");
   dom.catalogList.setAttribute("tabindex", "0");
@@ -1628,9 +1629,13 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("application/x-calendario-hvac", JSON.stringify(payload));
   });
+  card.addEventListener("dragover", (event) => handleActivityCardDragOver(event, activity));
+  card.addEventListener("dragleave", (event) => handleActivityCardDragLeave(event, activity));
+  card.addEventListener("drop", (event) => handleActivityCardDrop(event, activity));
   card.addEventListener("dragend", () => {
     dragContext = null;
     document.querySelectorAll(".day-cell.drag-over").forEach((cell) => cell.classList.remove("drag-over"));
+    clearReorderMarkers();
     clearPlanningBucketDropState();
   });
   return card;
@@ -1692,12 +1697,7 @@ function renderCalendar() {
     items.push(activity);
     activitiesByDate.set(activity.date, items);
   }
-  for (const items of activitiesByDate.values()) {
-    items.sort((a, b) => {
-      const completedDifference = Number(a.status === "completed") - Number(b.status === "completed");
-      return completedDifference || a.createdAt.localeCompare(b.createdAt);
-    });
-  }
+  for (const items of activitiesByDate.values()) items.sort(compareActivityOrder);
 
   const today = todayInBogota();
   const fragment = document.createDocumentFragment();
@@ -1792,6 +1792,44 @@ function renderCalendar() {
       cardContainer.append(more);
     }
     cell.append(cardContainer);
+
+    cardContainer.addEventListener("dragover", (event) => {
+      const payload = dragContext;
+      const itemsForDate = activitiesByDate.get(date) ?? [];
+      const anchor = payload?.type === "activity"
+        ? appDocument.activities.find((activity) => activity.id === payload.anchorId)
+        : null;
+      if (
+        !anchor ||
+        hasActiveActivityFilters() ||
+        isQuarantineActivity(anchor) ||
+        anchor.date !== date ||
+        payload.activityIds.some((id) => id !== anchor.id && !itemsForDate.some((activity) => activity.id === id))
+      ) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearReorderMarkers();
+      const position = event.clientY <= event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2
+        ? "first"
+        : "last";
+      event.currentTarget.classList.add(position === "first" ? "reorder-first" : "reorder-last");
+      event.currentTarget.dataset.reorderPosition = position;
+      event.dataTransfer.dropEffect = "move";
+    });
+    cardContainer.addEventListener("drop", (event) => {
+      const payload = dragContext;
+      const itemsForDate = activitiesByDate.get(date) ?? [];
+      const anchor = payload?.type === "activity"
+        ? appDocument.activities.find((activity) => activity.id === payload.anchorId)
+        : null;
+      if (!anchor || hasActiveActivityFilters() || isQuarantineActivity(anchor) || anchor.date !== date) return;
+      if (payload.activityIds.some((id) => id !== anchor.id && !itemsForDate.some((activity) => activity.id === id))) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const position = event.currentTarget.dataset.reorderPosition || "last";
+      dragContext = null;
+      applyActivityReorder(payload, null, position);
+    });
 
     cell.addEventListener("dragover", (event) => {
       if (!dragContext) return;
@@ -1927,6 +1965,90 @@ function handleCalendarDrop(event, date, holidayMap) {
   }
 }
 
+function hasActiveActivityFilters() {
+  const filters = appDocument.settings.filters ?? {};
+  return Boolean(filters.query?.trim()) || [
+    "cities", "clients", "sites", "responsibles", "serviceTypes", "statuses", "planningBuckets"
+  ].some((key) => Array.isArray(filters[key]) && filters[key].length);
+}
+
+function calendarActivitiesForDate(date, maps = lookupMaps()) {
+  return appDocument.activities
+    .filter((activity) => !isQuarantineActivity(activity) && activity.date === date)
+    .sort(compareActivityOrder);
+}
+
+function clearReorderMarkers() {
+  document.querySelectorAll(".reorder-before, .reorder-after, .reorder-first, .reorder-last").forEach((element) => {
+    element.classList.remove("reorder-before", "reorder-after", "reorder-first", "reorder-last");
+    delete element.dataset.reorderPosition;
+  });
+}
+
+function sameDayReorderPayload(payload, targetActivity) {
+  if (!payload || payload.type !== "activity" || !payload.activityIds?.length || hasActiveActivityFilters()) return false;
+  if (payload.activityIds.includes(targetActivity.id)) return false;
+  const selected = payload.activityIds
+    .map((id) => appDocument.activities.find((activity) => activity.id === id))
+    .filter(Boolean);
+  return selected.length === payload.activityIds.length && selected.every((activity) => (
+    !isQuarantineActivity(activity) && activity.date && activity.date === targetActivity.date
+  ));
+}
+
+function reorderPositionFromPointer(event, target) {
+  const rectangle = target.getBoundingClientRect();
+  return event.clientY <= rectangle.top + rectangle.height / 2 ? "before" : "after";
+}
+
+function handleActivityCardDragOver(event, targetActivity) {
+  if (!sameDayReorderPayload(dragContext, targetActivity)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const position = reorderPositionFromPointer(event, event.currentTarget);
+  clearReorderMarkers();
+  event.currentTarget.classList.add(position === "before" ? "reorder-before" : "reorder-after");
+  event.currentTarget.dataset.reorderPosition = position;
+  event.dataTransfer.dropEffect = "move";
+}
+
+function handleActivityCardDragLeave(event) {
+  if (event.currentTarget.contains(event.relatedTarget)) return;
+  event.currentTarget.classList.remove("reorder-before", "reorder-after");
+  delete event.currentTarget.dataset.reorderPosition;
+}
+
+function applyActivityReorder(payload, targetId, position) {
+  if (!payload?.activityIds?.length) return;
+  const target = targetId ? appDocument.activities.find((activity) => activity.id === targetId) : null;
+  const anchor = appDocument.activities.find((activity) => activity.id === payload.anchorId);
+  const targetDate = target?.date ?? anchor?.date;
+  if (!targetDate) return;
+  try {
+    const outcome = mutateWithContract("activity.reorder", {
+      activityIds: payload.activityIds,
+      targetId,
+      targetDate,
+      position
+    }, `${payload.activityIds.length} tarjeta${payload.activityIds.length === 1 ? "" : "s"} reordenada${payload.activityIds.length === 1 ? "" : "s"}`);
+    if (outcome.changed) clearActivitySelection();
+  } catch (error) {
+    showToast(error.message, { type: "error" });
+  } finally {
+    clearReorderMarkers();
+  }
+}
+
+function handleActivityCardDrop(event, targetActivity) {
+  if (!sameDayReorderPayload(dragContext, targetActivity)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const payload = dragContext;
+  const position = event.currentTarget.dataset.reorderPosition || reorderPositionFromPointer(event, event.currentTarget);
+  dragContext = null;
+  applyActivityReorder(payload, targetActivity.id, position);
+}
+
 function applyPendingDrop(action) {
   if (!pendingDrop) return;
   const payload = pendingDrop;
@@ -1937,13 +2059,14 @@ function applyPendingDrop(action) {
       const label = payload.activityIds.length > 1
         ? `${payload.activityIds.length} tarjetas movidas`
         : "Actividad movida";
-      mutateWithContract("activity.move", {
+      const outcome = mutateWithContract("activity.move", {
         activityIds: payload.activityIds,
         targetDate: payload.date,
         anchorId: payload.anchorId,
         mode: "preserve",
         allowNonWorking: true
       }, label);
+      if (outcome.changed) clearActivitySelection();
     } else if (action === "duplicate") {
       const outcome = mutateWithContract("activity.duplicate", {
         activityIds: payload.activityIds,
@@ -1960,6 +2083,7 @@ function applyPendingDrop(action) {
         targetDate: payload.date,
         allowNonWorking: true
       }, "Actividad ampliada a otro día");
+      if (outcome.changed) clearActivitySelection();
       if (outcome.result.activityId) renderActivityDrawer(outcome.result.activityId);
     }
     if (isNonWorkingDate(payload.date, payload.holidayMap)) {
@@ -2197,6 +2321,26 @@ function renderActivityDrawer(activityId) {
   actions.append(edit, organize, remove);
   body.append(actions);
 
+  if (!isQuarantineActivity(activity) && activity.date && hasEditControl) {
+    const order = calendarActivitiesForDate(activity.date);
+    const index = order.findIndex((item) => item.id === activity.id);
+    const orderActions = createElement("div", "detail-actions reorder-actions");
+    const controls = [
+      ["first", "Primera", index <= 0],
+      ["previous", "Anterior", index <= 0],
+      ["next", "Siguiente", index < 0 || index >= order.length - 1],
+      ["last", "Última", index < 0 || index >= order.length - 1]
+    ];
+    for (const [direction, label, disabled] of controls) {
+      const button = createElement("button", "button small ghost", label);
+      button.type = "button";
+      button.disabled = disabled;
+      button.addEventListener("click", () => moveActivityWithinDay(activity.id, direction));
+      orderActions.append(button);
+    }
+    body.append(detailItem("Orden en el día", orderActions, { wide: true }));
+  }
+
   const statusEditor = createElement("div", "detail-item detail-item-wide");
   if (isQuarantineActivity(activity)) {
     statusEditor.append(createElement("span", "", "Estado operativo"));
@@ -2264,11 +2408,16 @@ function renderDayDrawer(date) {
   dom.drawerEyebrow.textContent = "Agenda del día";
   dom.drawerTitle.textContent = formatDisplayDate(date, { weekday: "long" });
   const maps = lookupMaps();
-  const items = appDocument.activities
-    .filter((activity) => !isQuarantineActivity(activity) && activity.date === date)
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const allItems = calendarActivitiesForDate(date, maps);
+  const items = allItems.filter((activity) => matchesActivityFilters(activity, maps));
   const body = createElement("div", "detail-grid day-detail-grid");
-  if (!items.length) body.append(createElement("p", "", "No hay actividades programadas."));
+  if (!items.length) {
+    body.append(createElement(
+      "p",
+      "",
+      allItems.length ? "No hay actividades visibles con los filtros activos." : "No hay actividades programadas."
+    ));
+  }
   for (const activity of items) {
     const card = buildActivityCard(activity, maps);
     card.draggable = false;
@@ -2281,6 +2430,23 @@ function renderDayDrawer(date) {
   body.append(add);
   dom.drawerBody.replaceChildren(body);
   openDrawer();
+}
+
+function moveActivityWithinDay(activityId, direction) {
+  const activity = appDocument.activities.find((item) => item.id === activityId);
+  if (!activity?.date || isQuarantineActivity(activity)) return;
+  const items = calendarActivitiesForDate(activity.date);
+  const index = items.findIndex((item) => item.id === activityId);
+  if (index < 0) return;
+  if (["first", "previous"].includes(direction) && index === 0) return;
+  if (["last", "next"].includes(direction) && index === items.length - 1) return;
+  const payload = { type: "activity", activityIds: [activityId], anchorId: activityId };
+  if (direction === "first" || direction === "last") {
+    applyActivityReorder(payload, null, direction);
+    return;
+  }
+  const target = direction === "previous" ? items[index - 1] : items[index + 1];
+  applyActivityReorder(payload, target.id, direction === "previous" ? "before" : "after");
 }
 
 function updateActivityStatus(activityId, status, scope) {
@@ -3095,6 +3261,72 @@ function exportQuarantineCsv() {
   showToast("Listado de pendientes descargado.");
 }
 
+async function exportQuarantineImage() {
+  const darkExport = document.documentElement.dataset.theme === "dark";
+  const palette = darkExport
+    ? { page: "#101713", header: "#315f35", headerText: "#f4faf5", text: "#edf4ee", secondary: "#c1ccc3", row: "#202b23", grid: "#465247" }
+    : { page: "#f5f7f3", header: "#4f7d32", headerText: "#ffffff", text: "#1e2a21", secondary: "#566057", row: "#ffffff", grid: "#cfd8cf" };
+  const maps = lookupMaps();
+  const pending = appDocument.activities
+    .filter((activity) => isQuarantineActivity(activity) && matchesActivityFilters(activity, maps))
+    .sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id));
+  const logicalWidth = 1320;
+  const headerHeight = 176;
+  const rowHeight = 88;
+  const legendHeight = 72;
+  const logicalHeight = headerHeight + Math.max(1, pending.length) * rowHeight + legendHeight;
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = logicalWidth * scale;
+  canvas.height = logicalHeight * scale;
+  const context = canvas.getContext("2d");
+  context.scale(scale, scale);
+  context.fillStyle = palette.page;
+  context.fillRect(0, 0, logicalWidth, logicalHeight);
+  context.fillStyle = palette.header;
+  context.fillRect(0, 0, logicalWidth, headerHeight);
+  canvasText(context, "Pendientes de programación", 32, 48, 850, { font: "30px Arial", color: palette.headerText, bold: true });
+  canvasText(context, appDocument.calendarMeta.coordinator || "Sin coordinador registrado", 32, 82, 850, { font: "18px Arial", color: palette.headerText });
+  canvasText(context, `${pending.length} tarjeta${pending.length === 1 ? "" : "s"}`, 1050, 52, 230, { font: "24px Arial", color: palette.headerText, bold: true });
+  canvasText(context, `Generado ${timestampLabel(new Date().toISOString())}`, 32, 132, 1220, { font: "15px Arial", color: palette.headerText });
+  if (!pending.length) {
+    canvasText(context, "No hay pendientes visibles con los filtros actuales.", 36, headerHeight + 48, logicalWidth - 72, { font: "20px Arial", color: palette.text });
+  }
+  pending.forEach((activity, index) => {
+    const y = headerHeight + index * rowHeight;
+    const client = maps.clients.get(activity.clientId);
+    const site = maps.sites.get(activity.siteId);
+    const assigned = activity.responsibleIds
+      .map((id) => maps.responsibles.get(id))
+      .filter(Boolean)
+      .map((item) => item.initials || displayInitialsFor(item.name))
+      .join(" · ");
+    const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
+    context.fillStyle = palette.row;
+    context.fillRect(0, y, logicalWidth, rowHeight);
+    context.strokeStyle = palette.grid;
+    context.strokeRect(0, y, logicalWidth, rowHeight);
+    context.fillStyle = darkExport ? "#f0a16d" : "#b85f2d";
+    context.fillRect(0, y, 8, rowHeight);
+    canvasText(context, `${serviceCode} · ${client?.name || SERVICE_TYPES[activity.serviceType] || "Actividad"}`, 28, y + 25, 760, { font: "17px Arial", color: palette.text, bold: true });
+    canvasText(context, [site?.name || activity.city || "Sin sede", assigned || "Sin responsable"].filter(Boolean).join(" · "), 28, y + 48, 760, { font: "14px Arial", color: palette.secondary });
+    canvasText(context, `${STATUS_ICONS[activity.status] ?? "•"} ${ACTIVITY_STATUSES[activity.status]}${activity.observations ? ` · ${activity.observations}` : ""}`, 28, y + 70, logicalWidth - 56, { font: "12px Arial", color: palette.secondary });
+  });
+  const legendY = headerHeight + Math.max(1, pending.length) * rowHeight;
+  context.fillStyle = darkExport ? "#1b281e" : "#e8eee5";
+  context.fillRect(0, legendY, logicalWidth, legendHeight);
+  canvasText(context, "Convención: las tarjetas están sin fecha; el CSV conserva el detalle estructurado para edición o revisión.", 28, legendY + 29, logicalWidth - 56, { font: "14px Arial", color: palette.text });
+  canvasText(context, "Servicios: MP · MC · EM · DG · GA · AD   |   Estados: ○ Programada · ● Confirmada · ✓ Terminada · × Cancelada", 28, legendY + 54, logicalWidth - 56, { font: "13px Arial", color: palette.secondary });
+  const blob = await new Promise((resolve, reject) =>
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
+  );
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  downloadBlob(blob, "image/png", `pendientes_${identity}.png`);
+  appendAudit("quarantine_png_exported", `${pending.length} pendiente(s) exportado(s)`);
+  scheduleSave();
+  showToast("Imagen de pendientes descargada.");
+}
+
 function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
   context.font = `${bold ? "700 " : ""}${font}`;
   context.fillStyle = color;
@@ -3138,12 +3370,13 @@ async function exportCurrentMonthImage() {
   }
   const weekHeights = Array.from({ length: 6 }, (_, week) => {
     const maxCards = Math.max(...dates.slice(week * 7, week * 7 + 7).map((date) => byDate.get(date)?.length ?? 0));
-    return Math.max(150, 62 + maxCards * 54);
+    return Math.max(160, 68 + maxCards * 66);
   });
   const logicalWidth = 1680;
   const headerHeight = 180;
   const weekdayHeight = 48;
-  const logicalHeight = headerHeight + weekdayHeight + weekHeights.reduce((sum, value) => sum + value, 0) + 40;
+  const legendHeight = 132;
+  const logicalHeight = headerHeight + weekdayHeight + weekHeights.reduce((sum, value) => sum + value, 0) + legendHeight;
   const scale = 2;
   const canvas = document.createElement("canvas");
   canvas.width = logicalWidth * scale;
@@ -3188,6 +3421,12 @@ async function exportCurrentMonthImage() {
       for (const activity of byDate.get(date) ?? []) {
         const client = maps.clients.get(activity.clientId);
         const site = maps.sites.get(activity.siteId);
+        const assigned = activity.responsibleIds
+          .map((id) => maps.responsibles.get(id))
+          .filter(Boolean)
+          .map((item) => item.initials || displayInitialsFor(item.name))
+          .join(" · ");
+        const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
         const visual = responsibleVisualClass(activity, maps);
         const colors = visual === "contractor"
           ? [darkExport ? "#4a3022" : "#fff0e4", "#ed7d31"]
@@ -3198,17 +3437,26 @@ async function exportCurrentMonthImage() {
               : [darkExport ? "#223b38" : "#e6f1ef", "#58a29a"];
         context.globalAlpha = ["completed", "cancelled"].includes(activity.status) ? 0.55 : 1;
         context.fillStyle = colors[0];
-        context.fillRect(x + 8, cardY, columnWidth - 16, 46);
+        context.fillRect(x + 8, cardY, columnWidth - 16, 56);
         context.fillStyle = colors[1];
-        context.fillRect(x + 8, cardY, 5, 46);
-        canvasText(context, client?.name || SERVICE_TYPES[activity.serviceType], x + 20, cardY + 18, columnWidth - 36, { font: "14px Arial", color: palette.text, bold: true });
-        canvasText(context, `${site?.name || activity.city || ""} · ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 37, columnWidth - 36, { font: "12px Arial", color: palette.secondary });
+        context.fillRect(x + 8, cardY, 5, 56);
+        canvasText(context, `${serviceCode} · ${client?.name || SERVICE_TYPES[activity.serviceType]}`, x + 20, cardY + 17, columnWidth - 36, { font: "13px Arial", color: palette.text, bold: true });
+        canvasText(context, [site?.name || activity.city || "Sin sede", assigned || "Sin responsable"].filter(Boolean).join(" · "), x + 20, cardY + 35, columnWidth - 36, { font: "11px Arial", color: palette.secondary });
+        canvasText(context, `${STATUS_ICONS[activity.status] ?? "•"} ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 51, columnWidth - 36, { font: "10px Arial", color: palette.secondary });
         context.globalAlpha = 1;
-        cardY += 54;
+        cardY += 66;
       }
     }
     y += height;
   }
+  context.fillStyle = darkExport ? "#1b281e" : "#e8eee5";
+  context.fillRect(0, y, logicalWidth, legendHeight);
+  context.strokeStyle = palette.grid;
+  context.strokeRect(0, y, logicalWidth, legendHeight);
+  canvasText(context, "Convenciones", 24, y + 28, 220, { font: "18px Arial", color: palette.text, bold: true });
+  canvasText(context, "Servicios: MP Preventivo · MC Correctivo · EM Emergencia · DG Diagnóstico · GA Garantía · AD Administrativo", 24, y + 55, logicalWidth - 48, { font: "13px Arial", color: palette.text });
+  canvasText(context, "Estados: ○ Programada · ● Confirmada · ▶ En ejecución · ✓ Terminada · ! No ejecutada · × Cancelada", 24, y + 80, logicalWidth - 48, { font: "13px Arial", color: palette.text });
+  canvasText(context, "Tarjetas: color/etiqueta identifica nómina, contratista, mixto o sin responsable · fondo cálido: domingo/festivo · ↪: reprogramada", 24, y + 105, logicalWidth - 48, { font: "13px Arial", color: palette.text });
   const blob = await new Promise((resolve, reject) =>
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
   );
@@ -3218,6 +3466,44 @@ async function exportCurrentMonthImage() {
   appendAudit("png_exported", `Vista filtrada exportada: ${fileMonth}`);
   scheduleSave();
   showToast(`Imagen de ${formatMonthTitle(year, month)} descargada.`);
+}
+
+function downloadBaseTemplate() {
+  const workbook = XLSX.utils.book_new();
+  const sheets = {
+    dm_ciudad: [["id", "Zona", "Ciudad"]],
+    dm_clientes: [["id", "Nombre"]],
+    dm_sede: [["id", "Cliente", "Zona", "Ciudad", "Centro comercial", "Nombre", "Dirección", "Ingresos", "Requiere App"]],
+    dm_directorio_siys: [["Nombre", "Empresa", "Tipo", "Ciudad base", "Grupo", "Alturas", "Cursos"]],
+    dm_equipo_cronograma: [[
+      "_id", "subsidiary._id", "subsidiary.name", "responsable ejecucion", "Frecuencia",
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]]
+  };
+  const instructions = [
+    ["Plantilla de Base Operativa HVAC SI&S"],
+    ["Diligencia las hojas con datos operativos; no agregues cédulas, teléfonos, correos ni fotografías."],
+    ["Las hojas obligatorias son dm_ciudad, dm_clientes, dm_sede y dm_directorio_siys."],
+    ["dm_equipo_cronograma es opcional y contiene sólo pistas agregadas de equipos y frecuencias."],
+    ["Conserva los nombres exactos de las hojas y de las columnas; no cambies los encabezados."],
+    ["Usa identificadores estables y evita duplicar el mismo id o la misma combinación de identidad."],
+    ["dm_sede.Cliente debe coincidir exactamente con dm_clientes.Nombre; Ciudad debe coincidir con dm_ciudad.Ciudad."],
+    ["dm_sede requiere id, Cliente, Zona, Ciudad, Centro comercial y Nombre. Dirección e Ingresos son opcionales."],
+    ["Requiere App acepta: Necesita App, No necesita App o vacío si está pendiente de confirmar."],
+    ["dm_directorio_siys requiere Nombre, Empresa, Tipo, Ciudad base y Grupo. Tipo sólo puede ser Nómina o Contratista."],
+    ["Alturas y Cursos son opcionales; registra únicamente requisitos operativos, sin documentos personales."],
+    ["La aplicación muestra una vista previa y no elimina registros ausentes de una actualización."],
+    ["Esta plantilla está vacía: no reemplaza una copia vigente de la Base Operativa ni contiene datos actuales."]
+  ];
+  for (const [name, rows] of Object.entries(sheets)) {
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    sheet["!cols"] = rows[0].map((header) => ({ wch: Math.max(14, Math.min(32, String(header).length + 4)) }));
+    XLSX.utils.book_append_sheet(workbook, sheet, name);
+  }
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(instructions), "Instrucciones");
+  const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  downloadBlob(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "plantilla_base_operativa_HVAC_SIYS.xlsx");
+  showToast("Plantilla de Base Operativa descargada.");
 }
 
 function downloadProgrammingTemplate() {
@@ -3646,9 +3932,13 @@ function bindEvents() {
   dom.mergeJsonButton.addEventListener("click", () => dom.mergeJsonFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
   dom.exportQuarantineCsvButton.addEventListener("click", exportQuarantineCsv);
+  dom.exportQuarantineImageButton.addEventListener("click", () => {
+    exportQuarantineImage().catch((error) => showToast(error.message, { type: "error" }));
+  });
   dom.exportImageButton.addEventListener("click", () => {
     exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
   });
+  dom.baseTemplateButton.addEventListener("click", downloadBaseTemplate);
   dom.programmingTemplateButton.addEventListener("click", downloadProgrammingTemplate);
   dom.importProgrammingButton.addEventListener("click", () => dom.programmingFileInput.click());
   dom.holidayButton.addEventListener("click", () => {
@@ -3799,6 +4089,7 @@ function bindEvents() {
   }
   for (const button of document.querySelectorAll(".action-menu .menu-action")) {
     button.addEventListener("click", () => {
+      if (button.id === "themeButton") return;
       button.closest("details")?.removeAttribute("open");
       closeMobileMore();
     });

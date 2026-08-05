@@ -109,6 +109,37 @@ export function compareISODate(a, b) {
   return String(a).localeCompare(String(b));
 }
 
+export function runtimeChannelForLocation(locationLike = {}) {
+  const pathname = String(locationLike.pathname ?? "");
+  const protocol = String(locationLike.protocol ?? "").toLowerCase();
+  const hostname = String(locationLike.hostname ?? "").toLowerCase();
+  if (pathname.includes("/beta/")) return "beta";
+  if (
+    protocol === "file:" ||
+    ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname) ||
+    hostname.endsWith(".localhost")
+  ) {
+    return "local";
+  }
+  return "stable";
+}
+
+function hasManualActivityOrder(activity) {
+  return Number.isFinite(Number(activity?.sortOrder));
+}
+
+export function compareActivityOrder(a, b) {
+  const aHasOrder = hasManualActivityOrder(a);
+  const bHasOrder = hasManualActivityOrder(b);
+  if (aHasOrder || bHasOrder) {
+    if (aHasOrder !== bHasOrder) return aHasOrder ? -1 : 1;
+    const orderDifference = Number(a.sortOrder) - Number(b.sortOrder);
+    if (orderDifference) return orderDifference;
+  }
+  const completedDifference = Number(a.status === "completed") - Number(b.status === "completed");
+  return completedDifference || String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")) || a.id.localeCompare(b.id);
+}
+
 export function dayOfWeek(value) {
   return parseISODate(value).getUTCDay();
 }
@@ -474,6 +505,7 @@ export function createActivitiesFromRange(
     responsibleIds,
     serviceType: input.serviceType,
     status: input.status,
+    sortOrder: null,
     observations: safeText(input.observations, 5000),
     createdAt: now,
     updatedAt: now,
@@ -513,6 +545,7 @@ export function createQuarantineActivity(
     responsibleIds: [...new Set((input.responsibleIds ?? []).map(String).filter(Boolean))],
     serviceType: input.serviceType,
     status: "to_schedule",
+    sortOrder: null,
     observations: safeText(input.observations, 5000),
     createdAt: now,
     updatedAt: now,
@@ -614,6 +647,7 @@ export function assignQuarantineDate(
   activity.date = targetDate;
   activity.planningBucket = "calendar";
   activity.status = "scheduled";
+  activity.sortOrder = null;
   activity.seriesId = null;
   activity.completedAt = null;
   activity.updatedAt = now;
@@ -664,6 +698,7 @@ export function moveActivityToQuarantine(
   representative.date = null;
   representative.planningBucket = "quarantine";
   representative.status = "to_schedule";
+  representative.sortOrder = null;
   representative.seriesId = null;
   representative.completedAt = null;
   representative.updatedAt = now;
@@ -771,6 +806,7 @@ export function moveActivities(
     const nextDate = mode === "same" ? targetDate : addDaysISO(activity.date, delta);
     if (nextDate === previousDate) continue;
     activity.date = nextDate;
+    activity.sortOrder = null;
     activity.updatedAt = now;
     activity.history ??= [];
     activity.history.push({
@@ -782,6 +818,86 @@ export function moveActivities(
     moved.push({ id: activity.id, from: previousDate, to: activity.date });
   }
   return moved;
+}
+
+export function reorderActivities(
+  document,
+  activityIds,
+  {
+    targetId = null,
+    targetDate = null,
+    position = "after",
+    now = new Date().toISOString()
+  } = {}
+) {
+  if (!Array.isArray(activityIds) || !activityIds.length || new Set(activityIds).size !== activityIds.length) {
+    throw new TypeError("La selección de actividades no es válida.");
+  }
+  if (!["first", "last", "before", "after"].includes(position)) {
+    throw new TypeError("La posición de orden no es válida.");
+  }
+  const ids = new Set(activityIds.map(String));
+  const selected = document.activities.filter((activity) => ids.has(activity.id));
+  if (selected.length !== ids.size) {
+    throw new TypeError("Una o más actividades seleccionadas no existen.");
+  }
+  if (selected.some((activity) => isQuarantineActivity(activity) || !activity.date)) {
+    throw new TypeError("Sólo se pueden ordenar tarjetas del calendario.");
+  }
+  const date = selected[0].date;
+  if (selected.some((activity) => activity.date !== date)) {
+    throw new TypeError("Las tarjetas seleccionadas deben pertenecer al mismo día.");
+  }
+  if (targetDate !== null && targetDate !== undefined && targetDate !== date) {
+    throw new TypeError("La tarjeta sólo puede ordenarse dentro de su día.");
+  }
+  if (targetId && ids.has(targetId)) {
+    throw new TypeError("La tarjeta de destino no puede pertenecer a la selección.");
+  }
+
+  const current = document.activities
+    .filter((activity) => !isQuarantineActivity(activity) && activity.date === date)
+    .sort(compareActivityOrder);
+  const moving = current.filter((activity) => ids.has(activity.id));
+  const remaining = current.filter((activity) => !ids.has(activity.id));
+  if (moving.length !== ids.size) {
+    throw new TypeError("No se pudieron ordenar todas las tarjetas seleccionadas.");
+  }
+
+  let insertionIndex = remaining.length;
+  if (position === "first") {
+    insertionIndex = 0;
+  } else if (position === "last") {
+    insertionIndex = remaining.length;
+  } else {
+    const targetIndex = remaining.findIndex((activity) => activity.id === targetId);
+    if (targetIndex < 0) throw new TypeError("No se encontró la tarjeta de destino en ese día.");
+    insertionIndex = targetIndex + (position === "after" ? 1 : 0);
+  }
+  const ordered = [
+    ...remaining.slice(0, insertionIndex),
+    ...moving,
+    ...remaining.slice(insertionIndex)
+  ];
+  if (ordered.every((activity, index) => activity.id === current[index]?.id)) return [];
+
+  const movingDetails = new Map(moving.map((activity) => [activity.id, {
+    previous: current.findIndex((candidate) => candidate.id === activity.id),
+    next: ordered.findIndex((candidate) => candidate.id === activity.id)
+  }]));
+  for (const [index, activity] of ordered.entries()) {
+    activity.sortOrder = index;
+    if (!ids.has(activity.id)) continue;
+    activity.updatedAt = now;
+    activity.history ??= [];
+    const detail = movingDetails.get(activity.id);
+    activity.history.push({
+      at: now,
+      action: "reordered",
+      detail: `Orden del día ${detail.previous + 1} → ${detail.next + 1}`
+    });
+  }
+  return ordered.map((activity) => activity.id);
 }
 
 export function duplicateActivities(
@@ -810,6 +926,7 @@ export function duplicateActivities(
     seriesId: null,
     date: addDaysISO(activity.date, delta),
     status: "scheduled",
+    sortOrder: null,
     completedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -871,6 +988,7 @@ export function extendActivity(
     seriesId,
     date: targetDate,
     status: "scheduled",
+    sortOrder: null,
     completedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -1289,11 +1407,14 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
       return {
         ...keepAllowed(item, [
           "id", "seriesId", "date", "planningBucket", "clientId", "siteId", "city", "responsibleIds",
-          "serviceType", "status", "observations", "createdAt", "updatedAt", "completedAt"
+          "serviceType", "status", "sortOrder", "observations", "createdAt", "updatedAt", "completedAt"
         ]),
         planningBucket,
         date: Object.hasOwn(item ?? {}, "date") ? item.date : null,
         seriesId: Object.hasOwn(item ?? {}, "seriesId") ? item.seriesId : null,
+        sortOrder: item?.sortOrder === null || item?.sortOrder === undefined || item?.sortOrder === ""
+          ? null
+          : Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : null,
         responsibleIds: Array.isArray(item.responsibleIds) ? [...new Set(item.responsibleIds.map(String))] : [],
         observations: safeText(item.observations, 5000),
         history: cleanHistory(item.history)
@@ -1394,7 +1515,7 @@ export function buildMonthlyCsv(document, year, month) {
       typeof activity.date === "string" &&
       activity.date.startsWith(prefix)
     ))
-    .sort((a, b) => compareISODate(a.date, b.date) || a.id.localeCompare(b.id))
+    .sort((a, b) => compareISODate(a.date, b.date) || compareActivityOrder(a, b))
     .map((activity) => {
       const assigned = activity.responsibleIds.map((id) => responsibles.get(id)).filter(Boolean);
       return [

@@ -126,6 +126,27 @@ test("mover a domingo exige confirmación y mover al mismo día es no-op", () =>
   assert.equal(noOp.document.calendarMeta.revision, created.calendarMeta.revision);
 });
 
+test("reordenar tarjetas usa una operación atómica dentro del mismo día", () => {
+  const nextId = idFactory();
+  let document = createOne(documentFixture(), { observations: "Primera" }, { idFactory: nextId }).document;
+  document = createOne(document, { observations: "Segunda" }, { idFactory: nextId }).document;
+  const firstId = document.activities[0].id;
+  const secondId = document.activities[1].id;
+  const reordered = executeCalendarOperation(document, {
+    operation: "activity.reorder",
+    payload: { activityIds: [secondId], targetId: firstId, position: "before", targetDate: "2026-08-03" }
+  }, { now: NOW });
+  assert.equal(reordered.changed, true);
+  assert.deepEqual(
+    reordered.document.activities
+      .filter((activity) => activity.date === "2026-08-03")
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((activity) => activity.id),
+    [secondId, firstId]
+  );
+  assert.equal(reordered.document.audit.at(-1).action, "activities_reordered");
+});
+
 test("duplicar, ampliar, cambiar estado y editar en lote usan el mismo contrato", () => {
   const nextId = idFactory();
   let document = createOne(documentFixture(), {}, { idFactory: nextId }).document;

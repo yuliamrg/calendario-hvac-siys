@@ -17,6 +17,11 @@ no cambia la revisión.
 3. Revise nuevos, actualizados, ausentes y advertencias.
 4. Confirme la importación.
 
+Si no tiene un libro base, use **Gestionar > Descargar plantilla de Base Operativa**.
+El archivo incluye las hojas obligatorias, la hoja opcional de pistas de equipos y
+una hoja de instrucciones. Es una plantilla vacía: no reemplaza la fuente vigente
+ni contiene datos operativos actuales.
+
 La aplicación sólo lee campos permitidos de clientes, sedes, ciudades,
 responsables y pistas de cobertura. No modifica el Excel, no borra registros
 locales ausentes y excluye documentos, teléfonos, correos y otros datos
@@ -67,6 +72,19 @@ aplicarse al día, desde ese día en adelante o a toda la actividad.
 Las tarjetas terminadas se muestran opacas. Nómina, contratistas y equipos
 mixtos tienen estilos distintos.
 
+### Varias tarjetas en un mismo día
+
+El calendario muestra hasta tres tarjetas por día. Si existen más, conserva las
+tres primeras y ofrece **＋N más** para abrir la agenda completa del día. La agenda
+respeta los filtros activos y el mismo orden del calendario; en teléfono la agenda
+diaria muestra todas las tarjetas.
+
+Con edición habilitada puede arrastrar una tarjeta sobre otra para insertarla antes
+o después, o soltarla en la parte superior/inferior del grupo para llevarla a la
+primera o última posición. El orden queda guardado en IndexedDB. En el detalle de
+la tarjeta también están disponibles **Primera**, **Anterior**, **Siguiente** y
+**Última** para teclado o táctil.
+
 ## 4. Selección y edición múltiple
 
 Marque las casillas de las tarjetas o use `Ctrl`/`Cmd` al hacer clic.
@@ -109,8 +127,11 @@ Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
 - **CSV:** exporta las actividades del mes y separa nómina de contratistas.
 - **CSV de pendientes:** descarga por separado las actividades sin fecha para
   revisarlas en Excel; el listado mensual nunca incluye estas tarjetas.
+- **Imagen de pendientes:** crea un resumen visual de las tarjetas pendientes
+  visibles, con contador, responsables, estado y convención de códigos.
 - **PNG:** crea una imagen horizontal a escala 2 con nombre, coordinador, mes,
-  filtros, festivos y todas las tarjetas visibles, incluso en días densos.
+  filtros, festivos, la información operativa de las tarjetas y una leyenda de
+  servicios, estados y convenciones, incluso en días densos.
 - **Descargar copia del cronograma:** crea la copia portable completa
   (internamente es un archivo JSON).
 
