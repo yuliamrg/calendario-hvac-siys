@@ -1025,6 +1025,11 @@ function responsibleVisualClass(activity, maps) {
   return types.has("contractor") ? "contractor" : "payroll";
 }
 
+function activityObservationsTooltip(activity) {
+  const observations = safeText(activity.observations, 500);
+  return observations ? `Observaciones: ${observations}` : "Sin observaciones registradas";
+}
+
 function renderFilters() {
   dom.globalSearch.value = appDocument.settings.filters.query ?? "";
   const definitions = filterDefinitions();
@@ -1538,12 +1543,16 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   const title = activity.serviceType === "administrative" && !client
     ? "Administrativo"
     : client?.name ?? serviceLabel ?? "Cliente sin catálogo";
+  const observationSummary = safeText(activity.observations, 240);
   const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
   card.draggable = hasEditControl;
   card.dataset.activityId = activity.id;
   card.dataset.serviceCode = serviceCode;
-  card.title = `Tipo de servicio: ${serviceLabel}`;
-  card.setAttribute("aria-label", `${title}${site?.name ? `, ${site.name}` : ""}, tipo de servicio: ${serviceLabel}, estado: ${ACTIVITY_STATUSES[activity.status]}`);
+  card.title = activityObservationsTooltip(activity);
+  card.setAttribute(
+    "aria-label",
+    `${title}${site?.name ? `, ${site.name}` : ""}, tipo de servicio: ${serviceLabel}, estado: ${ACTIVITY_STATUSES[activity.status]}${observationSummary ? `, observaciones: ${observationSummary}` : ""}`
+  );
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
 
   const checkbox = document.createElement("input");
@@ -1574,7 +1583,7 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   ].filter(Boolean).join(" · ");
   const small = createElement("small");
   const serviceCodeElement = createElement("span", "service-code", serviceCode);
-  serviceCodeElement.title = `${serviceCode}: ${serviceLabel}`;
+  serviceCodeElement.title = activityObservationsTooltip(activity);
   serviceCodeElement.setAttribute("aria-hidden", "true");
   small.append(serviceCodeElement);
   if (metadata) small.append(document.createTextNode(` · ${metadata}`));
@@ -1726,7 +1735,7 @@ function buildDayOverflowButton(date, items, maps) {
   const copy = createElement("span", "day-overflow-copy");
   copy.append(
     createElement("strong", "", visibleCountLabel),
-    createElement("small", "", "Abrir agenda")
+    createElement("small", "", "Abrir día")
   );
   button.append(stack, copy, createElement("span", "day-overflow-arrow", "↗"));
   button.addEventListener("click", () => renderDayDrawer(date));
@@ -1828,6 +1837,7 @@ function renderCalendar() {
 
     const cardContainer = createElement("div", "day-cards");
     const items = activitiesByDate.get(date) ?? [];
+    if (items.length > MAX_VISIBLE_CARDS) cell.classList.add("has-overflow");
     if (items.length) {
       const count = createElement("span", "mobile-day-count", String(items.length));
       count.title = `${items.length} actividad${items.length === 1 ? "" : "es"}`;
@@ -2460,6 +2470,7 @@ function renderDayDrawer(date) {
   const allItems = calendarActivitiesForDate(date, maps);
   const items = allItems.filter((activity) => matchesActivityFilters(activity, maps));
   const body = createElement("div", "detail-grid day-detail-grid");
+  const reorderEnabled = hasEditControl && !hasActiveActivityFilters() && items.length > 1;
   if (!items.length) {
     body.append(createElement(
       "p",
@@ -2467,9 +2478,18 @@ function renderDayDrawer(date) {
       allItems.length ? "No hay actividades visibles con los filtros activos." : "No hay actividades programadas."
     ));
   }
+  if (items.length > 1 && hasEditControl) {
+    body.append(createElement(
+      "p",
+      "field-note day-reorder-hint",
+      reorderEnabled
+        ? "Arrastra una tarjeta sobre otra para cambiar el orden; suelta antes o después."
+        : "Quita los filtros activos para reordenar todas las tarjetas del día."
+    ));
+  }
   for (const activity of items) {
     const card = buildActivityCard(activity, maps);
-    card.draggable = false;
+    card.draggable = reorderEnabled;
     body.append(card);
   }
   const add = createElement("button", "button primary", "Nueva actividad en esta fecha");

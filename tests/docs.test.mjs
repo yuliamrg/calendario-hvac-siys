@@ -96,6 +96,11 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
   assert.match(app, /_cronograma_/);
   assert.match(app, /function buildDayOverflowButton\(date, items, maps\)/);
   assert.match(app, /aria-haspopup/, "La pila de tarjetas debe anunciar su apertura de agenda");
+  assert.match(app, /function activityObservationsTooltip\(activity\)/);
+  assert.match(app, /card\.title = activityObservationsTooltip\(activity\)/);
+  assert.match(app, /card\.draggable = reorderEnabled/);
+  assert.match(app, /day-reorder-hint/);
+  assert.match(css, /\.day-cell\.has-overflow/);
   assert.match(css, /\.day-overflow-card/);
 });
 

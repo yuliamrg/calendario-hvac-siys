@@ -1052,6 +1052,29 @@ body.catalog-collapsed .catalog-panel {
   gap: 3px;
 }
 
+.day-cell.has-overflow .day-cards {
+  gap: 2px;
+}
+
+.day-cell.has-overflow .activity-card {
+  min-height: 31px;
+  padding: 3px 5px 3px 4px;
+}
+
+.day-cell.has-overflow .activity-copy strong {
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.day-cell.has-overflow .activity-copy small {
+  font-size: 8px;
+  line-height: 1.05;
+}
+
+.day-cell.has-overflow .card-flags {
+  font-size: 9px;
+}
+
 .activity-card {
   position: relative;
   display: grid;
@@ -1202,12 +1225,12 @@ body.catalog-collapsed .catalog-panel {
 
 .day-overflow {
   width: 100%;
-  min-height: 40px;
+  min-height: 32px;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 18px;
+  grid-template-columns: 36px minmax(0, 1fr) 16px;
   align-items: center;
-  gap: 6px;
-  padding: 4px 5px 4px 4px;
+  gap: 4px;
+  padding: 3px 4px;
   border: 1px solid var(--line);
   border-radius: 9px;
   color: var(--interactive-ink);
@@ -1227,21 +1250,21 @@ body.catalog-collapsed .catalog-panel {
 
 .day-overflow-stack {
   position: relative;
-  width: 42px;
-  height: 29px;
+  width: 36px;
+  height: 24px;
 }
 
 .day-overflow-card {
   position: absolute;
   top: 0;
   left: 0;
-  width: 37px;
-  height: 23px;
+  width: 31px;
+  height: 17px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 3px;
-  padding: 2px 3px;
+  gap: 2px;
+  padding: 1px 2px;
   overflow: hidden;
   border: 1px solid rgba(40, 60, 45, 0.18);
   border-left: 4px solid var(--payroll-dark);
@@ -1249,16 +1272,16 @@ body.catalog-collapsed .catalog-panel {
   color: #17302d;
   background: var(--payroll);
   box-shadow: 0 1px 2px rgba(40, 60, 45, 0.18);
-  font-size: 8px;
+  font-size: 7px;
   text-align: left;
-  transform: translate(calc(var(--stack-index) * 3px), calc(var(--stack-index) * 3px));
+  transform: translate(calc(var(--stack-index) * 2px), calc(var(--stack-index) * 2px));
   transition: transform 180ms ease;
   z-index: calc(4 - var(--stack-index));
 }
 
 .day-overflow:hover .day-overflow-card,
 .day-overflow:focus-visible .day-overflow-card {
-  transform: translate(calc(var(--stack-index) * 7px), calc(var(--stack-index) * -2px));
+  transform: translate(calc(var(--stack-index) * 5px), calc(var(--stack-index) * -1px));
 }
 
 .day-overflow-card.contractor {
@@ -1289,7 +1312,7 @@ body.catalog-collapsed .catalog-panel {
 }
 
 .day-overflow-service {
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -1315,13 +1338,13 @@ body.catalog-collapsed .catalog-panel {
 }
 
 .day-overflow-copy strong {
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1.15;
 }
 
 .day-overflow-copy small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1.1;
 }
 
@@ -1329,7 +1352,7 @@ body.catalog-collapsed .catalog-panel {
   display: grid;
   place-items: center;
   color: var(--green-800);
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
 }
 
@@ -1381,6 +1404,24 @@ body.catalog-collapsed .catalog-panel {
 .detail-grid {
   display: grid;
   gap: 14px;
+}
+
+.day-reorder-hint {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px dashed var(--control-border);
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface-2);
+  font-size: 11px;
+}
+
+.day-detail-grid .activity-card[draggable="true"] {
+  cursor: grab;
+}
+
+.day-detail-grid .activity-card[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .detail-item {
@@ -9385,6 +9426,11 @@ function responsibleVisualClass(activity, maps) {
   return types.has("contractor") ? "contractor" : "payroll";
 }
 
+function activityObservationsTooltip(activity) {
+  const observations = safeText(activity.observations, 500);
+  return observations ? `Observaciones: ${observations}` : "Sin observaciones registradas";
+}
+
 function renderFilters() {
   dom.globalSearch.value = appDocument.settings.filters.query ?? "";
   const definitions = filterDefinitions();
@@ -9898,12 +9944,16 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   const title = activity.serviceType === "administrative" && !client
     ? "Administrativo"
     : client?.name ?? serviceLabel ?? "Cliente sin catálogo";
+  const observationSummary = safeText(activity.observations, 240);
   const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
   card.draggable = hasEditControl;
   card.dataset.activityId = activity.id;
   card.dataset.serviceCode = serviceCode;
-  card.title = `Tipo de servicio: ${serviceLabel}`;
-  card.setAttribute("aria-label", `${title}${site?.name ? `, ${site.name}` : ""}, tipo de servicio: ${serviceLabel}, estado: ${ACTIVITY_STATUSES[activity.status]}`);
+  card.title = activityObservationsTooltip(activity);
+  card.setAttribute(
+    "aria-label",
+    `${title}${site?.name ? `, ${site.name}` : ""}, tipo de servicio: ${serviceLabel}, estado: ${ACTIVITY_STATUSES[activity.status]}${observationSummary ? `, observaciones: ${observationSummary}` : ""}`
+  );
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
 
   const checkbox = document.createElement("input");
@@ -9934,7 +9984,7 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   ].filter(Boolean).join(" · ");
   const small = createElement("small");
   const serviceCodeElement = createElement("span", "service-code", serviceCode);
-  serviceCodeElement.title = `${serviceCode}: ${serviceLabel}`;
+  serviceCodeElement.title = activityObservationsTooltip(activity);
   serviceCodeElement.setAttribute("aria-hidden", "true");
   small.append(serviceCodeElement);
   if (metadata) small.append(document.createTextNode(` · ${metadata}`));
@@ -10086,7 +10136,7 @@ function buildDayOverflowButton(date, items, maps) {
   const copy = createElement("span", "day-overflow-copy");
   copy.append(
     createElement("strong", "", visibleCountLabel),
-    createElement("small", "", "Abrir agenda")
+    createElement("small", "", "Abrir día")
   );
   button.append(stack, copy, createElement("span", "day-overflow-arrow", "↗"));
   button.addEventListener("click", () => renderDayDrawer(date));
@@ -10188,6 +10238,7 @@ function renderCalendar() {
 
     const cardContainer = createElement("div", "day-cards");
     const items = activitiesByDate.get(date) ?? [];
+    if (items.length > MAX_VISIBLE_CARDS) cell.classList.add("has-overflow");
     if (items.length) {
       const count = createElement("span", "mobile-day-count", String(items.length));
       count.title = `${items.length} actividad${items.length === 1 ? "" : "es"}`;
@@ -10820,6 +10871,7 @@ function renderDayDrawer(date) {
   const allItems = calendarActivitiesForDate(date, maps);
   const items = allItems.filter((activity) => matchesActivityFilters(activity, maps));
   const body = createElement("div", "detail-grid day-detail-grid");
+  const reorderEnabled = hasEditControl && !hasActiveActivityFilters() && items.length > 1;
   if (!items.length) {
     body.append(createElement(
       "p",
@@ -10827,9 +10879,18 @@ function renderDayDrawer(date) {
       allItems.length ? "No hay actividades visibles con los filtros activos." : "No hay actividades programadas."
     ));
   }
+  if (items.length > 1 && hasEditControl) {
+    body.append(createElement(
+      "p",
+      "field-note day-reorder-hint",
+      reorderEnabled
+        ? "Arrastra una tarjeta sobre otra para cambiar el orden; suelta antes o después."
+        : "Quita los filtros activos para reordenar todas las tarjetas del día."
+    ));
+  }
   for (const activity of items) {
     const card = buildActivityCard(activity, maps);
-    card.draggable = false;
+    card.draggable = reorderEnabled;
     body.append(card);
   }
   const add = createElement("button", "button primary", "Nueva actividad en esta fecha");

@@ -211,5 +211,20 @@ Cada cambio relevante debe registrar:
 - Resultado esperado: más contexto visual con el mismo punto de entrada para
   revisar y ordenar todas las tarjetas del día.
 
+### 2026-08-05 — Densidad de días y orden en agenda
+
+- Problema observado: la pila añadía demasiada altura a las celdas y la agenda
+  diaria no permitía arrastrar sus tarjetas.
+- Criterio aplicado: densidad adaptativa para estados de desborde y continuidad
+  de la misma interacción de orden en calendario y detalle; se preservan foco,
+  lectura y alternativa por botones.
+- Alcance: rama feature local; no promovido a beta ni estable.
+- Componentes afectados: tooltip de tarjeta, `day-detail-grid`, `day-reorder-hint`,
+  `day-cell.has-overflow` y `day-overflow`.
+- Pruebas previstas: reordenamiento funcional en agenda, tooltip con/sin
+  observaciones y seis viewports responsive sin overflow.
+- Resultado esperado: días más compactos sin perder señales y orden editable
+  desde cualquier representación del día.
+
 La beta es un canal de aprendizaje, no una excepción para saltarse accesibilidad,
 privacidad o pruebas de regresión.

@@ -41,7 +41,8 @@ vista previa, la segunda línea de cada tarjeta inicia con un código corto: `MP
 se conserva en el detalle y en la información accesible de la tarjeta. Los estados son:
 Programada, Confirmada, En ejecución, Terminada, No ejecutada,
 Cancelada y Por programar. Una actividad confirmada exige al menos un
-responsable.
+responsable. Al pasar el cursor sobre una tarjeta, el tooltip muestra sus
+observaciones; si no tiene, indica que no hay observaciones registradas.
 
 ### Bandeja Pendiente
 
@@ -81,10 +82,11 @@ agenda completa del día. La agenda respeta los filtros activos y el mismo orden
 del calendario; en teléfono la agenda diaria muestra todas las tarjetas.
 
 Con edición habilitada puede arrastrar una tarjeta sobre otra para insertarla antes
-o después, o soltarla en la parte superior/inferior del grupo para llevarla a la
-primera o última posición. El orden queda guardado en IndexedDB. En el detalle de
-la tarjeta también están disponibles **Primera**, **Anterior**, **Siguiente** y
-**Última** para teclado o táctil.
+o después, tanto en el calendario como dentro de la agenda completa del día. El
+orden queda guardado en IndexedDB. En el detalle de la tarjeta también están
+disponibles **Primera**, **Anterior**, **Siguiente** y **Última** para teclado o
+táctil. Si hay filtros activos, quítelos antes de reordenar para no ocultar parte
+del grupo.
 
 ## 4. Selección y edición múltiple
 

@@ -70,8 +70,9 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
 - Un día muestra hasta tres tarjetas. Si hay más, aparece una pila visual con
   miniaturas de las tarjetas adicionales, códigos de servicio y estados; al
   pulsarla se abre la agenda completa del día. Las tarjetas del mismo día se
-  pueden reordenar arrastrando o con los controles Primera, Anterior, Siguiente
-  y Última; el orden se conserva al recargar.
+  pueden reordenar arrastrando desde el calendario o desde la agenda del día,
+  o con los controles Primera, Anterior, Siguiente y Última; el orden se conserva
+  al recargar.
 - Con teclado, entre al calendario con `Tab` y recorra las fechas con las
   flechas; `Enter` abre una nueva actividad en la fecha enfocada.
 - Un servicio de varios días crea tarjetas independientes vinculadas. Después
