@@ -70,6 +70,7 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
 test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móviles explícitos", () => {
   const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
   for (const label of [
     "Gestionar",
     "Actualizar base operativa",
@@ -93,6 +94,9 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
   assert.match(app, /respaldo-cronograma_/);
   assert.match(app, /_programacion_/);
   assert.match(app, /_cronograma_/);
+  assert.match(app, /function buildDayOverflowButton\(date, items, maps\)/);
+  assert.match(app, /aria-haspopup/, "La pila de tarjetas debe anunciar su apertura de agenda");
+  assert.match(css, /\.day-overflow-card/);
 });
 
 test("la guía de Base Operativa enumera hojas y exclusiones de privacidad", () => {

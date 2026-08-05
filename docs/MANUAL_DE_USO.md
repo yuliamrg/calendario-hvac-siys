@@ -75,9 +75,10 @@ mixtos tienen estilos distintos.
 ### Varias tarjetas en un mismo día
 
 El calendario muestra hasta tres tarjetas por día. Si existen más, conserva las
-tres primeras y ofrece **＋N más** para abrir la agenda completa del día. La agenda
-respeta los filtros activos y el mismo orden del calendario; en teléfono la agenda
-diaria muestra todas las tarjetas.
+tres primeras y muestra una pila visual con miniaturas de las tarjetas
+adicionales, su código de servicio y su estado. Pulse la pila para abrir la
+agenda completa del día. La agenda respeta los filtros activos y el mismo orden
+del calendario; en teléfono la agenda diaria muestra todas las tarjetas.
 
 Con edición habilitada puede arrastrar una tarjeta sobre otra para insertarla antes
 o después, o soltarla en la parte superior/inferior del grupo para llevarla a la

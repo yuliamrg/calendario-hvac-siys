@@ -195,5 +195,21 @@ Cada cambio relevante debe registrar:
 5. pruebas ejecutadas;
 6. resultado antes de promover.
 
+### 2026-08-05 — Resumen visual para múltiples tarjetas
+
+- Problema observado: `＋N más` comunicaba la cantidad, pero no permitía
+  reconocer rápidamente la composición del día ni el tipo de las tarjetas
+  adicionales.
+- Criterio aplicado: divulgación progresiva, similitud visual por categoría y
+  una acción única para abrir el detalle completo; la información accesible no
+  depende sólo del color.
+- Alcance: rama feature local; no promovido a beta ni estable.
+- Componentes afectados: `day-cards`, pila `day-overflow`, miniaturas de
+  servicio/estado y apertura de la agenda diaria.
+- Pruebas previstas: pruebas de contrato/documentación, smoke funcional y los
+  seis viewports responsive.
+- Resultado esperado: más contexto visual con el mismo punto de entrada para
+  revisar y ordenar todas las tarjetas del día.
+
 La beta es un canal de aprendizaje, no una excepción para saltarse accesibilidad,
 privacidad o pruebas de regresión.

@@ -1200,15 +1200,137 @@ body.catalog-collapsed .catalog-panel {
   cursor: pointer;
 }
 
-.more-button {
+.day-overflow {
   width: 100%;
-  padding: 3px 2px;
-  border: 0;
-  color: var(--green-800);
-  background: transparent;
-  font-size: 10px;
-  font-weight: 800;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 5px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--interactive-ink);
+  background: var(--surface-2);
+  box-shadow: 0 1px 3px rgba(40, 60, 45, 0.1);
   cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.day-overflow:hover,
+.day-overflow:focus-visible {
+  border-color: var(--focus);
+  background: var(--surface);
+  box-shadow: 0 3px 8px rgba(40, 60, 45, 0.16);
+}
+
+.day-overflow-stack {
+  position: relative;
+  width: 42px;
+  height: 29px;
+}
+
+.day-overflow-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 37px;
+  height: 23px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3px;
+  padding: 2px 3px;
+  overflow: hidden;
+  border: 1px solid rgba(40, 60, 45, 0.18);
+  border-left: 4px solid var(--payroll-dark);
+  border-radius: 6px;
+  color: #17302d;
+  background: var(--payroll);
+  box-shadow: 0 1px 2px rgba(40, 60, 45, 0.18);
+  font-size: 8px;
+  text-align: left;
+  transform: translate(calc(var(--stack-index) * 3px), calc(var(--stack-index) * 3px));
+  transition: transform 180ms ease;
+  z-index: calc(4 - var(--stack-index));
+}
+
+.day-overflow:hover .day-overflow-card,
+.day-overflow:focus-visible .day-overflow-card {
+  transform: translate(calc(var(--stack-index) * 7px), calc(var(--stack-index) * -2px));
+}
+
+.day-overflow-card.contractor {
+  border-left-color: var(--contractor-dark);
+  color: #4b270e;
+  background: #f5aa77;
+}
+
+.day-overflow-card.mixed {
+  border-left-color: var(--green-800);
+  color: #3e2a1d;
+  background: linear-gradient(100deg, var(--payroll) 0 50%, #f3a46e 50% 100%);
+}
+
+.day-overflow-card.unassigned {
+  border-left-color: #8c968d;
+  color: #3d463e;
+  background: #e4e8e4;
+}
+
+.day-overflow-card.completed,
+.day-overflow-card.cancelled {
+  opacity: 0.62;
+}
+
+.day-overflow-card.not-executed {
+  box-shadow: inset 0 0 0 2px rgba(196, 61, 61, 0.55), 0 1px 2px rgba(40, 60, 45, 0.18);
+}
+
+.day-overflow-service {
+  font-size: 8px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.day-overflow-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-overflow-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.day-overflow-copy strong,
+.day-overflow-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-overflow-copy strong {
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.day-overflow-copy small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.1;
+}
+
+.day-overflow-arrow {
+  display: grid;
+  place-items: center;
+  color: var(--green-800);
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .reorder-actions {
@@ -9919,6 +10041,58 @@ function renderMobileAgenda(date, items, maps, holiday) {
   dom.mobileAgendaList.replaceChildren(fragment);
 }
 
+function buildDayOverflowButton(date, items, maps) {
+  const additional = items.slice(MAX_VISIBLE_CARDS);
+  const previewItems = additional.slice(0, 4);
+  const countLabel = additional.length === 1
+    ? "1 actividad adicional"
+    : `${additional.length} actividades adicionales`;
+  const visibleCountLabel = additional.length === 1
+    ? "1 por ver"
+    : `${additional.length} por ver`;
+  const button = createElement("button", "day-overflow");
+  button.type = "button";
+  button.dataset.additionalCount = String(additional.length);
+  button.title = `Ver las ${items.length} actividades del ${formatDisplayDate(date)}`;
+  button.setAttribute(
+    "aria-label",
+    `Abrir agenda completa del ${formatDisplayDate(date)}. ${items.length} actividades en total; ${countLabel}.`
+  );
+  button.setAttribute("aria-haspopup", "dialog");
+  button.setAttribute("aria-controls", "detailDrawer");
+
+  const stack = createElement("span", "day-overflow-stack");
+  stack.setAttribute("aria-hidden", "true");
+  for (const [index, activity] of previewItems.entries()) {
+    const client = maps.clients.get(activity.clientId);
+    const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
+    const serviceLabel = SERVICE_TYPES[activity.serviceType] ?? "Actividad";
+    const title = activity.serviceType === "administrative" && !client
+      ? "Administrativo"
+      : client?.name ?? serviceLabel;
+    const preview = createElement(
+      "span",
+      `day-overflow-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}`
+    );
+    preview.style.setProperty("--stack-index", String(index));
+    preview.title = `${title} · ${serviceLabel} · ${ACTIVITY_STATUSES[activity.status]}`;
+    preview.append(
+      createElement("span", "day-overflow-service", `${serviceCode} ${STATUS_ICONS[activity.status] ?? "•"}`),
+      createElement("span", "day-overflow-title", title)
+    );
+    stack.append(preview);
+  }
+
+  const copy = createElement("span", "day-overflow-copy");
+  copy.append(
+    createElement("strong", "", visibleCountLabel),
+    createElement("small", "", "Abrir agenda")
+  );
+  button.append(stack, copy, createElement("span", "day-overflow-arrow", "↗"));
+  button.addEventListener("click", () => renderDayDrawer(date));
+  return button;
+}
+
 function renderCalendar() {
   const { year, month } = currentMonthParts();
   dom.monthTitle.textContent = formatMonthTitle(year, month);
@@ -10024,10 +10198,7 @@ function renderCalendar() {
       cardContainer.append(buildActivityCard(activity, maps));
     }
     if (items.length > MAX_VISIBLE_CARDS) {
-      const more = createElement("button", "more-button", `＋${items.length - MAX_VISIBLE_CARDS} más`);
-      more.type = "button";
-      more.addEventListener("click", () => renderDayDrawer(date));
-      cardContainer.append(more);
+      cardContainer.append(buildDayOverflowButton(date, items, maps));
     }
     cell.append(cardContainer);
 
