@@ -1,5 +1,14 @@
 # Historial de cambios
 
+## [0.15.0-beta.1] - 2026-08-05
+
+### Nueva línea de desarrollo
+
+- Se inicia la siguiente línea beta después de promover `0.14.0-beta.3` a la
+  estable `0.14.0`.
+- La raíz estable permanece fijada en `v0.14.0`; los cambios nuevos se prueban
+  en `/beta/` antes de otra promoción.
+
 ## [0.14.0] - 2026-08-05
 
 ### Promovido a estable
