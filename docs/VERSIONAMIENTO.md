@@ -78,10 +78,15 @@ JSON. `package.json`, `src/core.js` y `stable-version.txt` deben conservar
 
 La beta anterior `0.12.0-beta.1` añadió la bandeja **Pendiente**, el esquema 4,
 los tipos Diagnóstico y Garantía y las operaciones de respaldo/CLI
-correspondientes. La nueva beta en preparación es `0.13.0-beta.1`: incorpora
-persistencia cloud con Supabase Auth, PostgREST y PostgreSQL administrado, sin
-cambiar el canal estable. Se publica sólo en `/beta/`; la raíz estable continúa
-usando `v0.11.0` hasta la promoción explícita.
+correspondientes. La beta `0.13.0-beta.1` incorporó persistencia cloud con
+Supabase Auth, PostgREST y PostgreSQL administrado, sin cambiar el canal
+estable. Se publica sólo en `/beta/`; la raíz estable continúa usando
+`v0.11.0` hasta la promoción explícita.
+
+La siguiente iteración publicada de esa línea es `0.13.0-beta.2`: muestra un
+código corto de servicio en cada tarjeta (`MP`, `MC`, `EM`, `DG`, `GA` o `AD`),
+conserva el nombre completo en el detalle y en la información accesible, y no
+cambia el esquema ni la persistencia cloud.
 
 El historial confirma una convención de hitos de producto: después de `0.3.0`
 se publicaron `0.4.0`, `0.5.0`, `0.6.0`, `0.7.0`, `0.8.0` y `0.9.0` para
