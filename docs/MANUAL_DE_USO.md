@@ -197,6 +197,11 @@ compartida, con calendarios lógicos independientes. La versión visible y el
 locales no se copian automáticamente a Supabase: deben exportarse como JSON y
 recuperarse dentro del canal autorizado.
 
+Al actualizar la stable por primera vez, SIYS Sync puede trasladar
+automáticamente su documento IndexedDB anterior si el calendario Supabase está
+vacío. Conserva la copia local, no reemplaza un calendario cloud que ya tenga
+datos y no repite la migración después de **Borrar y empezar de cero**.
+
 ### Reiniciar el navegador
 
 En **Gestionar > Borrar y empezar de cero**, escriba `REINICIAR`. SIYS Sync

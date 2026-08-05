@@ -57,6 +57,7 @@ import {
 } from "./importer.js";
 import {
   createSupabasePersistence,
+  shouldMigrateLocalDocument,
   shouldUseSupabaseCloud,
   SupabaseCloudConflictError,
   supabaseCalendarKeyForChannel
@@ -72,6 +73,7 @@ const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
   : "calendario-hvac-siys";
 const DATABASE_VERSION = 1;
 const DOCUMENT_STORE = "documents";
+const STABLE_LOCAL_MIGRATION_KEY = "siys-sync-stable-local-migration:v1";
 const SUPABASE_CONFIG = globalThis.__SIYS_SUPABASE_CONFIG__ ?? {
   enabled: false,
   url: "",
@@ -143,6 +145,7 @@ let editLockTimer = null;
 let cloudPersistence = null;
 let cloudAuthMode = "sign-in";
 let cloudAuthWaiter = null;
+let cloudMigrationNotice = "";
 const tabId = crypto.randomUUID();
 const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
@@ -415,17 +418,53 @@ function openDatabase() {
   });
 }
 
+function readIndexedDocument(targetDatabase, key) {
+  return new Promise((resolve, reject) => {
+    const transaction = targetDatabase.transaction(DOCUMENT_STORE, "readonly");
+    const request = transaction.objectStore(DOCUMENT_STORE).get(key);
+    request.onsuccess = () => resolve(request.result?.document ?? null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function stableLocalMigrationCompleted() {
+  if (RUNTIME_CHANNEL !== "stable") return true;
+  try {
+    return localStorage.getItem(STABLE_LOCAL_MIGRATION_KEY) === "done";
+  } catch {
+    return false;
+  }
+}
+
+function markStableLocalMigrationCompleted() {
+  if (RUNTIME_CHANNEL !== "stable") return;
+  try {
+    localStorage.setItem(STABLE_LOCAL_MIGRATION_KEY, "done");
+  } catch {
+    // A future load can safely repeat the read-only preflight if storage is unavailable.
+  }
+}
+
+async function readLegacyStableDocument() {
+  if (RUNTIME_CHANNEL !== "stable" || stableLocalMigrationCompleted()) return null;
+  let legacyDatabase = null;
+  try {
+    legacyDatabase = await openDatabase();
+    const stored = await readIndexedDocument(legacyDatabase, "current");
+    return stored ? sanitizeDocument(stored) : null;
+  } catch {
+    return null;
+  } finally {
+    legacyDatabase?.close();
+  }
+}
+
 function readStoredDocument(key) {
   if (CLOUD_MODE) {
     if (key !== "current") return Promise.resolve(null);
     return cloudPersistence.read().then((record) => record?.document ?? null);
   }
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(DOCUMENT_STORE, "readonly");
-    const request = transaction.objectStore(DOCUMENT_STORE).get(key);
-    request.onsuccess = () => resolve(request.result?.document ?? null);
-    request.onerror = () => reject(request.error);
-  });
+  return readIndexedDocument(database, key);
 }
 
 function readStoredRecord(key) {
@@ -3729,10 +3768,28 @@ async function loadInitialDocument() {
       });
       const restored = await cloudPersistence.restoreSession();
       if (!restored) await waitForCloudAuthentication();
-      const initial = createDefaultDocument();
+      const legacyLocalDocument = await readLegacyStableDocument();
+      const initial = legacyLocalDocument
+        ? { ...legacyLocalDocument, appVersion: APP_VERSION }
+        : createDefaultDocument();
       const current = await cloudPersistence.initialize({ initialDocument: initial });
+      let document = current?.document ? sanitizeDocument(current.document) : initial;
+      const shouldMigrate = legacyLocalDocument && !current?.initializedFromInitial &&
+        shouldMigrateLocalDocument(legacyLocalDocument, document);
+      if (shouldMigrate) {
+        const migratedDocument = { ...legacyLocalDocument, appVersion: APP_VERSION };
+        await cloudPersistence.write(migratedDocument);
+        document = sanitizeDocument(migratedDocument);
+        cloudMigrationNotice = "Se trasladaron los datos locales de la stable anterior a Supabase. La copia local se conservó.";
+      } else if (legacyLocalDocument && current?.initializedFromInitial) {
+        document = sanitizeDocument(initial);
+        cloudMigrationNotice = "Se trasladaron los datos locales de la stable anterior a Supabase. La copia local se conservó.";
+      } else if (legacyLocalDocument) {
+        cloudMigrationNotice = "Se conservó el cronograma cloud existente; no se sobrescribieron los datos locales de la stable anterior.";
+      }
+      markStableLocalMigrationCompleted();
       storageAvailable = true;
-      return current?.document ? sanitizeDocument(current.document) : initial;
+      return document;
     } catch (error) {
       storageAvailable = false;
       setSaveIndicator("error", "Sin conexión con Supabase");
@@ -3797,6 +3854,10 @@ async function initialize() {
   renderAll();
   await renderStorageStatus();
   if (storageAvailable) setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
+  if (cloudMigrationNotice) {
+    showToast(cloudMigrationNotice, { duration: 10000 });
+    cloudMigrationNotice = "";
+  }
   document.body.dataset.ready = "true";
   window.dispatchEvent(new CustomEvent("calendario-hvac-ready"));
 }

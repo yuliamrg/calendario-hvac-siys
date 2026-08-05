@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createSupabasePersistence,
+  hasPersistedCalendarData,
   isSupabaseConfigEnabled,
   shouldUseSupabaseCloud,
+  shouldMigrateLocalDocument,
   SupabaseCloudConflictError,
   supabaseCalendarKeyForChannel
 } from "../src/cloud.js";
@@ -53,6 +55,28 @@ test("stable y beta habilitan Supabase con calendarios cloud separados", () => {
   assert.equal(supabaseCalendarKeyForChannel("beta"), "calendario-hvac-siys-beta");
 });
 
+test("la migración sólo considera datos locales cuando el cloud está vacío", () => {
+  const local = {
+    calendarMeta: { name: "Cronograma HVAC", coordinator: "", revision: 3 },
+    catalog: { clients: [{ id: "client-1" }] },
+    activities: []
+  };
+  const emptyRemote = {
+    calendarMeta: { name: "Cronograma HVAC", coordinator: "", revision: 0 },
+    catalog: { clients: [], sites: [], responsibles: [] },
+    activities: []
+  };
+  const populatedRemote = {
+    ...emptyRemote,
+    activities: [{ id: "activity-1" }]
+  };
+  assert.equal(hasPersistedCalendarData(local), true);
+  assert.equal(hasPersistedCalendarData(emptyRemote), false);
+  assert.equal(shouldMigrateLocalDocument(local, emptyRemote), true);
+  assert.equal(shouldMigrateLocalDocument(local, populatedRemote), false);
+  assert.equal(shouldMigrateLocalDocument(emptyRemote, emptyRemote), false);
+});
+
 test("la sesión de Supabase se comparte entre canales sin compartir sus calendarios", async () => {
   const storage = storageMock();
   const session = {
@@ -89,6 +113,33 @@ test("la sesión de Supabase se comparte entre canales sin compartir sus calenda
   assert.equal(restored.access_token, "access-1");
   assert.deepEqual(beta.getUser(), session.user);
   assert.equal(storage.getItem("siys-sync-supabase-session:calendario-hvac-siys"), null);
+  assert.ok(storage.getItem("siys-sync-supabase-session"));
+});
+
+test("una sesión heredada por canal se migra a la clave compartida al restaurarse", async () => {
+  const storage = storageMock();
+  const session = {
+    access_token: "legacy-access-1",
+    refresh_token: "legacy-refresh-1",
+    expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  storage.setItem(
+    "siys-sync-supabase-session:calendario-hvac-siys-beta",
+    JSON.stringify(session)
+  );
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    calendarKey: "calendario-hvac-siys",
+    fetchImpl: async () => response({}, 500),
+    storage
+  });
+  const restored = await persistence.restoreSession();
+  assert.equal(restored.access_token, "legacy-access-1");
   assert.ok(storage.getItem("siys-sync-supabase-session"));
 });
 

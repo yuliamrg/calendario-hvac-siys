@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## [0.15.0-beta.2] - 2026-08-05
+
+### Continuidad de datos
+
+- La stable detecta una base IndexedDB heredada y la migra a su calendario
+  Supabase sólo cuando el documento cloud está vacío.
+- La migración conserva la copia local, no sobrescribe un documento cloud con
+  datos y no se repite después de un reinicio cloud intencional.
+- Las sesiones heredadas por canal se trasladan correctamente a la sesión Auth
+  compartida.
+
 ## [0.15.0-beta.1] - 2026-08-05
 
 ### Nueva línea de desarrollo

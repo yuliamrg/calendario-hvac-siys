@@ -30,7 +30,9 @@ GitHub Pages ofrece dos canales:
 Stable y beta usan la base administrada de Supabase con calendarios lógicos
 separados: `calendario-hvac-siys` para la raíz estable y
 `calendario-hvac-siys-beta` para `/beta/`. Probar la beta no reemplaza el
-cronograma operativo.
+cronograma operativo. En la primera apertura de stable, los datos heredados de
+su IndexedDB se trasladan una sola vez si el calendario cloud está vacío; la
+copia local se conserva y un cloud con datos nunca se sobrescribe.
 
 ## Primer uso
 

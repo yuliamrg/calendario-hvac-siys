@@ -105,6 +105,9 @@ versión beta.
 - La sesión Auth se comparte entre ambos canales del mismo origen y las
   revisiones cloud son independientes por calendario; una cuenta con membresía
   puede abrir el canal correspondiente desde otro equipo.
+- La stable hace una única lectura de su IndexedDB heredado. Sólo copia el
+  documento si el calendario cloud está vacío; conserva el origen local y no
+  repite la copia después de un reinicio cloud intencional.
 - El archivo local continúa separado en IndexedDB y no se sincroniza solo con
   Supabase.
 - Antes de restaurar un respaldo se comprueban URL, canal, versión visible,

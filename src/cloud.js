@@ -35,6 +35,28 @@ export function supabaseCalendarKeyForChannel(runtimeChannel) {
     : "calendario-hvac-siys";
 }
 
+export function hasPersistedCalendarData(document) {
+  const catalog = document?.catalog ?? {};
+  const calendarMeta = document?.calendarMeta ?? {};
+  return Boolean(
+    (Array.isArray(document?.activities) && document.activities.length) ||
+    (Array.isArray(document?.series) && document.series.length) ||
+    (Array.isArray(document?.holidayOverrides) && document.holidayOverrides.length) ||
+    (Array.isArray(catalog.cities) && catalog.cities.length) ||
+    (Array.isArray(catalog.clients) && catalog.clients.length) ||
+    (Array.isArray(catalog.sites) && catalog.sites.length) ||
+    (Array.isArray(catalog.responsibles) && catalog.responsibles.length) ||
+    (Number(calendarMeta.revision) > 0) ||
+    Boolean(calendarMeta.coordinator) ||
+    (Boolean(calendarMeta.name) && calendarMeta.name !== "Cronograma HVAC") ||
+    Boolean(document?.importMetadata?.fileName)
+  );
+}
+
+export function shouldMigrateLocalDocument(localDocument, remoteDocument) {
+  return hasPersistedCalendarData(localDocument) && !hasPersistedCalendarData(remoteDocument);
+}
+
 export class SupabaseCloudError extends Error {
   constructor(message, { status = 0, code = "", details = null } = {}) {
     super(message);
@@ -195,9 +217,7 @@ export function createSupabasePersistence(config, {
     }
     const expiresAt = Number(stored.expires_at) || 0;
     if (expiresAt * 1000 <= Date.now() + 60_000) return refreshSession();
-    session = stored;
-    user = stored.user ?? null;
-    return session;
+    return persistSession(stored);
   }
 
   async function restRequest(path, {
@@ -385,9 +405,9 @@ export function createSupabasePersistence(config, {
       coordinator: initialDocument?.calendarMeta?.coordinator
     });
     const current = await read();
-    if (current) return current;
+    if (current) return { ...current, initializedFromInitial: false };
     await write(initialDocument);
-    return { document: initialDocument, revision: remoteRevision };
+    return { document: initialDocument, revision: remoteRevision, initializedFromInitial: true };
   }
 
   return Object.freeze({
