@@ -1,66 +1,115 @@
 # Distribución y GitHub Pages
 
+La política que decide el número de versión está en
+VERSIONAMIENTO.md. Este documento define cómo se convierten esas versiones en
+artefactos y canales publicados.
+
 ## Entregables
 
-`npm run build` genera dos archivos idénticos de la versión de trabajo:
+npm run build genera dos archivos idénticos de la versión de trabajo:
 
-- `dist/calendario-hvac-siys.html`, listo para copiar y abrir localmente.
-- `dist/index.html`, entrada publicada por GitHub Pages.
+- dist/calendario-hvac-siys.html, listo para copiar y abrir localmente;
+- dist/index.html, entrada publicada por GitHub Pages.
 
 Ambos contienen HTML, CSS, JavaScript y SheetJS en un solo archivo. El build
-local sin variables cloud conserva el modo IndexedDB; el workflow de Pages
-inyecta `SIYS_SUPABASE_URL` y `SIYS_SUPABASE_PUBLISHABLE_KEY` para activar Auth
-y PostgREST. La clave `publishable` puede viajar en el frontend; la
-`service_role` y la contraseña de Postgres nunca deben hacerlo.
+local sin variables cloud conserva IndexedDB; el workflow de Pages inyecta
+SIYS_SUPABASE_URL y SIYS_SUPABASE_PUBLISHABLE_KEY para activar Auth y
+PostgREST sólo en el canal beta. La clave publishable puede viajar en el
+frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
-## Persistencia
+## Canales
+
+| Canal | Fuente publicada | Versión |
+|---|---|---|
+| Estable, raíz | Tag normal indicado por stable-version.txt | La versión del tag, sin prerelease. |
+| Beta, /beta/ | main | La versión prerelease de main, por ejemplo 0.14.0-beta.1. |
+| Local | dist/calendario-hvac-siys.html | Leer la versión visible del archivo. |
+
+stable-version.txt es un puntero de distribución, no la fuente de la versión
+de main. Por eso puede contener v0.11.0 mientras main contiene
+0.13.0-beta.2.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
-mientras Pages o el VPS sirve el HTML. El archivo local mantiene IndexedDB por
-origen, perfil y navegador. La publicación cloud guarda en Supabase:
-
-- `https://yuliamrg.github.io/calendario-hvac-siys/` conserva el calendario local
-  de la versión estable `v0.11.0`.
-- `https://yuliamrg.github.io/calendario-hvac-siys/beta/` usa el calendario cloud
-  beta del mismo proyecto.
-- `file:///.../calendario-hvac-siys.html` tiene otra base local.
-- sin una cuenta de Supabase no se puede abrir el calendario cloud.
-
-La cuenta de Supabase permite abrir el mismo calendario desde otro equipo.
-Para migrar datos locales se debe exportar JSON en el origen anterior y
-restaurarlo en el nuevo. Las copias siguen siendo necesarias para recuperación
-operativa.
-
-Dos pestañas del mismo origen comparten IndexedDB y usan el bloqueo de edición.
-Dos equipos no se sincronizan y no deben tratarse como una vista general.
+mientras Pages sirve el HTML. La raíz estable conserva el calendario local y
+el canal beta usa el calendario cloud del mismo proyecto.
 
 ## Automatización
 
-`CI` ejecuta pruebas, reconstrucción, auditoría autocontenida y comprueba que
-`dist/` coincide con las fuentes. `Deploy GitHub Pages` construye un artefacto
-dual: la raíz se obtiene de la etiqueta indicada en `stable-version.txt` y
-`/beta/` se obtiene de `main`. Ambas fuentes se verifican antes del despliegue.
+CI comprueba:
 
-La auditoría falla si detecta:
+1. la política de versión con npm run version:check;
+2. las pruebas de código;
+3. la reconstrucción de dist/;
+4. que ambos HTML sean autocontenidos e idénticos;
+5. la auditoría de red, secretos y artefactos operativos;
+6. que no haya diferencias pendientes en dist/.
 
-- marcadores de build sin reemplazar;
-- recursos ejecutables externos o una API de red fuera del adaptador Supabase;
-- diferencias entre los dos HTML;
-- archivos QA, copias de la Base Operativa, XLSX, CSV, PNG o respaldos
-  versionados;
-- patrones de token de GitHub dentro del HTML.
+Deploy GitHub Pages crea un artefacto dual:
 
-## Publicación manual de una versión
+1. lee stable-version.txt;
+2. verifica el tag estable indicado;
+3. ejecuta las validaciones sobre la fuente estable;
+4. verifica la fuente beta de main;
+5. copia la estable a la raíz y main a /beta/.
 
-1. Trabajar en una rama `feat/fase-*`.
-2. Ejecutar `npm run verify` y la prueba de navegador.
-3. Revisar `git diff --check` y `git status`.
-4. Abrir y aprobar el PR hacia `main`.
-5. Esperar CI y probar `/beta/`.
-6. Crear la etiqueta de la versión aceptada.
-7. Crear la etiqueta estable aceptada y actualizar `stable-version.txt` mediante
-   un PR de promoción.
-8. Ejecutar el smoke test sobre estable y beta.
+## Publicación de una beta
 
-El smoke reproducible está en `tests/pages_smoke.py` y recibe `--url`,
-`--beta-url`, `--local-html` y una carpeta opcional `--artifacts`.
+1. Clasificar el cambio y elegir la versión según VERSIONAMIENTO.md.
+2. Actualizar package.json, package-lock.json y APP_VERSION.
+3. Actualizar CHANGELOG.md, documentación y pruebas del contrato.
+4. Ejecutar:
+
+~~~text
+npm run goal:check
+~~~
+
+5. Ejecutar el smoke test de navegador requerido y revisar
+   git diff --check y git status.
+6. Abrir un PR hacia main con el alcance, la versión y la evidencia.
+7. Esperar CI e integrar el PR.
+8. Crear el tag beta sobre el commit exacto integrado:
+   v0.14.0-beta.1, v0.14.0-beta.2, etc.
+9. Ejecutar npm run release:check -- --require-current-tag.
+10. Verificar /beta/ en línea y registrar versión, canal, persistencia y
+    resultado del smoke test.
+
+Una nueva beta.N conserva la misma base sólo si conserva el mismo alcance. Una
+nueva capacidad pública inicia una nueva línea MINOR.
+
+## Promoción de beta a estable
+
+La promoción no consiste en retaggear el commit beta. Se crea una publicación
+estable separada:
+
+1. Seleccionar el commit beta aceptado.
+2. Crear un commit de promoción que cambie la versión de
+   0.14.0-beta.N a 0.14.0 en package.json, package-lock.json y APP_VERSION.
+3. Regenerar dist/ y ejecutar las pruebas de estable.
+4. Crear v0.14.0 sobre ese commit estable.
+5. Actualizar stable-version.txt a v0.14.0 mediante un PR hacia main.
+6. Esperar Deploy GitHub Pages.
+7. Verificar la raíz estable y /beta/.
+8. Si el canal beta continúa, iniciar en main la siguiente línea
+   0.15.0-beta.1; si se pausa, documentar la pausa.
+
+El tag estable nunca debe apuntar a un artefacto que todavía muestre una
+versión beta.
+
+## Persistencia y respaldos
+
+- GitHub Pages estable y beta tienen orígenes y canales separados.
+- Dos pestañas del mismo origen comparten IndexedDB y usan el bloqueo de
+  edición.
+- Dos equipos no se sincronizan por IndexedDB y no deben tratarse como una vista
+  general.
+- Antes de restaurar un respaldo se comprueban URL, canal, versión visible,
+  appVersion, schemaVersion, revision y perfil del navegador.
+- No se sube un respaldo beta a estable ni uno estable a beta sin una
+  migración autorizada y verificada.
+
+## Smoke reproducible
+
+El smoke está en tests/pages_smoke.py y recibe --url, --beta-url, --local-html y
+una carpeta opcional --artifacts. Para la promoción también se deben cubrir
+Chrome y Edge, los seis viewports responsive y las comprobaciones de
+accesibilidad indicadas en CRITERIOS_DE_DISENO.md.

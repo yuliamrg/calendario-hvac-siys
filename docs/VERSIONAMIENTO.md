@@ -1,133 +1,206 @@
-# Versionamiento de SIYS Sync
+# Política de versionamiento y releases
 
-## Regla adoptada
+## Propósito
 
-SIYS Sync usa [Semantic Versioning 2.0.0](https://semver.org/) con una
-adaptación explícita para el periodo `0.x` del producto.
+SIYS Sync usa Semantic Versioning 2.0.0, con una política más estricta para el
+periodo 0.x porque la aplicación maneja cronogramas operativos, respaldos JSON,
+una CLI y un contrato de operaciones compartido.
 
-El número de versión se mantiene en dos fuentes que deben coincidir:
+La versión comunica el alcance del producto publicado. No se usa para contar
+commits ni para sustituir la revisión operativa de un documento.
 
-- `package.json > version`: fuente de release y de automatización.
-- `src/core.js > APP_VERSION`: versión que se guarda en las copias y que se
-  muestra en la interfaz.
+## 1. Fuentes de versión y artefactos
 
-Después de cambiar la versión se ejecuta `npm run build` para regenerar ambos
-archivos de `dist/`. No se edita la distribución manualmente.
+### Fuentes autoritativas
 
-## Cómo se decide el incremento
+- **package.json > version**: identificador de la release de código y de la
+  CLI.
+- **src/core.js > APP_VERSION**: versión que aparece en la interfaz y que se
+  guarda en los respaldos nuevos.
 
-| Tipo | Cuándo se usa | Ejemplo |
+Estas dos fuentes deben tener exactamente el mismo valor.
+
+### Espejos y punteros
+
+- **package-lock.json**: espejo generado por npm. Sus dos versiones raíz deben
+  coincidir con package.json; no es una decisión independiente.
+- **stable-version.txt**: puntero al tag estable que publica la raíz de
+  GitHub Pages. No tiene que coincidir con la versión beta que está en main.
+- **dist/index.html** y **dist/calendario-hvac-siys.html**: salidas generadas
+  por npm run build. No se editan manualmente.
+- **Tags Git**: identifican releases inmutables y usan el formato
+  v<version>, por ejemplo v0.14.0-beta.1 o v0.14.0.
+
+La validación automatizada está disponible con:
+
+~~~text
+npm run version:check
+~~~
+
+## 2. Regla base de Semantic Versioning
+
+Una versión normal tiene la forma MAJOR.MINOR.PATCH.
+
+Durante 0.x se adopta esta matriz:
+
+| Tipo de cambio | Versión | Criterio |
 |---|---|---|
-| `0.x.0` | Hito de producto o capacidad visible nueva que conserva la compatibilidad de datos y los flujos existentes | `0.9.0` agenda-first, `0.8.0` responsive y acciones táctiles |
-| `0.x.y` | Corrección aislada, regresión o ajuste interno sin una superficie de producto nueva | `0.9.1` |
-| `1.0.0` | Primera API/formato estable o cambio incompatible que requiera migración o cambie un contrato público | `1.0.0` |
+| Nueva capacidad pública compatible | 0.MINOR.PATCH con MINOR + 1 y PATCH = 0 | Añade una función visible, una operación CLI compatible o un flujo operativo nuevo. |
+| Corrección compatible | 0.MINOR.PATCH con PATCH + 1 | Corrige un defecto sin añadir una capacidad ni cambiar un contrato público. |
+| Iteración de una prerelease | Misma base y beta + 1 | Ajusta, corrige o valida el alcance ya anunciado de la misma release. |
+| Cambio incompatible durante 0.x | Nueva línea 0.MINOR.0 | Requiere migración, cambia un contrato o rompe el flujo; debe documentarse como incompatible aunque todavía no sea 1.0.0. |
+| Primer contrato estable | 1.0.0 | Se declara estable la API, el formato de respaldo, la CLI y las reglas de compatibilidad. |
+| Cambio incompatible después de 1.0.0 | MAJOR + 1 | Rompe el contrato público estable. |
 
-Mientras el producto sea `0.x`, la compatibilidad no se presume por el número:
-se conserva por decisión del proyecto y se valida con pruebas de migración,
-persistencia y regresión.
+Ejemplos:
 
-El `SCHEMA_VERSION` de `src/core.js` es independiente del número de la app.
-Sólo aumenta cuando cambia el formato persistido o las reglas necesarias para
-leer/escribir copias; un cambio visual no lo incrementa.
+~~~text
+0.13.0                  -> 0.14.0       nueva capacidad compatible
+0.13.0                  -> 0.13.1       corrección compatible
+0.13.0-beta.1           -> beta.2       iteración de la misma release
+0.13.0-beta.2           -> 0.13.0      promoción estable
+0.13.0                  -> 1.0.0        primer contrato estable, si procede
+~~~
 
-La bandeja Pendiente usa el esquema 4. Los documentos de esquemas
-anteriores se migran asignando `planningBucket: "calendar"`; la versión estable
-anterior no interpreta documentos nuevos de esquema 4.
+La expresión “incrementar 0.1.0” significa incrementar el componente MINOR:
+desde 0.13.0 se obtiene 0.14.0. “Incrementar 0.0.1” significa incrementar
+PATCH: desde 0.13.0 se obtiene 0.13.1.
 
-## Canales beta
+No se incrementa MINOR sólo porque haya una nueva compilación. Tampoco se
+incrementa PATCH para esconder una nueva capacidad pública.
 
-Una beta se identifica con un sufijo prerelease:
+## 3. Cómo se decide si una beta inicia una nueva línea
 
-```text
-0.10.0-beta.1
-```
+Antes de cambiar el número se redacta el alcance de la próxima release:
 
-- La base (`0.10.0`) es el siguiente hito previsto.
-- `beta.1`, `beta.2`, etc. ordena las iteraciones publicadas antes de la
-  promoción.
-- La beta debe mostrar su versión y su distintivo `BETA`.
-- La versión estable no se cambia hasta que la beta cumpla las puertas de
-  promoción de `CRITERIOS_DE_DISENO.md` y las pruebas del proyecto.
+- Si el cambio pertenece al alcance ya anunciado, se conserva la base y se
+  incrementa beta: 0.14.0-beta.1, 0.14.0-beta.2, 0.14.0-beta.3.
+- Si aparece una capacidad pública independiente, se cierra la línea actual y
+  se inicia la siguiente: 0.15.0-beta.1.
+- Un ajuste de etiqueta, estilo, accesibilidad o interacción sólo usa beta + 1
+  si no introduce una capacidad operativa independiente.
+- Si el cambio altera esquema, contrato CLI, formato de respaldo o flujo
+  operativo de forma incompatible, se inicia una nueva línea MINOR y se
+  documenta la migración.
 
-## Preflight de canal y respaldos
+La decisión se registra en CHANGELOG.md y en el PR. Si existe duda entre
+iteración y nueva capacidad, se elige la nueva línea; no se rebautiza una
+versión ya publicada.
 
-La versión del código local no sustituye la versión observada en el canal que
-se va a operar. Antes de restaurar un JSON se comparan:
+## 4. Prereleases y promoción
 
-- la URL y el canal (`stable` o `beta`);
-- la versión visible en la interfaz;
-- `appVersion`, `channel`, `schemaVersion` y `revision` del respaldo;
-- el perfil del navegador donde se guardan los datos.
+Una beta tiene una versión base normal seguida de -beta.N:
 
-Una discrepancia se trata como una alerta de despliegue y detiene la
-restauración hasta identificar la publicación correcta. No se debe subir un
-respaldo beta a estable, ni uno estable a beta, por coincidencia de nombres o
-porque ambas interfaces tengan el mismo aspecto.
+~~~text
+0.14.0-beta.1 < 0.14.0-beta.2 < 0.14.0
+~~~
 
-La ruta operativa de respaldos de este equipo está documentada en
-[`OPERACION_RESPALDOS_JSON.md`](OPERACION_RESPALDOS_JSON.md). El procedimiento
-exige descargar un respaldo nuevo antes de cada modificación, conservar el
-origen, escribir un destino nuevo y verificar un respaldo final.
+- beta.1 es la primera publicación pública de la línea.
+- beta.2, beta.3, etc. son iteraciones de esa misma línea.
+- La promoción elimina el sufijo beta; no cambia MINOR ni PATCH.
+- Una release publicada no se retaguea ni se modifica. Cualquier cambio
+  posterior obtiene una versión nueva.
+- No se usan rc, candidate o experiment como canales operativos hasta añadir
+  una regla explícita para ellos.
 
-## Aplicación a este proyecto
+Por ejemplo, si se acepta 0.14.0-beta.3, la release estable es v0.14.0. La
+siguiente capacidad independiente será 0.15.0-beta.1; una corrección posterior
+a la estable será 0.14.1 o 0.14.1-beta.1 si se prueba primero como beta.
 
-La versión estable actual es `0.11.0`. Esta release promueve a estable la
-CLI local y el contrato programático compartido para trabajar sobre respaldos
-JSON. `package.json`, `src/core.js` y `stable-version.txt` deben conservar
-`0.11.0` hasta la siguiente release.
+## 5. Versiones que no son la versión de la aplicación
 
-La beta anterior `0.12.0-beta.1` añadió la bandeja **Pendiente**, el esquema 4,
-los tipos Diagnóstico y Garantía y las operaciones de respaldo/CLI
-correspondientes. La beta `0.13.0-beta.1` incorporó persistencia cloud con
-Supabase Auth, PostgREST y PostgreSQL administrado, sin cambiar el canal
-estable. Se publica sólo en `/beta/`; la raíz estable continúa usando
-`v0.11.0` hasta la promoción explícita.
+| Identificador | Qué versiona | Cuándo aumenta |
+|---|---|---|
+| APP_VERSION | Release de la aplicación | Cada publicación beta o estable. |
+| SCHEMA_VERSION | Formato persistido del calendario | Cuando cambia el formato o las reglas necesarias para leer/escribir documentos; debe existir migración o bloqueo explícito. |
+| CONTRACT_VERSION | Respuesta e invariantes de la frontera de operaciones | Cuando cambia de forma incompatible la API de src/calendar-contract.js o la CLI. |
+| formatVersion | Envoltura del respaldo JSON | Cuando cambia la estructura del envelope del respaldo. |
+| calendarMeta.revision | Estado de un cronograma | Aumenta por una mutación real del documento; no es una release. |
+| HOLIDAY_RULESET_VERSION | Reglas legales de festivos | Cambia cuando cambia la tabla o regla legal; se documenta aparte de SemVer. |
 
-La siguiente iteración publicada de esa línea es `0.13.0-beta.2`: muestra un
-código corto de servicio en cada tarjeta (`MP`, `MC`, `EM`, `DG`, `GA` o `AD`),
-conserva el nombre completo en el detalle y en la información accesible, y no
-cambia el esquema ni la persistencia cloud.
+La versión estable puede tener otro SCHEMA_VERSION que main. En particular, la
+estable v0.11.0 usa esquema 3 y la beta actual usa esquema 4; la estable no
+debe recibir documentos nuevos de esquema 4 sin una promoción compatible.
 
-El historial confirma una convención de hitos de producto: después de `0.3.0`
-se publicaron `0.4.0`, `0.5.0`, `0.6.0`, `0.7.0`, `0.8.0` y `0.9.0` para
-capacidades o etapas visibles. No se encontró una secuencia histórica de
-parches `0.x.y` para corregir únicamente defectos.
+## 6. Canales de distribución
 
-Por eso, el trabajo beta posterior a `0.9.0` se clasifica como `0.10.0-beta.1`:
+- La raíz de GitHub Pages usa el tag indicado por stable-version.txt.
+- /beta/ usa la versión de main y debe mostrar la versión prerelease y la
+  insignia BETA.
+- El hecho de que package.json en main diga una beta no cambia la versión
+  estable de la raíz.
+- Supabase sólo se activa en el canal beta; la estable conserva el canal local
+  hasta una decisión explícita de promoción.
+- Los respaldos se validan por URL, canal, versión visible, appVersion,
+  schemaVersion, revision y perfil de navegador antes de restaurarse.
 
-1. consolida un contrato visual y componentes reutilizables;
-2. corrige de forma transversal el tema oscuro, tarjetas, controles y densidad;
-3. corrige un defecto persistente del encabezado de días;
-4. mantiene separado el canal estable y no cambia el formato de datos.
+## 7. Flujo de publicación beta
 
-La siguiente iteración publicada de esa misma línea se clasifica como
-`0.10.0-beta.2`: conserva el alcance de la beta visual, pero incorpora ajustes
-de interacción y densidad medidos en navegador —cambio directo de tema,
-cabecera persistente de días, detalle más compacto, búsqueda de responsables,
-contraste del buscador y botones de selección— sin cambiar el esquema ni
-introducir una capacidad de producto independiente.
+1. Clasificar el cambio con la matriz de la sección 2 y redactar su alcance.
+2. Elegir la versión objetivo. Una nueva línea comienza en beta.1.
+3. Actualizar package.json, package-lock.json y APP_VERSION.
+4. Actualizar CHANGELOG.md, documentación y pruebas que describan el contrato.
+5. Ejecutar npm run goal:check y las pruebas de navegador requeridas. goal:check
+   incluye build, version:check, auditoría, pruebas de código y pruebas de CLI.
+6. Revisar git diff --check, git status y que dist/ sólo sea salida generada.
+7. Abrir un PR hacia main con el alcance, la versión y las evidencias.
+8. Esperar CI, integrar el PR y crear el tag beta sobre el commit exacto
+   integrado: v<version>.
+9. Ejecutar npm run release:check -- --require-current-tag, probar /beta/ en
+   línea y registrar la versión visible, el canal y el resultado de las
+   pruebas.
+10. Para una nueva iteración del mismo alcance, repetir desde el paso 2 con
+    beta.N + 1. Para una nueva capacidad, iniciar otra base MINOR.
 
-Tras pasar las puertas de promoción, esa línea visual se publicó como
-`v0.10.0`; esta es una referencia histórica del contrato visual anterior. La
-promoción no creó una interfaz diferente: convirtió el contrato visual
-validado en la versión estable y fijó `v0.10.0` como la etiqueta de la raíz de
-GitHub Pages. `/beta/` podía continuar como canal de prueba, con datos y
-preferencias separados por origen/canal.
+## 8. Flujo de promoción a estable
 
-El commit anterior que añadió la primera capa del contrato beta (`0d05123`)
-no actualizó la versión. Esta regla corrige esa omisión: todo cambio que se
-publique en un canal beta debe actualizar las dos fuentes de versión, regenerar
-`dist/`, pasar `npm run verify` y quedar registrado en Git.
+La promoción es una publicación separada de la beta:
 
-## Lista de comprobación de release
+1. Seleccionar el commit beta aceptado y congelar su alcance.
+2. Crear un commit de promoción con la versión normal, sin sufijo beta, en
+   package.json, package-lock.json y APP_VERSION.
+3. Regenerar dist/ y ejecutar todas las validaciones de estable.
+4. Crear el tag estable sobre ese commit: v0.14.0.
+5. Actualizar stable-version.txt a v0.14.0 mediante un PR hacia main.
+6. Esperar el despliegue y verificar la raíz estable y /beta/.
+7. Si el canal beta continúa, iniciar en main la siguiente línea
+   0.15.0-beta.1. Si no continúa, documentar explícitamente la pausa.
 
-1. Clasificar el cambio como hito (`0.x.0`), parche (`0.x.y`) o ruptura.
-2. Elegir el sufijo de canal si es beta, candidato o experimento.
-3. Actualizar `package.json` y `src/core.js` con el mismo valor.
-4. Actualizar pruebas o documentación cuando cambie el contrato.
-5. Ejecutar `npm run verify` y pruebas de navegador de estable y beta.
-6. Revisar que `dist/` sólo contenga la salida del build.
-7. Commit con la versión en el mensaje y publicar la rama correspondiente.
-8. Promover a estable sólo después de la revisión beta y sus puertas de
-   promoción; crear la etiqueta estable y actualizar `stable-version.txt` en
-   una publicación posterior verificable.
+El tag estable no debe apuntar a un commit cuyo APP_VERSION aún tenga
+el sufijo beta.
+
+## 9. Puertas mínimas
+
+Para cualquier publicación:
+
+- package.json, package-lock.json y APP_VERSION coinciden;
+- stable-version.txt tiene un tag normal vMAJOR.MINOR.PATCH;
+- npm run version:check pasa;
+- npm run verify pasa;
+- dist/ es autocontenido, idéntico en sus dos archivos y proviene del build;
+- CI pasa y el PR conserva trazabilidad;
+- el tag apunta al commit de la versión publicada.
+
+Para promover a estable, además:
+
+- se pasan las pruebas de navegador en estable y beta;
+- se prueban los seis viewports responsive;
+- se revisan accesibilidad, contraste, teclado, claro, oscuro, impresión y
+  exportación PNG cuando corresponda;
+- se compara explícitamente contra la estable vigente;
+- se documenta la decisión de promoción y la compatibilidad de esquema,
+  respaldos, CLI y persistencia.
+
+## 10. Estado de transición de este repositorio
+
+- La estable vigente es v0.11.0.
+- La beta publicada vigente es 0.13.0-beta.2.
+- 0.12.0-beta.1 y 0.13.0-beta.1 forman parte del historial beta y no fueron
+  promovidas a estable.
+- El repositorio conserva evidencia de 0.13.0-beta.1, pero debe verificarse
+  por separado si se requiere crear retrospectivamente su tag. No se crea un
+  tag histórico sin comprobar que el commit corresponde exactamente al
+  artefacto que se publicó.
+
+Esta política sustituye las frases anteriores que hacían coincidir
+package.json con la versión estable incluso cuando main estaba en beta.
