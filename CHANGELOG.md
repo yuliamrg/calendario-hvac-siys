@@ -1,5 +1,21 @@
 # Historial de cambios
 
+## [0.14.0] - 2026-08-05
+
+### Promovido a estable
+
+- La beta validada `0.14.0-beta.3` pasa a ser la estable `0.14.0` sin
+  retaggear el commit beta.
+- La raíz de GitHub Pages usa Supabase Auth y PostgREST, igual que `/beta/`.
+- La sesión Auth se reutiliza entre canales del mismo origen, mientras los
+  calendarios lógicos y sus revisiones permanecen separados.
+
+### Compatibilidad
+
+- Se conserva el esquema 4, el formato de respaldos, la CLI, RLS y la
+  migración cloud existente.
+- El archivo local continúa funcionando con IndexedDB sin autenticación.
+
 ## [0.14.0-beta.3] - 2026-08-05
 
 ### Autenticación compartida

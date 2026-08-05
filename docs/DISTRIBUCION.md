@@ -26,7 +26,7 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 | Local | dist/calendario-hvac-siys.html | Leer la versión visible del archivo. |
 
 stable-version.txt es un puntero de distribución, no la fuente de la versión
-de main. Después de esta promoción apunta a v0.13.0; cuando se inicie la
+de main. Después de esta promoción apunta a v0.14.0; cuando se inicie la
 siguiente línea beta, main tendrá una prerelease distinta mientras la raíz
 estable seguirá usando ese tag normal.
 
@@ -102,8 +102,9 @@ versión beta.
 
 - GitHub Pages estable y beta tienen rutas y calendarios lógicos separados,
   aunque compartan el proyecto Supabase.
-- Las sesiones Auth y las revisiones cloud se guardan por calendario; una cuenta
-  con membresía puede abrir el canal correspondiente desde otro equipo.
+- La sesión Auth se comparte entre ambos canales del mismo origen y las
+  revisiones cloud son independientes por calendario; una cuenta con membresía
+  puede abrir el canal correspondiente desde otro equipo.
 - El archivo local continúa separado en IndexedDB y no se sincroniza solo con
   Supabase.
 - Antes de restaurar un respaldo se comprueban URL, canal, versión visible,

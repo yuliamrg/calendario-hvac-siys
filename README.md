@@ -27,11 +27,10 @@ GitHub Pages ofrece dos canales:
 - estable: `https://yuliamrg.github.io/calendario-hvac-siys/`;
 - beta: `https://yuliamrg.github.io/calendario-hvac-siys/beta/`.
 
-La beta usa la base administrada de Supabase con el calendario lógico
-`calendario-hvac-siys-beta`. La promoción de esta línea habilita la misma base
-cloud para la raíz estable, con el calendario lógico
-`calendario-hvac-siys`. Las bases de estable y beta permanecen separadas para
-que probar la beta no reemplace el cronograma operativo.
+Stable y beta usan la base administrada de Supabase con calendarios lógicos
+separados: `calendario-hvac-siys` para la raíz estable y
+`calendario-hvac-siys-beta` para `/beta/`. Probar la beta no reemplaza el
+cronograma operativo.
 
 ## Primer uso
 
