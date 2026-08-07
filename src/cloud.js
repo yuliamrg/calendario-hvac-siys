@@ -130,6 +130,7 @@ export function createSupabasePersistence(config, {
   let session = null;
   let user = null;
   let calendar = null;
+  let calendars = [];
   let calendarRole = null;
   let remoteRevision = null;
 
@@ -297,6 +298,8 @@ export function createSupabasePersistence(config, {
       }
     }
     calendar = null;
+    calendars = [];
+    calendarRole = null;
     remoteRevision = null;
     persistSession(null);
     try {
@@ -306,14 +309,52 @@ export function createSupabasePersistence(config, {
     }
   }
 
-  async function listCalendar() {
-    const query = `/rest/v1/calendars?legacy_id=eq.${encodeURIComponent(calendarKey)}&select=id,name,coordinator,created_by,updated_at&limit=1`;
-    return await restRequest(query);
+  async function enrichCalendarOwners(rows) {
+    const ownerIds = [...new Set(rows.map((row) => row.created_by).filter(Boolean))];
+    if (!ownerIds.length) return rows;
+    try {
+      const ids = ownerIds.map((id) => encodeURIComponent(id)).join(",");
+      const profiles = await restRequest(`/rest/v1/profiles?id=in.(${ids})&select=id,display_name`);
+      const names = new Map(profiles.map((profile) => [profile.id, String(profile.display_name || "").trim()]));
+      return rows.map((row) => ({ ...row, ownerName: names.get(row.created_by) || "" }));
+    } catch {
+      // Calendar visibility must not depend on the optional owner label.
+      return rows;
+    }
+  }
+
+  async function fetchCalendars() {
+    const query = `/rest/v1/calendars?legacy_id=eq.${encodeURIComponent(calendarKey)}&select=id,legacy_id,name,coordinator,created_by,created_at,updated_at&order=created_at.asc`;
+    return await enrichCalendarOwners(await restRequest(query));
+  }
+
+  async function loadCalendars() {
+    calendars = await fetchCalendars();
+    return calendars.slice();
+  }
+
+  async function selectCalendar(calendarId) {
+    let selected = calendars.find((item) => item.id === calendarId);
+    if (!selected) {
+      await loadCalendars();
+      selected = calendars.find((item) => item.id === calendarId);
+    }
+    if (!selected) {
+      throw new SupabaseCloudError("El cronograma seleccionado ya no está disponible.", {
+        code: "calendar_not_found",
+        status: 404
+      });
+    }
+    calendar = selected;
+    calendarRole = selected.created_by === user?.id ? "owner" : "viewer";
+    remoteRevision = null;
+    return calendar;
   }
 
   async function ensureCalendar({ name, coordinator }) {
-    let rows = await listCalendar();
-    if (!rows.length) {
+    await loadCalendars();
+    let ownCalendar = calendars.find((item) => item.created_by === user?.id);
+    if (!ownCalendar) {
       // The server derives created_by from auth.uid(). This avoids trusting a
       // client-supplied UUID and makes the first calendar creation compatible
       // with the calendars INSERT RLS policy.
@@ -325,23 +366,20 @@ export function createSupabasePersistence(config, {
           requested_coordinator: String(coordinator || "").trim()
         }
       });
-      rows = Array.isArray(created) ? created : created ? [created] : [];
+      const createdRows = Array.isArray(created) ? created : created ? [created] : [];
+      calendars = [
+        ...calendars,
+        ...createdRows.filter((row) => !calendars.some((item) => item.id === row.id))
+      ];
+      ownCalendar = createdRows.find((item) => item.created_by === user?.id) ?? calendars.find((item) => item.created_by === user?.id);
     }
-    if (!rows.length) {
+    if (!ownCalendar) {
       throw new SupabaseCloudError(
-        "La cuenta autenticada no tiene acceso a este cronograma. Usa la misma cuenta que lo creó o agrega una membresía desde Supabase.",
-        { code: "calendar_not_accessible" }
+        "No fue posible preparar el cronograma propio de esta cuenta.",
+        { code: "calendar_not_initialized" }
       );
     }
-    calendar = rows[0];
-    const memberQuery = `/rest/v1/calendar_members?calendar_id=eq.${encodeURIComponent(calendar.id)}&user_id=eq.${encodeURIComponent(user.id)}&select=role&limit=1`;
-    const memberships = await restRequest(memberQuery);
-    calendarRole = memberships[0]?.role ?? null;
-    if (!calendarRole) {
-      throw new SupabaseCloudError("La cuenta autenticada no tiene una membresía válida en este cronograma.", {
-        code: "membership_missing"
-      });
-    }
+    await selectCalendar(ownCalendar.id);
     return calendar;
   }
 
@@ -356,8 +394,18 @@ export function createSupabasePersistence(config, {
       : null;
   }
 
+  function canEdit() {
+    return calendarRole === "owner";
+  }
+
   async function write(documentSnapshot) {
     if (!calendar) throw new SupabaseCloudError("El cronograma cloud aún no está inicializado.");
+    if (!canEdit()) {
+      throw new SupabaseCloudError("Este cronograma está disponible únicamente en modo de solo lectura.", {
+        code: "calendar_read_only",
+        status: 403
+      });
+    }
     const nextRevision = remoteRevision === null ? 0 : remoteRevision + 1;
     const payload = {
       document: documentSnapshot,
@@ -416,13 +464,16 @@ export function createSupabasePersistence(config, {
     signIn,
     signUp,
     signOut,
+    loadCalendars,
+    selectCalendar,
     initialize,
     read,
     write,
+    getCalendars: () => calendars.slice(),
     getSession: () => session,
     getUser: () => user,
     getCalendar: () => calendar,
     getRole: () => calendarRole,
-    canEdit: () => calendarRole === "owner" || calendarRole === "editor"
+    canEdit
   });
 }
