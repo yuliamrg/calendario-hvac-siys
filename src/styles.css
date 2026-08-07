@@ -441,6 +441,28 @@ button:disabled {
   display: none;
 }
 
+.cloud-calendar-switcher {
+  align-items: center;
+  gap: 6px !important;
+}
+
+.cloud-calendar-switcher label {
+  color: inherit;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.cloud-calendar-switcher select {
+  min-width: 210px;
+  max-width: min(34vw, 360px);
+  min-height: 26px;
+  padding: 2px 8px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+}
+
 .backup-banner div,
 .storage-banner div,
 .access-banner div {
@@ -1982,6 +2004,17 @@ html[data-theme="dark"] dialog::backdrop {
 
   .storage-banner.compact-status div {
     min-width: 0;
+  }
+
+  .cloud-calendar-switcher {
+    width: 100%;
+    order: 3;
+  }
+
+  .cloud-calendar-switcher select {
+    min-width: 0;
+    flex: 1;
+    max-width: none;
   }
 
   .storage-banner.compact-status span {
