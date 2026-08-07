@@ -2,7 +2,7 @@
 
 ## Propósito
 
-SIYS Sync usa Semantic Versioning 2.0.0, con una política más estricta para el
+SIYS Sync usa [Semantic Versioning 2.0.0](https://semver.org/), con una política más estricta para el
 periodo 0.x porque la aplicación maneja cronogramas operativos, respaldos JSON,
 una CLI y un contrato de operaciones compartido.
 
@@ -41,7 +41,12 @@ npm run version:check
 
 Una versión normal tiene la forma MAJOR.MINOR.PATCH.
 
-Durante 0.x se adopta esta matriz:
+Durante 0.x, SemVer permite cambios incompatibles y no considera estable el
+contrato público. Para que las versiones sigan comunicando el alcance del
+producto, este proyecto adopta una convención de release habitual: MINOR para
+nuevas capacidades y PATCH para correcciones compatibles. Esta convención
+aclara el uso de 0.x, pero no modifica ni pretende sustituir la especificación
+oficial de SemVer.
 
 | Tipo de cambio | Versión | Criterio |
 |---|---|---|
@@ -57,7 +62,7 @@ Ejemplos:
 ~~~text
 0.13.0                  -> 0.14.0       nueva capacidad compatible
 0.13.0                  -> 0.13.1       corrección compatible
-0.13.0-beta.1           -> beta.2       iteración de la misma release
+0.13.0-beta.2           -> 0.13.0-beta.3 iteración de la misma release
 0.13.0-beta.2           -> 0.13.0      promoción estable
 0.13.0                  -> 1.0.0        primer contrato estable, si procede
 ~~~
@@ -69,25 +74,65 @@ PATCH: desde 0.13.0 se obtiene 0.13.1.
 No se incrementa MINOR sólo porque haya una nueva compilación. Tampoco se
 incrementa PATCH para esconder una nueva capacidad pública.
 
-## 3. Cómo se decide si una beta inicia una nueva línea
+## 3. Cómo se organiza una línea beta
 
-Antes de cambiar el número se redacta el alcance de la próxima release:
+SemVer define el formato y la precedencia de las prereleases, pero no
+prescribe cómo dividir el trabajo en releases ni cuándo abrir una nueva línea
+beta. Para mantener un flujo predecible, se fija la versión normal objetivo
+antes de publicar beta.1:
 
-- Si el cambio pertenece al alcance ya anunciado, se conserva la base y se
-  incrementa beta: 0.14.0-beta.1, 0.14.0-beta.2, 0.14.0-beta.3.
-- Si aparece una capacidad pública independiente, se cierra la línea actual y
-  se inicia la siguiente: 0.15.0-beta.1.
-- Un ajuste de etiqueta, estilo, accesibilidad o interacción sólo usa beta + 1
-  si no introduce una capacidad operativa independiente.
-- Si el cambio altera esquema, contrato CLI, formato de respaldo o flujo
-  operativo de forma incompatible, se inicia una nueva línea MINOR y se
-  documenta la migración.
+- Se aplica primero la matriz de la sección 2 al contenido previsto de la
+  release. Una nueva capacidad lleva a la siguiente MINOR; una corrección
+  compatible lleva a PATCH; un cambio incompatible durante 0.x lleva a una
+  nueva línea MINOR.
+- Una vez publicada, por ejemplo, `0.14.0-beta.1`, cada beta que valide,
+  corrija o ajuste esa misma versión normal conserva la base y aumenta sólo
+  `beta.N`: `0.14.0-beta.2`, `0.14.0-beta.3`, etc.
+- Si el alcance previsto cambia de forma que la versión normal que corresponde
+  ya no es la misma, se cierra la línea y se inicia `beta.1` de la nueva
+  versión: `0.14.0-beta.2` -> `0.15.0-beta.1`.
+- Los cambios de estilo, accesibilidad, interacción o documentación pueden
+  incluirse en la beta de la versión objetivo si no cambian su contrato
+  público. Si cambian el esquema, la CLI, el formato de respaldo o el flujo
+  operativo de forma incompatible, se aplica la matriz de la sección 2.
 
-La decisión se registra en CHANGELOG.md y en el PR. Si existe duda entre
-iteración y nueva capacidad, se elige la nueva línea; no se rebautiza una
-versión ya publicada.
+No se usa un criterio automático de “si hay duda, nueva línea”. La decisión se
+justifica por el alcance declarado de la release y por el contrato público, y
+se registra en `CHANGELOG.md` y en el PR. `beta.N` cuenta publicaciones de la
+misma versión normal; no cuenta commits ni mide por sí solo el tamaño de la
+implementación.
 
-## 4. Prereleases y promoción
+## 4. Flujo de desarrollo
+
+Toda implementación nueva parte del `main` actualizado y se desarrolla en una
+rama propia. No se trabaja directamente sobre `main`:
+
+1. Revisar el estado y actualizar `main`:
+
+   ~~~powershell
+   git switch main
+   git pull --ff-only origin main
+   git status --short
+   ~~~
+
+   El estado debe estar limpio antes de crear la rama.
+2. Crear una rama descriptiva para un solo cambio coherente:
+
+   ~~~powershell
+   git switch -c feat/<descripcion-corta>
+   ~~~
+
+3. Implementar, probar y actualizar la versión y los artefactos indicados en
+   esta política. Si se necesita trabajar en paralelo, puede usarse un
+   worktree adicional creado desde `main`.
+4. Ejecutar las validaciones, hacer commit y publicar la rama en el remoto.
+5. Abrir un PR contra `main` con el alcance, la versión objetivo y las
+   evidencias de prueba.
+6. Después de integrar el PR, publicar la beta o promover a estable según las
+   secciones siguientes. Cuando el trabajo termine, eliminar la rama y el
+   worktree asociado si existe; conservar los commits integrados y los tags.
+
+## 5. Prereleases y promoción
 
 Una beta tiene una versión base normal seguida de -beta.N:
 
@@ -104,10 +149,11 @@ Una beta tiene una versión base normal seguida de -beta.N:
   una regla explícita para ellos.
 
 Por ejemplo, si se acepta 0.14.0-beta.3, la release estable es v0.14.0. La
-siguiente capacidad independiente será 0.15.0-beta.1; una corrección posterior
-a la estable será 0.14.1 o 0.14.1-beta.1 si se prueba primero como beta.
+siguiente release con una nueva capacidad pública será 0.15.0-beta.1; una
+corrección posterior a la estable será 0.14.1 o 0.14.1-beta.1 si se prueba
+primero como beta.
 
-## 5. Versiones que no son la versión de la aplicación
+## 6. Versiones que no son la versión de la aplicación
 
 | Identificador | Qué versiona | Cuándo aumenta |
 |---|---|---|
@@ -123,7 +169,7 @@ respaldos, CLI y persistencia local. La promoción de la línea `0.14.0` conserv
 ese contrato y cambia la persistencia publicada de la raíz estable a Supabase;
 stable y beta mantienen calendarios lógicos separados dentro del mismo proyecto.
 
-## 6. Canales de distribución
+## 7. Canales de distribución
 
 - La raíz de GitHub Pages usa el tag indicado por stable-version.txt.
 - /beta/ usa la versión de main y debe mostrar la versión prerelease y la
@@ -135,7 +181,7 @@ stable y beta mantienen calendarios lógicos separados dentro del mismo proyecto
 - Los respaldos se validan por URL, canal, versión visible, appVersion,
   schemaVersion, revision y perfil de navegador antes de restaurarse.
 
-## 7. Flujo de publicación beta
+## 8. Flujo de publicación beta
 
 1. Clasificar el cambio con la matriz de la sección 2 y redactar su alcance.
 2. Elegir la versión objetivo. Una nueva línea comienza en beta.1.
@@ -150,10 +196,11 @@ stable y beta mantienen calendarios lógicos separados dentro del mismo proyecto
 9. Ejecutar npm run release:check -- --require-current-tag, probar /beta/ en
    línea y registrar la versión visible, el canal y el resultado de las
    pruebas.
-10. Para una nueva iteración del mismo alcance, repetir desde el paso 2 con
-    beta.N + 1. Para una nueva capacidad, iniciar otra base MINOR.
+10. Para otra beta de la misma versión normal, repetir desde el paso 2 con
+    beta.N + 1. Si el contenido de la siguiente release requiere otra versión
+    normal según la sección 2, iniciar beta.1 de esa nueva base.
 
-## 8. Flujo de promoción a estable
+## 9. Flujo de promoción a estable
 
 La promoción es una publicación separada de la beta:
 
@@ -172,7 +219,7 @@ La promoción es una publicación separada de la beta:
 El tag estable no debe apuntar a un commit cuyo APP_VERSION aún tenga
 el sufijo beta.
 
-## 9. Puertas mínimas
+## 10. Puertas mínimas
 
 Para cualquier publicación:
 
@@ -194,7 +241,7 @@ Para promover a estable, además:
 - se documenta la decisión de promoción y la compatibilidad de esquema,
   respaldos, CLI y persistencia.
 
-## 10. Estado de transición de este repositorio
+## 11. Estado de transición de este repositorio
 
 - La estable vigente es v0.14.0, promovida desde v0.14.0-beta.3.
 - La stable vigente es v0.14.1 y la beta publicada vigente es 0.15.0-beta.3.
