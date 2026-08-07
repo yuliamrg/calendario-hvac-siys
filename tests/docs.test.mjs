@@ -180,3 +180,11 @@ test("el contrato visual promovido se aplica a beta y estable", () => {
   assert.match(css, /\.search-box input \{[\s\S]*background: transparent/);
   assert.match(css, /\.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);
 });
+
+test("las tarjetas en modo lectura reubican el contenido al ocultar controles", () => {
+  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
+  assert.match(
+    css,
+    /body\.read-only \.activity-card\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;[\s\S]*?\}/
+  );
+});
