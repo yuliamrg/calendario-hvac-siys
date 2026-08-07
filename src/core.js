@@ -1,4 +1,4 @@
-export const APP_VERSION = "0.15.0-beta.4";
+export const APP_VERSION = "0.15.0-beta.5";
 export const SCHEMA_VERSION = 4;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 

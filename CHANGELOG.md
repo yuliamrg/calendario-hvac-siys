@@ -1,5 +1,18 @@
 # Historial de cambios
 
+## [0.15.0-beta.5] - 2026-08-06
+
+### Corrección visual en cronogramas compartidos
+
+- Las tarjetas abiertas en modo solo lectura recuperan el ancho completo del
+  contenido después de ocultar los controles de edición.
+- Se agrega una prueba de regresión para conservar la retícula correcta en
+  beta y estable.
+
+### Compatibilidad
+
+- No cambia el esquema, el contrato de operaciones ni los datos de Supabase.
+
 ## [0.15.0-beta.4] - 2026-08-06
 
 ### Corrección de cronogramas compartidos
