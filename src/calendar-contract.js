@@ -101,7 +101,7 @@ function requireText(value, label, maxLength = 160) {
   return text;
 }
 
-function requireIds(value, label = "activityIds") {
+function requireUniqueIds(value, label = "activityIds") {
   if (!Array.isArray(value) || !value.length) {
     fail("INVALID_REQUEST", `${label} debe contener al menos un identificador.`);
   }
@@ -112,14 +112,14 @@ function requireIds(value, label = "activityIds") {
   return ids;
 }
 
-function ensureActivity(document, activityId) {
+function findActivityOrThrow(document, activityId) {
   const id = requireText(activityId, "activityId", 160);
   const activity = document.activities.find((item) => item.id === id);
   if (!activity) fail("NOT_FOUND", "No se encontró la actividad indicada.", { activityId: id });
   return activity;
 }
 
-function mapsFor(document) {
+function buildCatalogLookup(document) {
   return {
     clients: new Map(document.catalog.clients.map((item) => [item.id, item])),
     sites: new Map(document.catalog.sites.map((item) => [item.id, item])),
@@ -128,7 +128,7 @@ function mapsFor(document) {
 }
 
 function validateReferences(document, activity) {
-  const maps = mapsFor(document);
+  const maps = buildCatalogLookup(document);
   if (activity.clientId && !maps.clients.has(activity.clientId)) {
     fail("VALIDATION_FAILED", `El cliente ${activity.clientId} no existe en el catálogo.`, {
       field: "clientId",
@@ -156,7 +156,7 @@ function validateReferences(document, activity) {
   }
 }
 
-function activityView(activity, maps) {
+function buildActivityView(activity, maps) {
   return {
     id: activity.id,
     seriesId: activity.seriesId ?? null,
@@ -186,7 +186,7 @@ function activityView(activity, maps) {
   };
 }
 
-function nonWorkingDates(document, dates) {
+function findNonWorkingDates(document, dates) {
   const unique = [...new Set(dates)].sort(compareISODate);
   if (!unique.length) return [];
   const holidays = holidayMapForRange(unique[0], unique.at(-1), document.holidayOverrides);
@@ -199,7 +199,7 @@ function nonWorkingDates(document, dates) {
 }
 
 function requireNonWorkingDecision(document, dates, allowed) {
-  const warnings = nonWorkingDates(document, dates);
+  const warnings = findNonWorkingDates(document, dates);
   if (warnings.length && !allowed) {
     fail(
       "NON_WORKING_CONFIRMATION_REQUIRED",
@@ -289,7 +289,7 @@ function listActivities(document, payload) {
   if (payload.from && payload.to && compareISODate(payload.to, payload.from) < 0) {
     fail("VALIDATION_FAILED", "La fecha final no puede ser anterior a la inicial.");
   }
-  const maps = mapsFor(document);
+  const maps = buildCatalogLookup(document);
   const filters = {
     query: payload.query ?? "",
     cities: payload.city ? [payload.city] : [],
@@ -309,7 +309,7 @@ function listActivities(document, payload) {
       if (a.date !== null && b.date === null) return -1;
       return compareISODate(a.date ?? "", b.date ?? "") || compareActivityOrder(a, b);
     })
-    .map((activity) => activityView(activity, maps));
+    .map((activity) => buildActivityView(activity, maps));
 }
 
 function createActivity(document, payload, context) {
@@ -388,7 +388,7 @@ function createActivity(document, payload, context) {
 
 function editActivity(document, payload, now) {
   allowOnly(payload, ["activityId", "patch", "commonScope", "statusScope", "allowNonWorking"]);
-  const existing = ensureActivity(document, payload.activityId);
+  const existing = findActivityOrThrow(document, payload.activityId);
   const patch = ensureObject(payload.patch, "patch");
   allowOnly(patch, [
     "date", "planningBucket", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status", "observations"
@@ -623,7 +623,7 @@ function listHolidays(document, payload) {
   return [...map.values()].filter((item) => compareISODate(item.date, payload.from) >= 0 && compareISODate(item.date, payload.to) <= 0);
 }
 
-function executeHandler(operation, document, payload, context) {
+function executeCalendarHandler(operation, document, payload) {
   if (operation === "calendar.inspect") return { result: inspectCalendar(document) };
   if (operation === "calendar.export-csv") {
     allowOnly(payload, ["year", "month"]);
@@ -650,10 +650,18 @@ function executeHandler(operation, document, payload, context) {
       }
     };
   }
+}
+
+function executeActivityHandler(operation, document, payload, context) {
   if (operation === "activity.list") return { result: { items: listActivities(document, payload) } };
   if (operation === "activity.get") {
     allowOnly(payload, ["activityId"]);
-    return { result: activityView(ensureActivity(document, payload.activityId), mapsFor(document)) };
+    return {
+      result: buildActivityView(
+        findActivityOrThrow(document, payload.activityId),
+        buildCatalogLookup(document)
+      )
+    };
   }
   if (operation === "activity.create") return createActivity(document, payload, context);
   if (operation === "activity.edit") return editActivity(document, payload, context.now);
@@ -691,7 +699,7 @@ function executeHandler(operation, document, payload, context) {
   }
   if (operation === "activity.reorder") {
     allowOnly(payload, ["activityIds", "targetId", "targetDate", "position"]);
-    const ids = requireIds(payload.activityIds);
+    const ids = requireUniqueIds(payload.activityIds);
     const position = payload.position ?? "after";
     if (!["first", "last", "before", "after"].includes(position)) {
       fail("INVALID_REQUEST", "position no es válida.");
@@ -718,7 +726,7 @@ function executeHandler(operation, document, payload, context) {
     allowOnly(payload, operation === "activity.move"
       ? ["activityIds", "targetDate", "anchorId", "mode", "allowNonWorking"]
       : ["activityIds", "targetDate", "anchorId", "allowNonWorking"]);
-    const ids = requireIds(payload.activityIds);
+    const ids = requireUniqueIds(payload.activityIds);
     const targetDate = requireText(payload.targetDate, "targetDate", 10);
     parseISODate(targetDate);
     const mode = operation === "activity.move" ? (payload.mode ?? "preserve") : "preserve";
@@ -752,7 +760,7 @@ function executeHandler(operation, document, payload, context) {
     allowOnly(payload, ["activityId", "targetDate", "allowNonWorking"]);
     const targetDate = requireText(payload.targetDate, "targetDate", 10);
     parseISODate(targetDate);
-    ensureActivity(document, payload.activityId);
+    findActivityOrThrow(document, payload.activityId);
     const warnings = requireNonWorkingDecision(document, [targetDate], payload.allowNonWorking);
     const extended = extendActivity(document, payload.activityId, targetDate, context);
     return {
@@ -776,7 +784,7 @@ function executeHandler(operation, document, payload, context) {
   }
   if (operation === "activity.bulk-edit") {
     allowOnly(payload, ["activityIds", "field", "value", "mode"]);
-    const ids = requireIds(payload.activityIds);
+    const ids = requireUniqueIds(payload.activityIds);
     const before = structuredClone(document.activities);
     applyBulkEdit(document, ids, payload.field, payload.value, { mode: payload.mode ?? "replace", now: context.now });
     const businessValue = (activity) => {
@@ -797,14 +805,20 @@ function executeHandler(operation, document, payload, context) {
   }
   if (operation === "activity.delete") {
     allowOnly(payload, ["activityIds"]);
-    const removed = deleteActivities(document, requireIds(payload.activityIds));
+    const removed = deleteActivities(document, requireUniqueIds(payload.activityIds));
     return {
       result: { activityIds: removed.map((item) => item.id) },
       audit: { action: "activities_deleted", detail: `${removed.length} tarjeta(s) eliminada(s)` }
     };
   }
+}
+
+function executeCatalogHandler(operation, document, payload, context) {
   if (operation === "catalog.list") return { result: { items: listCatalog(document, payload) } };
   if (operation === "catalog.upsert") return upsertCatalog(document, payload, context);
+}
+
+function executeHolidayHandler(operation, document, payload, context) {
   if (operation === "holiday.list") return { result: { items: listHolidays(document, payload) } };
   if (operation === "holiday.add") {
     allowOnly(payload, ["date", "type", "name", "reason"]);
@@ -840,6 +854,9 @@ function executeHandler(operation, document, payload, context) {
       audit: { action: "holiday_override_deleted", detail: "Excepción eliminada" }
     };
   }
+}
+
+function executeBackupHandler(operation, document, payload) {
   if (operation === "backup.restore") {
     allowOnly(payload, ["document"]);
     const restored = sanitizeDocument(payload.document);
@@ -865,7 +882,19 @@ function executeHandler(operation, document, payload, context) {
       }
     };
   }
-  fail("INVALID_REQUEST", `Operación no implementada: ${operation}.`);
+}
+
+function executeOperationHandler(operation, document, payload, context) {
+  const handlers = {
+    calendar: executeCalendarHandler,
+    activity: executeActivityHandler,
+    catalog: executeCatalogHandler,
+    holiday: executeHolidayHandler,
+    backup: executeBackupHandler
+  };
+  const handler = handlers[operation.split(".", 1)[0]];
+  if (!handler) fail("INVALID_REQUEST", `Operación no implementada: ${operation}.`);
+  return handler(operation, document, payload, context);
 }
 
 export function executeCalendarOperation(document, request, options = {}) {
@@ -884,7 +913,7 @@ export function executeCalendarOperation(document, request, options = {}) {
       now: options.now ?? new Date().toISOString(),
       idFactory: options.idFactory ?? (() => crypto.randomUUID())
     };
-    const outcome = executeHandler(operation, draft, payload, context);
+    const outcome = executeOperationHandler(operation, draft, payload, context);
     if (definition.readOnly) {
       return {
         contractVersion: CONTRACT_VERSION,
