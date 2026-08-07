@@ -1,15 +1,40 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
+const applicationModulePaths = [
+  "domain/text.js",
+  "domain/dates.js",
+  "domain/calendar-enums.js",
+  "domain/activity-order.js",
+  "domain/activity-filters.js",
+  "domain/import-merge.js",
+  "domain/backup-merge.js",
+  "domain/csv-export.js",
+  "domain/holidays.js",
+  "import/xlsx-table.js",
+  "import/workbook-table.js",
+  "persistence/indexed-document-store.js",
+  "persistence/json-preferences.js",
+  "ui/calendar-constants.js",
+  "ui/presentation.js",
+  "ui/mutation-controller.js",
+  "core.js",
+  "import/programming.js",
+  "import/base-operativa.js",
+  "calendar-contract.js",
+  "cloud.js",
+  "app.js"
+].map((relativePath) => resolve(root, "src", relativePath));
+const stylePaths = [
+  "styles.css",
+  "styles/responsive.css",
+  "styles/channel-contract.css"
+].map((relativePath) => resolve(root, "src", relativePath));
+
 const paths = {
   template: resolve(root, "src", "index.template.html"),
-  css: resolve(root, "src", "styles.css"),
-  core: resolve(root, "src", "core.js"),
-  contract: resolve(root, "src", "calendar-contract.js"),
-  importer: resolve(root, "src", "importer.js"),
-  cloud: resolve(root, "src", "cloud.js"),
-  app: resolve(root, "src", "app.js"),
   vendor: resolve(root, "vendor", "xlsx.full.min.js"),
   license: resolve(root, "vendor", "LICENSE.txt"),
   notice: resolve(root, "vendor", "NOTICE.txt"),
@@ -19,14 +44,10 @@ const paths = {
   pagesOutput: resolve(root, "dist", "index.html")
 };
 
-const [template, css, core, contract, importer, cloud, app, vendor, license, notice, brandIcon] = await Promise.all([
+const [template, styles, applicationModules, vendor, license, notice, brandIcon] = await Promise.all([
   readFile(paths.template, "utf8"),
-  readFile(paths.css, "utf8"),
-  readFile(paths.core, "utf8"),
-  readFile(paths.contract, "utf8"),
-  readFile(paths.importer, "utf8"),
-  readFile(paths.cloud, "utf8"),
-  readFile(paths.app, "utf8"),
+  Promise.all(stylePaths.map((path) => readFile(path, "utf8"))),
+  Promise.all(applicationModulePaths.map((path) => readFile(path, "utf8"))),
   readFile(paths.vendor, "utf8"),
   readFile(paths.license, "utf8"),
   readFile(paths.notice, "utf8"),
@@ -57,10 +78,9 @@ ${notice.replaceAll("--", "—")}
 ${license.replaceAll("--", "—")}
 -->`;
 
-const stripLocalImports = (source) => source.replace(
-  /import\s*\{[\s\S]*?\}\s*from\s*["']\.\/(?:core|calendar-contract|importer|cloud)\.js["'];?\s*/g,
-  ""
-);
+const stripLocalModuleLinks = (source) => source
+  .replace(/import\s*\{[\s\S]*?\}\s*from\s*["'](?:\.\.?\/)+.+?\.js["'];?\s*/g, "")
+  .replace(/export\s*\{[\s\S]*?\}\s*from\s*["'](?:\.\.?\/)+.+?\.js["'];?\s*/g, "");
 
 const slots = {
   css: "__CALENDARIO_HVAC_INLINE_CSS_9D6D6437__",
@@ -70,7 +90,14 @@ const slots = {
 };
 const escapeInlineScript = (source) => source.replace(/<\/script/gi, "<\\/script");
 const escapeInlineStyle = (source) => source.replace(/<\/style/gi, "<\\/style");
-const appBundle = `${core}\n\n${stripLocalImports(contract)}\n\n${stripLocalImports(importer)}\n\n${cloud}\n\n${stripLocalImports(app)}`;
+const appBundle = applicationModules.map(stripLocalModuleLinks).join("\n\n");
+const syntaxCheck = spawnSync(process.execPath, ["--input-type=module", "--check", "-"], {
+  input: appBundle,
+  encoding: "utf8"
+});
+if (syntaxCheck.status !== 0) {
+  throw new Error(`El bundle de la aplicación no es JavaScript válido:\n${syntaxCheck.stderr.trim()}`);
+}
 
 const supabaseConfig = {
   enabled: Boolean(process.env.SIYS_SUPABASE_URL?.trim() && process.env.SIYS_SUPABASE_PUBLISHABLE_KEY?.trim()),
@@ -85,7 +112,7 @@ const slottedTemplate = template
   .replace("<!--__LICENSE__-->", slots.license);
 
 const html = slottedTemplate
-  .replace(slots.css, () => escapeInlineStyle(css))
+  .replace(slots.css, () => escapeInlineStyle(styles.join("\n\n")))
   .replace(slots.vendor, () => escapeInlineScript(vendor))
   .replace(slots.app, () => escapeInlineScript(appBundle))
   .replace(slots.license, () => licenseComment)

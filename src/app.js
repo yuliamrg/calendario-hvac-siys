@@ -64,6 +64,25 @@ import {
   SupabaseCloudConflictError,
   supabaseCalendarKeyForChannel
 } from "./cloud.js";
+import {
+  createElement,
+  displayInitialsFor,
+  formatDisplayDate,
+  formatMonthTitle,
+  option,
+  setChildren,
+  timestampLabel
+} from "./ui/presentation.js";
+import {
+  DAY_NAMES,
+  MAX_VISIBLE_CARDS,
+  SERVICE_CODES,
+  SERVICE_SHORT_LABELS,
+  STATUS_ICONS
+} from "./ui/calendar-constants.js";
+import { createMutationController } from "./ui/mutation-controller.js";
+import { createIndexedDocumentStore } from "./persistence/indexed-document-store.js";
+import { createJsonPreferences } from "./persistence/json-preferences.js";
 
 const RUNTIME_CHANNEL = runtimeChannelForLocation(location);
 const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
@@ -82,34 +101,12 @@ const SUPABASE_CONFIG = globalThis.__SIYS_SUPABASE_CONFIG__ ?? {
 // the stable calendar.
 const CLOUD_MODE = shouldUseSupabaseCloud(RUNTIME_CHANNEL, SUPABASE_CONFIG);
 const CLOUD_CALENDAR_KEY = supabaseCalendarKeyForChannel(RUNTIME_CHANNEL);
-const MAX_VISIBLE_CARDS = 3;
-const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-const SERVICE_CODES = Object.freeze({
-  preventive: "MP",
-  corrective: "MC",
-  emergency: "EM",
-  diagnostic: "DG",
-  warranty: "GA",
-  administrative: "AD"
+const localDocumentStore = createIndexedDocumentStore({
+  databaseName: DATABASE_NAME,
+  databaseVersion: DATABASE_VERSION,
+  storeName: DOCUMENT_STORE,
+  browserWindow: window
 });
-const SERVICE_SHORT = {
-  preventive: "Preventivo",
-  corrective: "Correctivo",
-  emergency: "Emergencia",
-  diagnostic: "Diagnóstico",
-  warranty: "Garantía",
-  administrative: "Administrativo"
-};
-const STATUS_ICONS = {
-  scheduled: "○",
-  confirmed: "●",
-  in_progress: "▶",
-  completed: "✓",
-  not_executed: "!",
-  cancelled: "×",
-  to_schedule: "○"
-};
-
 const dom = Object.fromEntries(
   [...document.querySelectorAll("[id]")].map((element) => [element.id, element])
 );
@@ -134,7 +131,7 @@ let pendingTouchActivityId = null;
 let pendingQuarantineActivityId = null;
 let pendingQuarantineAssignId = null;
 let mobileAgendaDate = null;
-let undoSnapshot = null;
+let mutationController = null;
 let forcedRangeDates = new Set();
 let responsibleRenderTimer = null;
 let storageAvailable = true;
@@ -149,6 +146,7 @@ const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
 const EDIT_LOCK_STALE_MS = 15000;
 const UI_PREFERENCES_KEY = `siys-sync-ui:${RUNTIME_CHANNEL}`;
+const uiPreferences = createJsonPreferences(localStorage, UI_PREFERENCES_KEY);
 const systemThemeQuery = window.matchMedia?.("(prefers-color-scheme: dark)") ?? null;
 const compactLayoutQuery = window.matchMedia?.("(max-width: 899px)") ?? null;
 const editChannel = "BroadcastChannel" in window
@@ -159,21 +157,6 @@ function clone(value) {
   return structuredClone(value);
 }
 
-function readUiPreferences() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(UI_PREFERENCES_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function updateUiPreferences(patch) {
-  const next = { ...readUiPreferences(), ...patch };
-  localStorage.setItem(UI_PREFERENCES_KEY, JSON.stringify(next));
-  return next;
-}
-
 function applyCatalogPreference() {
   if (compactLayoutQuery?.matches) {
     const open = document.body.classList.contains("catalog-mobile-open");
@@ -182,7 +165,7 @@ function applyCatalogPreference() {
     dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
     return;
   }
-  const collapsed = readUiPreferences().catalogCollapsed === true;
+  const collapsed = uiPreferences.read().catalogCollapsed === true;
   document.body.classList.remove("catalog-mobile-open");
   document.body.classList.toggle("catalog-collapsed", collapsed);
   dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
@@ -197,12 +180,12 @@ function toggleCatalog() {
     return;
   }
   const collapsed = !document.body.classList.contains("catalog-collapsed");
-  updateUiPreferences({ catalogCollapsed: collapsed });
+  uiPreferences.update({ catalogCollapsed: collapsed });
   applyCatalogPreference();
 }
 
 function themePreference() {
-  const value = readUiPreferences().theme;
+  const value = uiPreferences.read().theme;
   return ["light", "dark", "system"].includes(value) ? value : "system";
 }
 
@@ -229,75 +212,19 @@ function cycleThemePreference() {
   const order = ["system", "light", "dark"];
   const current = themePreference();
   const next = order[(order.indexOf(current) + 1) % order.length];
-  updateUiPreferences({ theme: next });
+  uiPreferences.update({ theme: next });
   applyThemePreference();
   const labels = { light: "claro", dark: "oscuro", system: "del sistema" };
   showToast(`Tema ${labels[next]} aplicado.`);
 }
 
-function openThemeDialog() {
-  const radio = dom.themeForm.querySelector(`input[name="themeMode"][value="${themePreference()}"]`);
-  if (radio) radio.checked = true;
-  openDialog("themeDialog");
-}
-
 function handleThemeSubmit(event) {
   event.preventDefault();
   const selected = dom.themeForm.querySelector('input[name="themeMode"]:checked')?.value ?? "system";
-  updateUiPreferences({ theme: selected });
+  uiPreferences.update({ theme: selected });
   applyThemePreference();
   closeDialog("themeDialog");
   showToast(`Tema ${selected === "system" ? "del sistema" : selected === "dark" ? "oscuro" : "claro"} aplicado.`);
-}
-
-function createElement(tagName, className = "", text = "") {
-  const element = document.createElement(tagName);
-  if (className) element.className = className;
-  if (text !== "") element.textContent = text;
-  return element;
-}
-
-function setChildren(parent, ...children) {
-  parent.replaceChildren(...children.filter(Boolean));
-  return parent;
-}
-
-function option(value, label) {
-  const element = document.createElement("option");
-  element.value = value;
-  element.textContent = label;
-  return element;
-}
-
-function formatDisplayDate(value, options = {}) {
-  const date = parseISODate(value);
-  return new Intl.DateTimeFormat("es-CO", {
-    timeZone: "UTC",
-    day: options.day ?? "numeric",
-    month: options.month ?? "long",
-    year: options.year ?? "numeric",
-    weekday: options.weekday
-  }).format(date);
-}
-
-function formatMonthTitle(year, month) {
-  const label = new Intl.DateTimeFormat("es-CO", {
-    timeZone: "UTC",
-    month: "long",
-    year: "numeric"
-  }).format(new Date(Date.UTC(year, month - 1, 1)));
-  return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
-}
-
-function timestampLabel(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return safeText(value, 80);
-  return new Intl.DateTimeFormat("es-CO", {
-    timeZone: "America/Bogota",
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(date);
 }
 
 function currentMonthParts() {
@@ -311,15 +238,6 @@ function lookupMaps() {
     sites: new Map(appDocument.catalog.sites.map((item) => [item.id, item])),
     responsibles: new Map(appDocument.catalog.responsibles.map((item) => [item.id, item]))
   };
-}
-
-function displayInitialsFor(name) {
-  return safeText(name, 160)
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
 }
 
 function setSaveIndicator(state, text) {
@@ -397,34 +315,6 @@ async function handleCloudSignOut() {
   window.location.reload();
 }
 
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    if (!("indexedDB" in window)) {
-      reject(new Error("IndexedDB no está disponible en este navegador."));
-      return;
-    }
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(DOCUMENT_STORE)) {
-        db.createObjectStore(DOCUMENT_STORE, { keyPath: "key" });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("No fue posible abrir IndexedDB."));
-    request.onblocked = () => reject(new Error("La base local está bloqueada por otra pestaña."));
-  });
-}
-
-function readIndexedDocument(targetDatabase, key) {
-  return new Promise((resolve, reject) => {
-    const transaction = targetDatabase.transaction(DOCUMENT_STORE, "readonly");
-    const request = transaction.objectStore(DOCUMENT_STORE).get(key);
-    request.onsuccess = () => resolve(request.result?.document ?? null);
-    request.onerror = () => reject(request.error);
-  });
-}
-
 function stableLocalMigrationCompleted() {
   if (RUNTIME_CHANNEL !== "stable") return true;
   try {
@@ -447,8 +337,8 @@ async function readLegacyStableDocument() {
   if (RUNTIME_CHANNEL !== "stable" || stableLocalMigrationCompleted()) return null;
   let legacyDatabase = null;
   try {
-    legacyDatabase = await openDatabase();
-    const stored = await readIndexedDocument(legacyDatabase, "current");
+    legacyDatabase = await localDocumentStore.open();
+    const stored = await localDocumentStore.readDocument(legacyDatabase, "current");
     return stored ? sanitizeDocument(stored) : null;
   } catch {
     return null;
@@ -462,54 +352,28 @@ function readStoredDocument(key) {
     if (key !== "current") return Promise.resolve(null);
     return cloudPersistence.read().then((record) => record?.document ?? null);
   }
-  return readIndexedDocument(database, key);
+  return localDocumentStore.readDocument(database, key);
 }
 
 function readStoredRecord(key) {
   if (CLOUD_MODE) return Promise.resolve(null);
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(DOCUMENT_STORE, "readonly");
-    const request = transaction.objectStore(DOCUMENT_STORE).get(key);
-    request.onsuccess = () => resolve(request.result ?? null);
-    request.onerror = () => reject(request.error);
-  });
+  return localDocumentStore.readRecord(database, key);
 }
 
 function claimEditLock({ force = false } = {}) {
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
-    const store = transaction.objectStore(DOCUMENT_STORE);
-    const request = store.get(EDIT_LOCK_KEY);
-    let claimed = false;
-    request.onsuccess = () => {
-      const current = request.result;
-      const age = current?.heartbeatAt ? Date.now() - new Date(current.heartbeatAt).getTime() : Infinity;
-      if (force || !current || current.ownerId === tabId || age > EDIT_LOCK_STALE_MS) {
-        store.put({
-          key: EDIT_LOCK_KEY,
-          ownerId: tabId,
-          heartbeatAt: new Date().toISOString()
-        });
-        claimed = true;
-      }
-    };
-    request.onerror = () => reject(request.error);
-    transaction.oncomplete = () => resolve(claimed);
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error ?? new Error("No se pudo reservar la edición."));
+  return localDocumentStore.claimLock(database, {
+    key: EDIT_LOCK_KEY,
+    ownerId: tabId,
+    staleAfterMs: EDIT_LOCK_STALE_MS,
+    force
   });
 }
 
 async function releaseEditLock() {
   if (!database || !hasEditControl) return;
-  const current = await readStoredRecord(EDIT_LOCK_KEY);
-  if (current?.ownerId !== tabId) return;
-  await new Promise((resolve) => {
-    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
-    transaction.objectStore(DOCUMENT_STORE).delete(EDIT_LOCK_KEY);
-    transaction.oncomplete = resolve;
-    transaction.onerror = resolve;
-    transaction.onabort = resolve;
+  await localDocumentStore.releaseLock(database, {
+    key: EDIT_LOCK_KEY,
+    ownerId: tabId
   });
 }
 
@@ -571,7 +435,7 @@ async function handleCloudCalendarChange(event) {
     const current = await cloudPersistence.read();
     appDocument = current?.document ? sanitizeDocument(current.document) : createDefaultDocument();
     selectedActivityIds.clear();
-    undoSnapshot = null;
+    mutationController.clearUndo();
     activeDrawer = null;
     closeDrawer();
     storageAvailable = true;
@@ -658,58 +522,18 @@ async function initializeEditLock() {
 
 function writeStoredDocument(documentSnapshot) {
   if (CLOUD_MODE) return cloudPersistence.write(documentSnapshot);
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
-    const store = transaction.objectStore(DOCUMENT_STORE);
-    const currentRequest = store.get("current");
-    currentRequest.onsuccess = () => {
-      if (currentRequest.result?.document) {
-        store.put({
-          key: "recovery",
-          savedAt: new Date().toISOString(),
-          document: currentRequest.result.document
-        });
-      }
-      store.put({
-        key: "current",
-        savedAt: new Date().toISOString(),
-        document: documentSnapshot
-      });
-    };
-    currentRequest.onerror = () => reject(currentRequest.error);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error ?? new Error("La escritura local fue cancelada."));
-  });
+  return localDocumentStore.writeWithRecovery(database, documentSnapshot);
 }
 
 function replaceCurrentDocument(documentSnapshot) {
   if (CLOUD_MODE) return cloudPersistence.write(documentSnapshot);
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
-    transaction.objectStore(DOCUMENT_STORE).put({
-      key: "current",
-      savedAt: new Date().toISOString(),
-      document: documentSnapshot
-    });
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error ?? new Error("No se pudo restaurar la copia recuperable."));
-  });
+  return localDocumentStore.replaceCurrent(database, documentSnapshot);
 }
 
 function clearStoredDocuments() {
   if (CLOUD_MODE) return Promise.resolve();
   if (!database) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(DOCUMENT_STORE, "readwrite");
-    const store = transaction.objectStore(DOCUMENT_STORE);
-    store.delete("current");
-    store.delete("recovery");
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error ?? new Error("No se pudieron reiniciar los datos."));
-  });
+  return localDocumentStore.clearDocuments(database);
 }
 
 function scheduleSave({ immediate = false } = {}) {
@@ -792,59 +616,22 @@ function appendAudit(action, detail) {
 }
 
 function mutate(action, detail, callback, { undo = true, toast = detail } = {}) {
-  if (!hasEditControl) {
-    throw new TypeError("Esta pestaña está en modo de solo lectura.");
-  }
-  const before = clone(appDocument);
-  try {
-    callback();
-    appDocument.appVersion = APP_VERSION;
-    appDocument.schemaVersion = SCHEMA_VERSION;
-    appDocument.calendarMeta.revision += 1;
-    appDocument.calendarMeta.updatedAt = new Date().toISOString();
-    appDocument.settings.holidayRuleSetVersion = HOLIDAY_RULESET_VERSION;
-    appendAudit(action, detail);
-  } catch (error) {
-    appDocument = before;
-    throw error;
-  }
-  if (undo) undoSnapshot = { document: before, label: detail };
-  renderAll();
-  scheduleSave();
-  if (toast) showToast(toast, { undo });
+  return mutationController.mutate(action, detail, callback, { undo, toast });
 }
 
 function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
-  if (!hasEditControl) throw new TypeError("Esta pestaña está en modo de solo lectura.");
-  const before = clone(appDocument);
-  const outcome = executeCalendarOperation(appDocument, { operation, payload });
-  if (!outcome.changed) return outcome;
-  appDocument = outcome.document;
-  if (undo) undoSnapshot = { document: before, label: detail };
-  renderAll();
-  scheduleSave();
-  if (toast) showToast(toast, { undo });
-  return outcome;
+  return mutationController.mutateWithContract(operation, payload, detail, { undo, toast });
 }
 
 function undoLastMutation() {
-  if (!undoSnapshot) return;
-  const previous = undoSnapshot;
-  undoSnapshot = null;
-  appDocument = previous.document;
-  selectedActivityIds.clear();
-  activeDrawer = null;
-  closeDrawer();
-  renderAll();
-  scheduleSave();
-  showToast(`Se deshizo: ${previous.label}`);
+  mutationController.undo();
 }
 
 function showToast(message, { type = "normal", undo = false, duration = 5000 } = {}) {
   const toast = createElement("div", `toast ${type === "error" ? "error" : ""}`.trim());
   const copy = createElement("span", "", safeText(message, 500));
   toast.append(copy);
-  if (undo && undoSnapshot) {
+  if (undo && mutationController?.hasUndo()) {
     const undoButton = createElement("button", "", "Deshacer");
     undoButton.type = "button";
     undoButton.addEventListener("click", () => {
@@ -856,6 +643,26 @@ function showToast(message, { type = "normal", undo = false, duration = 5000 } =
   dom.toastRegion.append(toast);
   window.setTimeout(() => toast.remove(), duration);
 }
+
+mutationController = createMutationController({
+  getDocument: () => appDocument,
+  setDocument: (documentSnapshot) => { appDocument = documentSnapshot; },
+  canEdit: () => hasEditControl,
+  cloneDocument: clone,
+  executeOperation: executeCalendarOperation,
+  appendAudit,
+  appVersion: APP_VERSION,
+  schemaVersion: SCHEMA_VERSION,
+  holidayRuleSetVersion: HOLIDAY_RULESET_VERSION,
+  render: renderAll,
+  scheduleSave,
+  notify: showToast,
+  afterUndo: () => {
+    selectedActivityIds.clear();
+    activeDrawer = null;
+    closeDrawer();
+  }
+});
 
 function showFormErrors(container, errors) {
   if (!errors.length) {
@@ -1328,13 +1135,16 @@ function renderAll() {
   if (activeDrawer?.type === "day") renderDayDrawer(activeDrawer.date);
 }
 
-function renderCatalog() {
-  dom.sitesTab.classList.toggle("active", catalogTab === "sites");
-  dom.responsiblesTab.classList.toggle("active", catalogTab === "responsibles");
-  dom.quarantineTab.classList.toggle("active", catalogTab === "quarantine");
-  dom.sitesTab.setAttribute("aria-selected", String(catalogTab === "sites"));
-  dom.responsiblesTab.setAttribute("aria-selected", String(catalogTab === "responsibles"));
-  dom.quarantineTab.setAttribute("aria-selected", String(catalogTab === "quarantine"));
+function updateCatalogPanelState() {
+  for (const [tabName, tabElement] of [
+    ["sites", dom.sitesTab],
+    ["responsibles", dom.responsiblesTab],
+    ["quarantine", dom.quarantineTab]
+  ]) {
+    const selected = catalogTab === tabName;
+    tabElement.classList.toggle("active", selected);
+    tabElement.setAttribute("aria-selected", String(selected));
+  }
   const quarantineCount = appDocument.activities.filter((activity) => isQuarantineActivity(activity)).length;
   dom.quarantineCount.textContent = String(quarantineCount);
   updateCatalogSemantics();
@@ -1346,135 +1156,152 @@ function renderCatalog() {
       : "Arrastra una tarjeta del calendario hasta la zona Pendiente o un pendiente hasta una fecha.";
   dom.newQuarantineButton.hidden = catalogTab !== "quarantine";
   dom.newCatalogButton.hidden = catalogTab === "quarantine";
+}
 
-  const query = normalizeText(dom.catalogSearch.value);
+function renderQuarantineCatalog(query) {
   const fragment = document.createDocumentFragment();
+  const maps = lookupMaps();
+  const items = appDocument.activities
+    .filter((activity) => isQuarantineActivity(activity))
+    .filter((activity) => matchesActivityFilters(activity, maps))
+    .filter((activity) => !query || activitySearchText(activity, maps).includes(query))
+    .sort((left, right) => (
+      (left.updatedAt ?? "").localeCompare(right.updatedAt ?? "") || left.id.localeCompare(right.id)
+    ));
+  for (const activity of items) {
+    const card = buildActivityCard(activity, maps, { quarantine: true });
+    const assign = createElement("button", "button small quarantine-assign", "Asignar fecha");
+    assign.type = "button";
+    assign.disabled = !hasEditControl;
+    assign.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openQuarantineAssignDialog(activity.id);
+    });
+    card.append(assign);
+    fragment.append(card);
+  }
+  if (!items.length) {
+    const placeholder = createElement("div", "pending-drop-placeholder");
+    placeholder.append(
+      createElement("strong", "", "No hay pendientes"),
+      createElement("span", "", "Arrastra aquí una tarjeta del calendario para enviarla a actividades por programar.")
+    );
+    fragment.append(placeholder);
+  }
+  dom.catalogList.replaceChildren(fragment);
+  dom.emptyCatalog.hidden = true;
+  dom.catalogList.hidden = false;
+  dom.emptyImportButton.hidden = true;
+}
 
-  if (catalogTab === "quarantine") {
-    const maps = lookupMaps();
-    const items = appDocument.activities
-      .filter((activity) => isQuarantineActivity(activity))
-      .filter((activity) => matchesActivityFilters(activity, maps))
-      .filter((activity) => !query || activitySearchText(activity, maps).includes(query))
-      .sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id));
-    for (const activity of items) {
-      const card = buildActivityCard(activity, maps, { quarantine: true });
-      const assign = createElement("button", "button small quarantine-assign", "Asignar fecha");
-      assign.type = "button";
-      assign.disabled = !hasEditControl;
-      assign.addEventListener("click", (event) => {
+function appendSiteCatalog(fragment, query) {
+  const activeClients = appDocument.catalog.clients
+    .filter((client) => client.active !== false)
+    .sort((left, right) => left.name.localeCompare(right.name, "es"));
+  for (const client of activeClients) {
+    const clientSites = appDocument.catalog.sites
+      .filter((site) => site.clientId === client.id && site.active !== false)
+      .filter((site) => !query || normalizeText(client.name + " " + site.name + " " + site.city).includes(query))
+      .sort((left, right) => left.name.localeCompare(right.name, "es"));
+    if (query && !normalizeText(client.name).includes(query) && !clientSites.length) continue;
+
+    const group = createElement("section", "catalog-client-group");
+    const clientRow = createElement("div", "catalog-client");
+    clientRow.draggable = hasEditControl;
+    clientRow.dataset.dragType = "client";
+    clientRow.dataset.clientId = client.id;
+    clientRow.title = "Arrastrar cliente al calendario";
+    clientRow.append(createElement("span", "drag-grip", "⋮⋮"));
+    clientRow.append(createElement("span", "", client.name));
+    const editClient = createElement("button", "mini-edit", "✎");
+    editClient.type = "button";
+    editClient.disabled = !hasEditControl;
+    editClient.title = "Editar " + client.name;
+    editClient.setAttribute("aria-label", "Editar cliente " + client.name);
+    editClient.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openCatalogDialog("client", client.id);
+    });
+    clientRow.append(editClient);
+    clientRow.addEventListener("dragstart", handleCatalogDragStart);
+    group.append(clientRow);
+
+    for (const site of clientSites) {
+      const row = createElement("div", "catalog-site");
+      row.draggable = hasEditControl;
+      row.dataset.dragType = "site";
+      row.dataset.siteId = site.id;
+      row.title = "Arrastrar sede al calendario";
+      row.append(createElement("span", "drag-grip", "⋮⋮"));
+      const main = createElement("span", "catalog-main");
+      main.append(createElement("strong", "", site.name));
+      main.append(createElement("small", "", [site.city, site.zone].filter(Boolean).join(" · ") || "Sin ciudad"));
+      row.append(main);
+      const edit = createElement("button", "mini-edit", "✎");
+      edit.type = "button";
+      edit.disabled = !hasEditControl;
+      edit.title = "Editar " + site.name;
+      edit.setAttribute("aria-label", "Editar sede " + site.name);
+      edit.addEventListener("click", (event) => {
         event.stopPropagation();
-        openQuarantineAssignDialog(activity.id);
+        openCatalogDialog("site", site.id);
       });
-      card.append(assign);
-      fragment.append(card);
+      row.append(edit);
+      row.addEventListener("dragstart", handleCatalogDragStart);
+      group.append(row);
     }
-    if (!items.length) {
-      const placeholder = createElement("div", "pending-drop-placeholder");
-      placeholder.append(
-        createElement("strong", "", "No hay pendientes"),
-        createElement("span", "", "Arrastra aquí una tarjeta del calendario para enviarla a actividades por programar.")
-      );
-      fragment.append(placeholder);
-    }
-    dom.catalogList.replaceChildren(fragment);
-    dom.emptyCatalog.hidden = true;
-    dom.catalogList.hidden = false;
-    dom.emptyImportButton.hidden = true;
+    fragment.append(group);
+  }
+}
+
+function appendResponsibleCatalog(fragment, query) {
+  const responsibles = appDocument.catalog.responsibles
+    .filter((item) => item.active !== false)
+    .filter((item) => !query || normalizeText(
+      item.name + " " + item.company + " " + item.baseCity + " " + item.group
+    ).includes(query))
+    .sort((left, right) => {
+      if (Boolean(left.favorite) !== Boolean(right.favorite)) return left.favorite ? -1 : 1;
+      if (left.responsibleType !== right.responsibleType) {
+        return left.responsibleType === "payroll" ? -1 : 1;
+      }
+      return left.name.localeCompare(right.name, "es");
+    });
+  for (const responsible of responsibles) {
+    const row = createElement("div", "responsible-row");
+    const contractorClass = responsible.responsibleType === "contractor" ? "contractor" : "";
+    row.append(createElement("span", ("responsible-type-dot " + contractorClass).trim()));
+    const main = createElement("span", "catalog-main");
+    main.append(createElement("strong", "", (responsible.favorite ? "★ " : "") + responsible.name));
+    main.append(createElement("small", "", [
+      RESPONSIBLE_TYPES[responsible.responsibleType] ?? responsible.responsibleType,
+      responsible.baseCity
+    ].filter(Boolean).join(" · ")));
+    row.append(main);
+    const edit = createElement("button", "mini-edit", "✎");
+    edit.type = "button";
+    edit.title = "Editar " + responsible.name;
+    edit.setAttribute("aria-label", "Editar responsable " + responsible.name);
+    edit.addEventListener("click", () => openCatalogDialog("responsible", responsible.id));
+    row.append(edit);
+    fragment.append(row);
+  }
+}
+
+function renderCatalog() {
+  updateCatalogPanelState();
+  const query = normalizeText(dom.catalogSearch.value);
+  if (catalogTab === "quarantine") {
+    renderQuarantineCatalog(query);
     return;
   }
 
   dom.emptyImportButton.hidden = false;
   dom.emptyCatalog.querySelector("strong").textContent = "Aún no hay catálogo";
   dom.emptyCatalog.querySelector("p").textContent = "Importa la Base Operativa o crea tus primeros registros manualmente.";
-
-  if (catalogTab === "sites") {
-    const activeClients = appDocument.catalog.clients
-      .filter((client) => client.active !== false)
-      .sort((a, b) => a.name.localeCompare(b.name, "es"));
-    for (const client of activeClients) {
-      const clientSites = appDocument.catalog.sites
-        .filter((site) => site.clientId === client.id && site.active !== false)
-        .filter((site) => !query || normalizeText(`${client.name} ${site.name} ${site.city}`).includes(query))
-        .sort((a, b) => a.name.localeCompare(b.name, "es"));
-      if (query && !normalizeText(client.name).includes(query) && !clientSites.length) continue;
-
-      const group = createElement("section", "catalog-client-group");
-      const clientRow = createElement("div", "catalog-client");
-      clientRow.draggable = hasEditControl;
-      clientRow.dataset.dragType = "client";
-      clientRow.dataset.clientId = client.id;
-      clientRow.title = "Arrastrar cliente al calendario";
-      clientRow.append(createElement("span", "drag-grip", "⋮⋮"));
-      clientRow.append(createElement("span", "", client.name));
-      const editClient = createElement("button", "mini-edit", "✎");
-      editClient.type = "button";
-      editClient.disabled = !hasEditControl;
-      editClient.title = `Editar ${client.name}`;
-      editClient.setAttribute("aria-label", `Editar cliente ${client.name}`);
-      editClient.addEventListener("click", (event) => {
-        event.stopPropagation();
-        openCatalogDialog("client", client.id);
-      });
-      clientRow.append(editClient);
-      clientRow.addEventListener("dragstart", handleCatalogDragStart);
-      group.append(clientRow);
-
-      for (const site of clientSites) {
-        const row = createElement("div", "catalog-site");
-        row.draggable = hasEditControl;
-        row.dataset.dragType = "site";
-        row.dataset.siteId = site.id;
-        row.title = "Arrastrar sede al calendario";
-        row.append(createElement("span", "drag-grip", "⋮⋮"));
-        const main = createElement("span", "catalog-main");
-        main.append(createElement("strong", "", site.name));
-        main.append(createElement("small", "", [site.city, site.zone].filter(Boolean).join(" · ") || "Sin ciudad"));
-        row.append(main);
-        const edit = createElement("button", "mini-edit", "✎");
-        edit.type = "button";
-        edit.disabled = !hasEditControl;
-        edit.title = `Editar ${site.name}`;
-        edit.setAttribute("aria-label", `Editar sede ${site.name}`);
-        edit.addEventListener("click", (event) => {
-          event.stopPropagation();
-          openCatalogDialog("site", site.id);
-        });
-        row.append(edit);
-        row.addEventListener("dragstart", handleCatalogDragStart);
-        group.append(row);
-      }
-      fragment.append(group);
-    }
-  } else {
-    const responsibles = appDocument.catalog.responsibles
-      .filter((item) => item.active !== false)
-      .filter((item) => !query || normalizeText(`${item.name} ${item.company} ${item.baseCity} ${item.group}`).includes(query))
-      .sort((a, b) => {
-        if (Boolean(a.favorite) !== Boolean(b.favorite)) return a.favorite ? -1 : 1;
-        if (a.responsibleType !== b.responsibleType) return a.responsibleType === "payroll" ? -1 : 1;
-        return a.name.localeCompare(b.name, "es");
-      });
-    for (const responsible of responsibles) {
-      const row = createElement("div", "responsible-row");
-      const dot = createElement("span", `responsible-type-dot ${responsible.responsibleType === "contractor" ? "contractor" : ""}`.trim());
-      row.append(dot);
-      const main = createElement("span", "catalog-main");
-      main.append(createElement("strong", "", `${responsible.favorite ? "★ " : ""}${responsible.name}`));
-      main.append(createElement("small", "", [
-        RESPONSIBLE_TYPES[responsible.responsibleType] ?? responsible.responsibleType,
-        responsible.baseCity
-      ].filter(Boolean).join(" · ")));
-      row.append(main);
-      const edit = createElement("button", "mini-edit", "✎");
-      edit.type = "button";
-      edit.title = `Editar ${responsible.name}`;
-      edit.setAttribute("aria-label", `Editar responsable ${responsible.name}`);
-      edit.addEventListener("click", () => openCatalogDialog("responsible", responsible.id));
-      row.append(edit);
-      fragment.append(row);
-    }
-  }
+  const fragment = document.createDocumentFragment();
+  if (catalogTab === "sites") appendSiteCatalog(fragment, query);
+  else appendResponsibleCatalog(fragment, query);
 
   dom.catalogList.replaceChildren(fragment);
   const count = dom.catalogList.childElementCount;
@@ -1535,6 +1362,54 @@ function handlePlanningBucketDrop(event) {
   openQuarantineDialog(activity.id);
 }
 
+function appendActivityCardSelection(card, activity, quarantine) {
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "activity-select";
+  checkbox.checked = selectedActivityIds.has(activity.id);
+  checkbox.disabled = !hasEditControl || quarantine;
+  checkbox.hidden = quarantine;
+  checkbox.title = quarantine ? "Las operaciones Pendiente son individuales" : "Seleccionar tarjeta";
+  checkbox.setAttribute("aria-label", "Seleccionar tarjeta");
+  checkbox.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleActivitySelection(activity.id, checkbox.checked);
+  });
+  card.append(checkbox);
+}
+
+function bindActivityCardInteractions(card, activity) {
+  card.addEventListener("click", (event) => {
+    if (event.ctrlKey || event.metaKey) {
+      toggleActivitySelection(activity.id);
+      return;
+    }
+    renderActivityDrawer(activity.id);
+  });
+  card.addEventListener("dragstart", (event) => {
+    if (!hasEditControl) {
+      event.preventDefault();
+      return;
+    }
+    const ids = selectedActivityIds.has(activity.id) && selectedActivityIds.size > 1
+      ? [...selectedActivityIds]
+      : [activity.id];
+    const payload = { type: "activity", activityIds: ids, anchorId: activity.id };
+    dragContext = payload;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-calendario-hvac", JSON.stringify(payload));
+  });
+  card.addEventListener("dragover", (event) => handleActivityCardDragOver(event, activity));
+  card.addEventListener("dragleave", (event) => handleActivityCardDragLeave(event, activity));
+  card.addEventListener("drop", (event) => handleActivityCardDrop(event, activity));
+  card.addEventListener("dragend", () => {
+    dragContext = null;
+    document.querySelectorAll(".day-cell.drag-over").forEach((cell) => cell.classList.remove("drag-over"));
+    clearReorderMarkers();
+    clearPlanningBucketDropState();
+  });
+}
+
 function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   const client = maps.clients.get(activity.clientId);
   const site = maps.sites.get(activity.siteId);
@@ -1555,19 +1430,7 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   );
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
 
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.className = "activity-select";
-  checkbox.checked = selectedActivityIds.has(activity.id);
-  checkbox.disabled = !hasEditControl || quarantine;
-  checkbox.hidden = quarantine;
-  checkbox.title = quarantine ? "Las operaciones Pendiente son individuales" : "Seleccionar tarjeta";
-  checkbox.setAttribute("aria-label", "Seleccionar tarjeta");
-  checkbox.addEventListener("click", (event) => {
-    event.stopPropagation();
-    toggleActivitySelection(activity.id, checkbox.checked);
-  });
-  card.append(checkbox);
+  appendActivityCardSelection(card, activity, quarantine);
 
   const copyBlock = createElement("span", "activity-copy");
   const assigned = activity.responsibleIds
@@ -1618,35 +1481,7 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   }
   card.append(flags);
 
-  card.addEventListener("click", (event) => {
-    if (event.ctrlKey || event.metaKey) {
-      toggleActivitySelection(activity.id);
-      return;
-    }
-    renderActivityDrawer(activity.id);
-  });
-  card.addEventListener("dragstart", (event) => {
-    if (!hasEditControl) {
-      event.preventDefault();
-      return;
-    }
-    const ids = selectedActivityIds.has(activity.id) && selectedActivityIds.size > 1
-      ? [...selectedActivityIds]
-      : [activity.id];
-    const payload = { type: "activity", activityIds: ids, anchorId: activity.id };
-    dragContext = payload;
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("application/x-calendario-hvac", JSON.stringify(payload));
-  });
-  card.addEventListener("dragover", (event) => handleActivityCardDragOver(event, activity));
-  card.addEventListener("dragleave", (event) => handleActivityCardDragLeave(event, activity));
-  card.addEventListener("drop", (event) => handleActivityCardDrop(event, activity));
-  card.addEventListener("dragend", () => {
-    dragContext = null;
-    document.querySelectorAll(".day-cell.drag-over").forEach((cell) => cell.classList.remove("drag-over"));
-    clearReorderMarkers();
-    clearPlanningBucketDropState();
-  });
+  bindActivityCardInteractions(card, activity);
   return card;
 }
 
@@ -1742,6 +1577,159 @@ function buildDayOverflowButton(date, items, maps) {
   return button;
 }
 
+function buildDayNumberButton(date, preferredFocusDate, gridDates) {
+  const number = createElement("button", "day-number", String(Number(date.slice(8, 10))));
+  number.type = "button";
+  const compact = compactLayoutQuery?.matches;
+  number.title = `${compact ? "Ver agenda del" : "Crear actividad el"} ${formatDisplayDate(date)}`;
+  number.setAttribute("aria-label", number.title);
+  number.tabIndex = date === preferredFocusDate ? 0 : -1;
+  number.addEventListener("focus", () => {
+    calendarFocusDate = date;
+  });
+  number.addEventListener("click", () => {
+    if (compactLayoutQuery?.matches) selectMobileAgendaDate(date);
+    else openActivityDialog({ date });
+  });
+  number.addEventListener("keydown", (event) => {
+    const weekdayOffset = (dayOfWeek(date) + 6) % 7;
+    const offsets = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      ArrowUp: -7,
+      ArrowDown: 7,
+      Home: -weekdayOffset,
+      End: 6 - weekdayOffset
+    };
+    if (!(event.key in offsets)) return;
+    event.preventDefault();
+    const targetDate = addDaysISO(date, offsets[event.key]);
+    if (!gridDates.includes(targetDate)) return;
+    calendarFocusDate = targetDate;
+    number.tabIndex = -1;
+    const target = dom.calendarGrid.querySelector(`[data-date="${targetDate}"] .day-number`);
+    if (target) {
+      target.tabIndex = 0;
+      target.focus();
+    }
+  });
+  return number;
+}
+
+function bindDayCardReorder(cardContainer, date, activitiesByDate) {
+  const canReorderPayload = (payload) => {
+    const itemsForDate = activitiesByDate.get(date) ?? [];
+    const anchor = payload?.type === "activity"
+      ? appDocument.activities.find((activity) => activity.id === payload.anchorId)
+      : null;
+    if (!anchor || hasActiveActivityFilters() || isQuarantineActivity(anchor) || anchor.date !== date) {
+      return false;
+    }
+    return !payload.activityIds.some(
+      (id) => id !== anchor.id && !itemsForDate.some((activity) => activity.id === id)
+    );
+  };
+  cardContainer.addEventListener("dragover", (event) => {
+    if (!canReorderPayload(dragContext)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    clearReorderMarkers();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY <= bounds.top + bounds.height / 2 ? "first" : "last";
+    event.currentTarget.classList.add(position === "first" ? "reorder-first" : "reorder-last");
+    event.currentTarget.dataset.reorderPosition = position;
+    event.dataTransfer.dropEffect = "move";
+  });
+  cardContainer.addEventListener("drop", (event) => {
+    const payload = dragContext;
+    if (!canReorderPayload(payload)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const position = event.currentTarget.dataset.reorderPosition || "last";
+    dragContext = null;
+    applyActivityReorder(payload, null, position);
+  });
+}
+
+function bindCalendarCellInteractions(cell, date, holidays) {
+  cell.addEventListener("dragover", (event) => {
+    if (!dragContext) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = dragContext.type === "activity" ? "move" : "copy";
+    cell.classList.add("drag-over");
+  });
+  cell.addEventListener("dragleave", (event) => {
+    if (!cell.contains(event.relatedTarget)) cell.classList.remove("drag-over");
+  });
+  cell.addEventListener("drop", (event) => handleCalendarDrop(event, date, holidays));
+  cell.addEventListener("click", (event) => {
+    if (event.target.closest("button, input, .activity-card")) return;
+    if (compactLayoutQuery?.matches) {
+      selectMobileAgendaDate(date);
+      return;
+    }
+    if (!hasEditControl) return;
+    openActivityDialog({ date });
+  });
+}
+
+function buildCalendarDayCell({
+  date,
+  month,
+  today,
+  agendaDate,
+  preferredFocusDate,
+  holidays,
+  activitiesByDate,
+  maps,
+  gridDates
+}) {
+  const weekday = dayOfWeek(date);
+  const holiday = holidays.get(date);
+  const cell = createElement("div", "day-cell");
+  cell.dataset.date = date;
+  cell.setAttribute("role", "group");
+  cell.setAttribute("aria-label", `${DAY_NAMES[weekday]} ${formatDisplayDate(date)}${holiday ? `, ${holiday.name}` : ""}`);
+  if (Number(date.slice(5, 7)) !== month) cell.classList.add("outside-month");
+  if (weekday === 6) cell.classList.add("saturday");
+  if (weekday === 0) cell.classList.add("sunday");
+  if (holiday?.occurrences?.length || holiday?.manualClosure) cell.classList.add("holiday");
+  if (date === today) cell.classList.add("today");
+  if (date === agendaDate) cell.classList.add("agenda-selected");
+
+  const header = createElement("div", "day-header");
+  header.append(buildDayNumberButton(date, preferredFocusDate, gridDates));
+  if (holiday) {
+    const holidayLabel = createElement("span", "holiday-label", holiday.name);
+    const policy = holiday.allowScheduling ? " · programación habilitada" : "";
+    holidayLabel.title = `${holiday.name}${policy}`;
+    header.append(holidayLabel);
+  } else if (weekday === 0) {
+    header.append(createElement("span", "holiday-label", "Domingo"));
+  }
+  cell.append(header);
+
+  const cardContainer = createElement("div", "day-cards");
+  const items = activitiesByDate.get(date) ?? [];
+  if (items.length > MAX_VISIBLE_CARDS) cell.classList.add("has-overflow");
+  if (items.length) {
+    const count = createElement("span", "mobile-day-count", String(items.length));
+    count.title = `${items.length} actividad${items.length === 1 ? "" : "es"}`;
+    count.setAttribute("aria-label", count.title);
+    header.append(count);
+  }
+  for (const activity of items.slice(0, MAX_VISIBLE_CARDS)) {
+    cardContainer.append(buildActivityCard(activity, maps));
+  }
+  if (items.length > MAX_VISIBLE_CARDS) {
+    cardContainer.append(buildDayOverflowButton(date, items, maps));
+  }
+  cell.append(cardContainer);
+  bindDayCardReorder(cardContainer, date, activitiesByDate);
+  bindCalendarCellInteractions(cell, date, holidays);
+  return cell;
+}
+
 function renderCalendar() {
   const { year, month } = currentMonthParts();
   dom.monthTitle.textContent = formatMonthTitle(year, month);
@@ -1774,142 +1762,17 @@ function renderCalendar() {
       ? appDocument.settings.currentDate
       : preferredFocusDate;
   for (const date of gridDates) {
-    const day = Number(date.slice(8, 10));
-    const weekday = dayOfWeek(date);
-    const holiday = holidays.get(date);
-    const cell = createElement("div", "day-cell");
-    cell.dataset.date = date;
-    cell.setAttribute("role", "group");
-    cell.setAttribute("aria-label", `${DAY_NAMES[weekday]} ${formatDisplayDate(date)}${holiday ? `, ${holiday.name}` : ""}`);
-    if (Number(date.slice(5, 7)) !== month) cell.classList.add("outside-month");
-    if (weekday === 6) cell.classList.add("saturday");
-    if (weekday === 0) cell.classList.add("sunday");
-    if (holiday?.occurrences?.length || holiday?.manualClosure) cell.classList.add("holiday");
-    if (date === today) cell.classList.add("today");
-    if (date === agendaDate) cell.classList.add("agenda-selected");
-
-    const header = createElement("div", "day-header");
-    const number = createElement("button", "day-number", String(day));
-    number.type = "button";
-    const compact = compactLayoutQuery?.matches;
-    number.title = `${compact ? "Ver agenda del" : "Crear actividad el"} ${formatDisplayDate(date)}`;
-    number.setAttribute("aria-label", number.title);
-    number.tabIndex = date === preferredFocusDate ? 0 : -1;
-    number.addEventListener("focus", () => {
-      calendarFocusDate = date;
-    });
-    number.addEventListener("click", () => {
-      if (compactLayoutQuery?.matches) selectMobileAgendaDate(date);
-      else openActivityDialog({ date });
-    });
-    number.addEventListener("keydown", (event) => {
-      const weekdayOffset = (dayOfWeek(date) + 6) % 7;
-      const offsets = {
-        ArrowLeft: -1,
-        ArrowRight: 1,
-        ArrowUp: -7,
-        ArrowDown: 7,
-        Home: -weekdayOffset,
-        End: 6 - weekdayOffset
-      };
-      if (!(event.key in offsets)) return;
-      event.preventDefault();
-      const targetDate = addDaysISO(date, offsets[event.key]);
-      if (!gridDates.includes(targetDate)) return;
-      calendarFocusDate = targetDate;
-      number.tabIndex = -1;
-      const target = dom.calendarGrid.querySelector(`[data-date="${targetDate}"] .day-number`);
-      if (target) {
-        target.tabIndex = 0;
-        target.focus();
-      }
-    });
-    header.append(number);
-    if (holiday) {
-      const holidayLabel = createElement("span", "holiday-label", holiday.name);
-      const policy = holiday.allowScheduling ? " · programación habilitada" : "";
-      holidayLabel.title = `${holiday.name}${policy}`;
-      header.append(holidayLabel);
-    } else if (weekday === 0) {
-      header.append(createElement("span", "holiday-label", "Domingo"));
-    }
-    cell.append(header);
-
-    const cardContainer = createElement("div", "day-cards");
-    const items = activitiesByDate.get(date) ?? [];
-    if (items.length > MAX_VISIBLE_CARDS) cell.classList.add("has-overflow");
-    if (items.length) {
-      const count = createElement("span", "mobile-day-count", String(items.length));
-      count.title = `${items.length} actividad${items.length === 1 ? "" : "es"}`;
-      count.setAttribute("aria-label", count.title);
-      header.append(count);
-    }
-    for (const activity of items.slice(0, MAX_VISIBLE_CARDS)) {
-      cardContainer.append(buildActivityCard(activity, maps));
-    }
-    if (items.length > MAX_VISIBLE_CARDS) {
-      cardContainer.append(buildDayOverflowButton(date, items, maps));
-    }
-    cell.append(cardContainer);
-
-    cardContainer.addEventListener("dragover", (event) => {
-      const payload = dragContext;
-      const itemsForDate = activitiesByDate.get(date) ?? [];
-      const anchor = payload?.type === "activity"
-        ? appDocument.activities.find((activity) => activity.id === payload.anchorId)
-        : null;
-      if (
-        !anchor ||
-        hasActiveActivityFilters() ||
-        isQuarantineActivity(anchor) ||
-        anchor.date !== date ||
-        payload.activityIds.some((id) => id !== anchor.id && !itemsForDate.some((activity) => activity.id === id))
-      ) return;
-      event.preventDefault();
-      event.stopPropagation();
-      clearReorderMarkers();
-      const position = event.clientY <= event.currentTarget.getBoundingClientRect().top + event.currentTarget.getBoundingClientRect().height / 2
-        ? "first"
-        : "last";
-      event.currentTarget.classList.add(position === "first" ? "reorder-first" : "reorder-last");
-      event.currentTarget.dataset.reorderPosition = position;
-      event.dataTransfer.dropEffect = "move";
-    });
-    cardContainer.addEventListener("drop", (event) => {
-      const payload = dragContext;
-      const itemsForDate = activitiesByDate.get(date) ?? [];
-      const anchor = payload?.type === "activity"
-        ? appDocument.activities.find((activity) => activity.id === payload.anchorId)
-        : null;
-      if (!anchor || hasActiveActivityFilters() || isQuarantineActivity(anchor) || anchor.date !== date) return;
-      if (payload.activityIds.some((id) => id !== anchor.id && !itemsForDate.some((activity) => activity.id === id))) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const position = event.currentTarget.dataset.reorderPosition || "last";
-      dragContext = null;
-      applyActivityReorder(payload, null, position);
-    });
-
-    cell.addEventListener("dragover", (event) => {
-      if (!dragContext) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = dragContext.type === "activity" ? "move" : "copy";
-      cell.classList.add("drag-over");
-    });
-    cell.addEventListener("dragleave", (event) => {
-      if (!cell.contains(event.relatedTarget)) cell.classList.remove("drag-over");
-    });
-    cell.addEventListener("drop", (event) => handleCalendarDrop(event, date, holidays));
-    cell.addEventListener("click", (event) => {
-      if (event.target.closest("button, input, .activity-card")) return;
-      if (compactLayoutQuery?.matches) {
-        selectMobileAgendaDate(date);
-        return;
-      }
-      if (!hasEditControl) return;
-      openActivityDialog({ date });
-    });
-    fragment.append(cell);
+    fragment.append(buildCalendarDayCell({
+      date,
+      month,
+      today,
+      agendaDate,
+      preferredFocusDate,
+      holidays,
+      activitiesByDate,
+      maps,
+      gridDates
+    }));
   }
   dom.calendarGrid.replaceChildren(fragment);
   if (compactLayoutQuery?.matches) {
@@ -2285,6 +2148,98 @@ function handleQuarantineAssignSubmit(event) {
   }
 }
 
+function appendActivityDrawerActions(body, activity, activityId) {
+  const actions = createElement("div", "detail-actions");
+  const edit = createElement("button", "button small", "Editar tarjeta");
+  edit.type = "button";
+  edit.disabled = !hasEditControl;
+  edit.addEventListener("click", () => openActivityDialog({ activityId }));
+  const quarantineActivity = isQuarantineActivity(activity);
+  const organizeLabel = quarantineActivity ? "Asignar fecha" : "Mover · Duplicar · Ampliar";
+  const organize = createElement("button", "button small", organizeLabel);
+  organize.type = "button";
+  organize.disabled = !hasEditControl;
+  organize.addEventListener("click", () => quarantineActivity
+    ? openQuarantineAssignDialog(activityId)
+    : openActivityDateActionDialog(activityId));
+  if (!quarantineActivity && ["scheduled", "confirmed"].includes(activity.status)) {
+    const quarantine = createElement("button", "button small", "Enviar a Pendiente");
+    quarantine.type = "button";
+    quarantine.disabled = !hasEditControl;
+    quarantine.addEventListener("click", () => openQuarantineDialog(activityId));
+    actions.append(quarantine);
+  }
+  const remove = createElement("button", "button small ghost", "Eliminar");
+  remove.type = "button";
+  remove.disabled = !hasEditControl;
+  remove.addEventListener("click", () => deleteActivity(activityId));
+  actions.append(edit, organize, remove);
+  body.append(actions);
+
+  if (!quarantineActivity && activity.date && hasEditControl) {
+    const order = calendarActivitiesForDate(activity.date);
+    const index = order.findIndex((item) => item.id === activity.id);
+    const orderActions = createElement("div", "detail-actions reorder-actions");
+    const controls = [
+      ["first", "Primera", index <= 0],
+      ["previous", "Anterior", index <= 0],
+      ["next", "Siguiente", index < 0 || index >= order.length - 1],
+      ["last", "Última", index < 0 || index >= order.length - 1]
+    ];
+    for (const [direction, label, disabled] of controls) {
+      const button = createElement("button", "button small ghost", label);
+      button.type = "button";
+      button.disabled = disabled;
+      button.addEventListener("click", () => moveActivityWithinDay(activity.id, direction));
+      orderActions.append(button);
+    }
+    body.append(detailItem("Orden en el día", orderActions, { wide: true }));
+  }
+}
+
+function appendActivityStatusEditor(body, activity, activityId) {
+  const statusEditor = createElement("div", "detail-item detail-item-wide");
+  if (isQuarantineActivity(activity)) {
+    statusEditor.append(createElement("span", "", "Estado operativo"));
+    statusEditor.append(createElement("p", "", "Pendiente · actividad por programar. Asigna una fecha para devolverla al calendario."));
+    body.append(statusEditor);
+    return;
+  }
+
+  statusEditor.append(createElement("span", "", "Actualizar estado"));
+  const statusSelect = document.createElement("select");
+  statusSelect.id = "drawerStatusSelect";
+  statusSelect.setAttribute("aria-label", "Nuevo estado de la actividad");
+  statusSelect.disabled = !hasEditControl;
+  for (const [value, label] of Object.entries(ACTIVITY_STATUSES)) {
+    if (value !== "to_schedule") statusSelect.append(option(value, label));
+  }
+  statusSelect.value = activity.status;
+  statusSelect.style.minHeight = "36px";
+  const scopeRow = createElement("div", "status-scope");
+  for (const [value, label] of Object.entries(STATUS_SCOPES)) {
+    if (!activity.seriesId && value !== "single") continue;
+    const labelElement = createElement("label", "radio-row");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "drawerStatusScope";
+    input.value = value;
+    input.checked = value === "single";
+    input.disabled = !hasEditControl;
+    labelElement.append(input, createElement("span", "", label));
+    scopeRow.append(labelElement);
+  }
+  const apply = createElement("button", "button primary small", "Aplicar estado");
+  apply.type = "button";
+  apply.disabled = !hasEditControl;
+  apply.addEventListener("click", () => {
+    const scope = scopeRow.querySelector("input:checked")?.value ?? "single";
+    updateActivityStatus(activityId, statusSelect.value, scope);
+  });
+  statusEditor.append(statusSelect, scopeRow, apply);
+  body.append(statusEditor);
+}
+
 function renderActivityDrawer(activityId) {
   const activity = appDocument.activities.find((item) => item.id === activityId);
   if (!activity) {
@@ -2302,7 +2257,7 @@ function renderActivityDrawer(activityId) {
   const body = createElement("div", "detail-grid activity-detail-grid");
   const badgeRow = createElement("div", "responsible-chips");
   badgeRow.append(createElement("span", `status-badge ${activity.status}`, `${STATUS_ICONS[activity.status]} ${ACTIVITY_STATUSES[activity.status]}`));
-  badgeRow.append(createElement("span", "service-badge", SERVICE_SHORT[activity.serviceType] ?? activity.serviceType));
+  badgeRow.append(createElement("span", "service-badge", SERVICE_SHORT_LABELS[activity.serviceType] ?? activity.serviceType));
   if (activity.history?.some((item) => item.action === "rescheduled")) {
     badgeRow.append(createElement("span", "chip", "↪ Reprogramada"));
   }
@@ -2355,90 +2310,8 @@ function renderActivityDrawer(activityId) {
     body.append(detailItem("Referencia de equipos", `${hint}. Es una pista; no asigna personal automáticamente.`, { wide: true }));
   }
 
-  const actions = createElement("div", "detail-actions");
-  const edit = createElement("button", "button small", "Editar tarjeta");
-  edit.type = "button";
-  edit.disabled = !hasEditControl;
-  edit.addEventListener("click", () => openActivityDialog({ activityId }));
-  const organize = createElement("button", "button small", isQuarantineActivity(activity) ? "Asignar fecha" : "Mover · Duplicar · Ampliar");
-  organize.type = "button";
-  organize.disabled = !hasEditControl;
-  organize.addEventListener("click", () => isQuarantineActivity(activity)
-    ? openQuarantineAssignDialog(activityId)
-    : openActivityDateActionDialog(activityId));
-  if (!isQuarantineActivity(activity) && ["scheduled", "confirmed"].includes(activity.status)) {
-  const quarantine = createElement("button", "button small", "Enviar a Pendiente");
-    quarantine.type = "button";
-    quarantine.disabled = !hasEditControl;
-    quarantine.addEventListener("click", () => openQuarantineDialog(activityId));
-    actions.append(quarantine);
-  }
-  const remove = createElement("button", "button small ghost", "Eliminar");
-  remove.type = "button";
-  remove.disabled = !hasEditControl;
-  remove.addEventListener("click", () => deleteActivity(activityId));
-  actions.append(edit, organize, remove);
-  body.append(actions);
-
-  if (!isQuarantineActivity(activity) && activity.date && hasEditControl) {
-    const order = calendarActivitiesForDate(activity.date);
-    const index = order.findIndex((item) => item.id === activity.id);
-    const orderActions = createElement("div", "detail-actions reorder-actions");
-    const controls = [
-      ["first", "Primera", index <= 0],
-      ["previous", "Anterior", index <= 0],
-      ["next", "Siguiente", index < 0 || index >= order.length - 1],
-      ["last", "Última", index < 0 || index >= order.length - 1]
-    ];
-    for (const [direction, label, disabled] of controls) {
-      const button = createElement("button", "button small ghost", label);
-      button.type = "button";
-      button.disabled = disabled;
-      button.addEventListener("click", () => moveActivityWithinDay(activity.id, direction));
-      orderActions.append(button);
-    }
-    body.append(detailItem("Orden en el día", orderActions, { wide: true }));
-  }
-
-  const statusEditor = createElement("div", "detail-item detail-item-wide");
-  if (isQuarantineActivity(activity)) {
-    statusEditor.append(createElement("span", "", "Estado operativo"));
-    statusEditor.append(createElement("p", "", "Pendiente · actividad por programar. Asigna una fecha para devolverla al calendario."));
-    body.append(statusEditor);
-  } else {
-  statusEditor.append(createElement("span", "", "Actualizar estado"));
-  const statusSelect = document.createElement("select");
-  statusSelect.id = "drawerStatusSelect";
-  statusSelect.setAttribute("aria-label", "Nuevo estado de la actividad");
-  statusSelect.disabled = !hasEditControl;
-  for (const [value, label] of Object.entries(ACTIVITY_STATUSES)) {
-    if (value !== "to_schedule") statusSelect.append(option(value, label));
-  }
-  statusSelect.value = activity.status;
-  statusSelect.style.minHeight = "36px";
-  const scopeRow = createElement("div", "status-scope");
-  for (const [value, label] of Object.entries(STATUS_SCOPES)) {
-    if (!activity.seriesId && value !== "single") continue;
-    const labelElement = createElement("label", "radio-row");
-    const input = document.createElement("input");
-    input.type = "radio";
-    input.name = "drawerStatusScope";
-    input.value = value;
-    input.checked = value === "single";
-    input.disabled = !hasEditControl;
-    labelElement.append(input, createElement("span", "", label));
-    scopeRow.append(labelElement);
-  }
-  const apply = createElement("button", "button primary small", "Aplicar estado");
-  apply.type = "button";
-  apply.disabled = !hasEditControl;
-  apply.addEventListener("click", () => {
-    const scope = scopeRow.querySelector("input:checked")?.value ?? "single";
-    updateActivityStatus(activityId, statusSelect.value, scope);
-  });
-  statusEditor.append(statusSelect, scopeRow, apply);
-  body.append(statusEditor);
-  }
+  appendActivityDrawerActions(body, activity, activityId);
+  appendActivityStatusEditor(body, activity, activityId);
 
   if (activity.seriesId) {
     const seriesItems = appDocument.activities
@@ -3284,11 +3157,11 @@ async function handleResetDataSubmit(event) {
     await clearStoredDocuments();
     appDocument = createDefaultDocument();
     appDocument.appVersion = APP_VERSION;
-    undoSnapshot = null;
+    mutationController.clearUndo();
     selectedActivityIds.clear();
     activeDrawer = null;
     if (dom.resetPreferences.checked) {
-      localStorage.removeItem(UI_PREFERENCES_KEY);
+      uiPreferences.clear();
       applyCatalogPreference();
       applyThemePreference();
     }
@@ -3958,7 +3831,7 @@ function initializeStaticOptions() {
   dom.betaBadge.hidden = RUNTIME_CHANNEL !== "beta";
 }
 
-function bindEvents() {
+function bindCloudEvents() {
   dom.cloudAuthForm?.addEventListener("submit", handleCloudAuthSubmit);
   dom.cloudCalendarSelect?.addEventListener("change", (event) => {
     handleCloudCalendarChange(event).catch((error) => showToast(error.message, { type: "error" }));
@@ -3970,6 +3843,9 @@ function bindEvents() {
   dom.cloudSignOutButton?.addEventListener("click", () => {
     handleCloudSignOut().catch((error) => showToast(`No se pudo cerrar sesión: ${error.message}`, { type: "error" }));
   });
+}
+
+function bindPrimaryActionEvents() {
   dom.newActivityButton.addEventListener("click", () => openActivityDialog({
     date: appDocument.settings.currentDate || todayInBogota()
   }));
@@ -4048,6 +3924,9 @@ function bindEvents() {
       showToast(error.message, { type: "error" });
     }
   });
+}
+
+function bindCalendarAndCatalogEvents() {
   dom.previousMonthButton.addEventListener("click", () => changeVisibleMonth(-1));
   dom.nextMonthButton.addEventListener("click", () => changeVisibleMonth(1));
   dom.todayButton.addEventListener("click", () => {
@@ -4104,7 +3983,9 @@ function bindEvents() {
     renderBackupReminder();
     scheduleSave();
   });
+}
 
+function bindActivityFormEvents() {
   dom.activityClient.addEventListener("change", () => {
     populateSiteSelect(dom.activityClient.value);
     dom.activityCity.value = "";
@@ -4131,7 +4012,9 @@ function bindEvents() {
   });
   dom.activityForm.addEventListener("submit", handleActivitySubmit);
   dom.quickAddResponsibleButton.addEventListener("click", () => openCatalogDialog("responsible"));
+}
 
+function bindDataManagementEvents() {
   dom.catalogType.addEventListener("change", () => {
     setCatalogFieldVisibility(dom.catalogType.value);
     if (dom.catalogType.value === "site") populateCatalogClientSelect();
@@ -4152,7 +4035,9 @@ function bindEvents() {
   dom.restoreFileInput.addEventListener("change", handleRestoreFile);
   dom.mergeJsonFileInput.addEventListener("change", handleMergeJsonFile);
   dom.programmingFileInput.addEventListener("change", handleProgrammingFile);
+}
 
+function bindGlobalInteractionEvents() {
   for (const button of document.querySelectorAll("[data-close-dialog]")) {
     button.addEventListener("click", () => closeDialog(button.dataset.closeDialog));
   }
@@ -4221,6 +4106,15 @@ function bindEvents() {
   });
 }
 
+function bindEvents() {
+  bindCloudEvents();
+  bindPrimaryActionEvents();
+  bindCalendarAndCatalogEvents();
+  bindActivityFormEvents();
+  bindDataManagementEvents();
+  bindGlobalInteractionEvents();
+}
+
 async function loadInitialDocument() {
   if (CLOUD_MODE) {
     try {
@@ -4262,7 +4156,7 @@ async function loadInitialDocument() {
     }
   }
   try {
-    database = await openDatabase();
+    database = await localDocumentStore.open();
     const stored = await readStoredDocument("current");
     if (stored) {
       try {

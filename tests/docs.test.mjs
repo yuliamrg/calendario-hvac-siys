@@ -5,6 +5,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const stylePaths = [
+  resolve(root, "src", "styles.css"),
+  resolve(root, "src", "styles", "responsive.css"),
+  resolve(root, "src", "styles", "channel-contract.css")
+];
+const readStyles = () => stylePaths.map((path) => readFileSync(path, "utf8")).join("\n\n");
 
 test("el README enlaza documentación existente", () => {
   const readme = readFileSync(resolve(root, "README.md"), "utf8");
@@ -70,7 +76,7 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
 test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móviles explícitos", () => {
   const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
-  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
+  const css = readStyles();
   for (const label of [
     "Gestionar",
     "Actualizar base operativa",
@@ -178,7 +184,7 @@ test("la versión de release está sincronizada entre package, lock, núcleo y e
 });
 
 test("el contrato visual promovido se aplica a beta y estable", () => {
-  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
+  const css = readStyles();
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
   assert.match(css, /html\[data-channel="beta"\],[\s\S]*html\[data-channel="stable"\]/);
   assert.match(app, /document\.documentElement\.dataset\.channel = RUNTIME_CHANNEL/);
@@ -193,7 +199,7 @@ test("el contrato visual promovido se aplica a beta y estable", () => {
 });
 
 test("las tarjetas en modo lectura reubican el contenido al ocultar controles", () => {
-  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
+  const css = readStyles();
   assert.match(
     css,
     /body\.read-only \.activity-card\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;[\s\S]*?\}/
