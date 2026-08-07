@@ -1,5 +1,20 @@
 # Historial de cambios
 
+## [0.15.0-beta.6] - 2026-08-06
+
+### Agenda diaria y días congestionados
+
+- Se alinea la experiencia de planificación local con el flujo de agenda
+  diaria y sus acciones de organización.
+- Los días con muchas tarjetas muestran un apilado visual y permiten abrir el
+  detalle completo del día sin perder el contexto del mes.
+- La agenda diaria permite reordenar tarjetas con acciones accesibles, dejando
+  el orden persistido y registrado en el historial.
+
+### Compatibilidad
+
+- No cambia el esquema, el contrato de operaciones ni los datos de Supabase.
+
 ## [0.15.0-beta.5] - 2026-08-06
 
 ### Corrección visual en cronogramas compartidos
