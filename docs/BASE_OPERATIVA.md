@@ -3,6 +3,10 @@
 La aplicación consulta `Base_operativa_HVAC_SIYS.xlsx` en modo de sólo lectura.
 El libro fuente nunca se guarda ni modifica desde el calendario.
 
+Para preparar un libro nuevo, use **Gestionar > Descargar plantilla de Base
+Operativa**. El archivo `plantilla_base_operativa_HVAC_SIYS.xlsx` contiene los
+encabezados aceptados y una hoja `Instrucciones`; no contiene datos reales.
+
 ## Hojas
 
 | Hoja | Uso | Estado |
@@ -52,3 +56,14 @@ Una hoja ausente, vacía o sin encabezados requeridos bloquea o limita la
 importación según su obligatoriedad. Un encabezado incompleto se reporta en la
 vista previa; debe corregirse en la fuente, no dentro del calendario.
 
+## Encabezados de la plantilla
+
+La plantilla conserva estos encabezados, que deben permanecer sin cambios:
+
+| Hoja | Encabezados principales |
+| --- | --- |
+| `dm_ciudad` | `id`, `Zona`, `Ciudad` |
+| `dm_clientes` | `id`, `Nombre` |
+| `dm_sede` | `id`, `Cliente`, `Zona`, `Ciudad`, `Centro comercial`, `Nombre`, `Dirección`, `Ingresos`, `Requiere App` |
+| `dm_directorio_siys` | `Nombre`, `Empresa`, `Tipo`, `Ciudad base`, `Grupo`, `Alturas`, `Cursos` |
+| `dm_equipo_cronograma` | `_id`, `subsidiary._id`, `subsidiary.name`, `responsable ejecucion`, `Frecuencia` y meses |

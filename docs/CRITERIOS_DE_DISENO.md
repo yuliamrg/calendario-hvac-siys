@@ -195,5 +195,36 @@ Cada cambio relevante debe registrar:
 5. pruebas ejecutadas;
 6. resultado antes de promover.
 
+### 2026-08-05 — Resumen visual para múltiples tarjetas
+
+- Problema observado: `＋N más` comunicaba la cantidad, pero no permitía
+  reconocer rápidamente la composición del día ni el tipo de las tarjetas
+  adicionales.
+- Criterio aplicado: divulgación progresiva, similitud visual por categoría y
+  una acción única para abrir el detalle completo; la información accesible no
+  depende sólo del color.
+- Alcance: rama feature local; no promovido a beta ni estable.
+- Componentes afectados: `day-cards`, pila `day-overflow`, miniaturas de
+  servicio/estado y apertura de la agenda diaria.
+- Pruebas previstas: pruebas de contrato/documentación, smoke funcional y los
+  seis viewports responsive.
+- Resultado esperado: más contexto visual con el mismo punto de entrada para
+  revisar y ordenar todas las tarjetas del día.
+
+### 2026-08-05 — Densidad de días y orden en agenda
+
+- Problema observado: la pila añadía demasiada altura a las celdas y la agenda
+  diaria no permitía arrastrar sus tarjetas.
+- Criterio aplicado: densidad adaptativa para estados de desborde y continuidad
+  de la misma interacción de orden en calendario y detalle; se preservan foco,
+  lectura y alternativa por botones.
+- Alcance: rama feature local; no promovido a beta ni estable.
+- Componentes afectados: tooltip de tarjeta, `day-detail-grid`, `day-reorder-hint`,
+  `day-cell.has-overflow` y `day-overflow`.
+- Pruebas previstas: reordenamiento funcional en agenda, tooltip con/sin
+  observaciones y seis viewports responsive sin overflow.
+- Resultado esperado: días más compactos sin perder señales y orden editable
+  desde cualquier representación del día.
+
 La beta es un canal de aprendizaje, no una excepción para saltarse accesibilidad,
 privacidad o pruebas de regresión.

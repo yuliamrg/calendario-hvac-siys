@@ -11,6 +11,10 @@ las variables de Supabase usa Auth, PostgREST y la base compartida del proyecto
 cloud; el frontend sigue siendo un artefacto estático que puede servirse desde
 GitHub Pages o desde el VPS.
 
+El HTML servido en `localhost`, `127.0.0.1` o `::1` también se identifica como
+canal local: conserva IndexedDB y hereda la interfaz visual aprobada de la beta.
+Sólo las rutas pública estable y beta activan Supabase.
+
 El repositorio también incluye la CLI local `calendary` para inspeccionar y
 modificar copias JSON sin acceder directamente a IndexedDB. Consulte la
 [guía de la CLI](docs/CLI.md), el [contrato compartido](docs/CONTRATO_CALENDARIO.md)
@@ -63,13 +67,21 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
   confirmación y Deshacer.
 - Puede seleccionar varias tarjetas con su casilla o con `Ctrl`/`Cmd`, moverlas
   juntas o cambiarles el estado.
+- Un día muestra hasta tres tarjetas. Si hay más, aparece una pila visual con
+  miniaturas de las tarjetas adicionales, códigos de servicio y estados; al
+  pulsarla se abre la agenda completa del día. Las tarjetas del mismo día se
+  pueden reordenar arrastrando desde el calendario o desde la agenda del día,
+  o con los controles Primera, Anterior, Siguiente y Última; el orden se conserva
+  al recargar.
 - Con teclado, entre al calendario con `Tab` y recorra las fechas con las
   flechas; `Enter` abre una nueva actividad en la fecha enfocada.
 - Un servicio de varios días crea tarjetas independientes vinculadas. Después
   puede editar una fecha, las fechas futuras o toda la serie.
 - Al arrastrar una tarjeta a otro día puede **Mover**, **Duplicar** o
   **Ampliar**. Ampliar conserva tarjetas diarias independientes, pero enlaza
-  sus datos comunes. Soltar en el mismo día no genera cambios.
+  sus datos comunes. Soltar en otra tarjeta del mismo día permite reordenarla.
+- **Compartir** permite descargar el CSV de pendientes, una imagen de pendientes
+  y una imagen del calendario con la información de las tarjetas y su leyenda.
 - En teléfono y tablet vertical, la agenda diaria es la vista principal.
   **Ver mes** abre un selector superpuesto y **Más** agrupa Banco, Gestionar,
   Compartir y Configuración. El detalle ofrece alternativas táctiles para Mover, Duplicar,

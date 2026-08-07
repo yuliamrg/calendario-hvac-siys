@@ -16,6 +16,7 @@ import {
   buildMonthlyCsv,
   buildQuarantineCsv,
   colombianHolidays,
+  compareActivityOrder,
   compareISODate,
   createActivitiesFromRange,
   createQuarantineActivity,
@@ -32,6 +33,7 @@ import {
   moveActivities,
   normalizeText,
   parseISODate,
+  reorderActivities,
   safeText,
   sanitizeDocument,
   validateActivity,
@@ -48,6 +50,7 @@ export const CALENDAR_OPERATIONS = Object.freeze({
   "activity.create": Object.freeze({ readOnly: false, destructive: false }),
   "activity.edit": Object.freeze({ readOnly: false, destructive: false }),
   "activity.move": Object.freeze({ readOnly: false, destructive: false }),
+  "activity.reorder": Object.freeze({ readOnly: false, destructive: false }),
   "activity.quarantine": Object.freeze({ readOnly: false, destructive: false }),
   "activity.assign-date": Object.freeze({ readOnly: false, destructive: false }),
   "activity.duplicate": Object.freeze({ readOnly: false, destructive: false }),
@@ -173,6 +176,9 @@ function activityView(activity, maps) {
     serviceLabel: SERVICE_TYPES[activity.serviceType] ?? activity.serviceType,
     status: activity.status,
     statusLabel: ACTIVITY_STATUSES[activity.status] ?? activity.status,
+    sortOrder: activity.sortOrder === null || activity.sortOrder === undefined || activity.sortOrder === ""
+      ? null
+      : Number.isFinite(Number(activity.sortOrder)) ? Number(activity.sortOrder) : null,
     observations: activity.observations ?? "",
     createdAt: activity.createdAt ?? null,
     updatedAt: activity.updatedAt ?? null,
@@ -301,7 +307,7 @@ function listActivities(document, payload) {
     .sort((a, b) => {
       if (a.date === null && b.date !== null) return 1;
       if (a.date !== null && b.date === null) return -1;
-      return compareISODate(a.date ?? "", b.date ?? "") || a.id.localeCompare(b.id);
+      return compareISODate(a.date ?? "", b.date ?? "") || compareActivityOrder(a, b);
     })
     .map((activity) => activityView(activity, maps));
 }
@@ -681,6 +687,31 @@ function executeHandler(operation, document, payload, context) {
       result: { activityId: assigned.id, date: assigned.date, status: assigned.status },
       warnings,
       audit: { action: "quarantine_assigned", detail: "Pendiente devuelto al calendario" }
+    };
+  }
+  if (operation === "activity.reorder") {
+    allowOnly(payload, ["activityIds", "targetId", "targetDate", "position"]);
+    const ids = requireIds(payload.activityIds);
+    const position = payload.position ?? "after";
+    if (!["first", "last", "before", "after"].includes(position)) {
+      fail("INVALID_REQUEST", "position no es válida.");
+    }
+    const targetId = payload.targetId ? requireText(payload.targetId, "targetId", 160) : null;
+    const targetDate = payload.targetDate ? requireText(payload.targetDate, "targetDate", 10) : null;
+    if (targetDate) parseISODate(targetDate);
+    const orderedIds = reorderActivities(document, ids, {
+      targetId,
+      targetDate,
+      position,
+      now: context.now
+    });
+    return {
+      result: {
+        activityIds: ids,
+        date: document.activities.find((activity) => ids.includes(activity.id))?.date ?? targetDate,
+        order: orderedIds
+      },
+      audit: { action: "activities_reordered", detail: `${ids.length} tarjeta(s) reordenada(s)` }
     };
   }
   if (operation === "activity.move" || operation === "activity.duplicate") {

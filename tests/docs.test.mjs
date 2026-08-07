@@ -70,14 +70,17 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
 test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móviles explícitos", () => {
   const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const css = readFileSync(resolve(root, "src", "styles.css"), "utf8");
   for (const label of [
     "Gestionar",
     "Actualizar base operativa",
+    "Descargar plantilla de Base Operativa",
     "Descargar copia del cronograma",
     "Recuperar una copia del cronograma",
     "Combinar otra copia",
     "Borrar y empezar de cero",
     "Descargar listado del mes",
+    "Descargar imagen de pendientes",
     "Descargar imagen del cronograma",
     "Ver mes",
     "Más"
@@ -91,6 +94,14 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
   assert.match(app, /respaldo-cronograma_/);
   assert.match(app, /_programacion_/);
   assert.match(app, /_cronograma_/);
+  assert.match(app, /function buildDayOverflowButton\(date, items, maps\)/);
+  assert.match(app, /aria-haspopup/, "La pila de tarjetas debe anunciar su apertura de agenda");
+  assert.match(app, /function activityObservationsTooltip\(activity\)/);
+  assert.match(app, /card\.title = activityObservationsTooltip\(activity\)/);
+  assert.match(app, /card\.draggable = reorderEnabled/);
+  assert.match(app, /day-reorder-hint/);
+  assert.match(css, /\.day-cell\.has-overflow/);
+  assert.match(css, /\.day-overflow-card/);
 });
 
 test("la guía de Base Operativa enumera hojas y exclusiones de privacidad", () => {
@@ -171,7 +182,7 @@ test("el contrato visual promovido se aplica a beta y estable", () => {
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
   assert.match(css, /html\[data-channel="beta"\],[\s\S]*html\[data-channel="stable"\]/);
   assert.match(app, /document\.documentElement\.dataset\.channel = RUNTIME_CHANNEL/);
-  assert.match(app, /\["beta", "stable"\]\.includes\(RUNTIME_CHANNEL\)/);
+  assert.match(app, /\["beta", "stable", "local"\]\.includes\(RUNTIME_CHANNEL\)/);
   assert.match(app, /aria-controls/, "La beta debe documentar la relación pestaña/panel");
   assert.match(css, /html\[data-channel="beta"\] \.weekday-row,[\s\S]*html\[data-channel="stable"\] \.weekday-row \{[\s\S]*flex: 0 0 auto/);
   assert.match(css, /--beta-weekday-height: 32px/);
