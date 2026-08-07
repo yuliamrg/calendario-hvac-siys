@@ -1,5 +1,16 @@
 # Historial de cambios
 
+## [0.15.0-beta.4] - 2026-08-06
+
+### Corrección de cronogramas compartidos
+
+- Cada cuenta crea y abre su propio cronograma por canal, aunque ya exista el
+  cronograma de otra cuenta.
+- Las cuentas autenticadas pueden consultar, filtrar y descargar los demás
+  cronogramas del canal en modo solo lectura; sólo el propietario puede editar.
+- Se incorpora la migración cloud y las pruebas del selector y las políticas de
+  escritura por propietario.
+
 ## [0.15.0-beta.3] - 2026-08-05
 
 ### Nueva iteración beta
