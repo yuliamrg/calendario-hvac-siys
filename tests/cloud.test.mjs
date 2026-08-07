@@ -215,6 +215,142 @@ test("el adaptador autentica, crea el calendario inicial y usa revisión optimis
   assert.ok(calls.some(({ url, options }) => url.includes("/rest/v1/calendar_documents") && options.method === "PATCH"));
 });
 
+test("una cuenta nueva crea su propio calendario aunque ya exista otro del mismo canal", async () => {
+  const calls = [];
+  const existing = {
+    id: "calendar-existing",
+    legacy_id: "calendario-test",
+    name: "Cronograma de la cuenta principal",
+    coordinator: "Coordinación 1",
+    created_by: "user-1",
+    created_at: "2026-08-05T00:00:00Z"
+  };
+  const created = {
+    id: "calendar-new",
+    legacy_id: "calendario-test",
+    name: "Cronograma de la cuenta nueva",
+    coordinator: "Coordinación 2",
+    created_by: "user-2",
+    created_at: "2026-08-06T00:00:00Z"
+  };
+  const initialDocument = {
+    schemaVersion: 4,
+    calendarMeta: { name: "Cronograma de la cuenta nueva", coordinator: "Coordinación 2" },
+    activities: []
+  };
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url.includes("/auth/v1/token?grant_type=password")) {
+      return response({
+        access_token: "access-2",
+        refresh_token: "refresh-2",
+        expires_in: 3600,
+        user: { id: "user-2", email: "second@example.com" }
+      });
+    }
+    if (url.includes("/rest/v1/calendars?legacy_id=")) return response([existing]);
+    if (url.includes("/rest/v1/profiles?")) return response([]);
+    if (url.includes("/rest/v1/rpc/create_calendar_for_current_user")) return response([created], 201);
+    if (url.includes("/rest/v1/calendar_documents?calendar_id=eq.calendar-new") && options.method === "GET") return response([]);
+    if (url.includes("/rest/v1/calendar_documents?select=") && options.method === "POST") return response([{
+      document: initialDocument,
+      revision: 0,
+      updated_at: "2026-08-06T00:00:00Z"
+    }], 201);
+    if (url.includes("/rest/v1/calendars?id=eq.calendar-new")) return response(null, 204);
+    throw new Error(`Ruta no simulada: ${url}`);
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    calendarKey: "calendario-test",
+    fetchImpl,
+    storage: storageMock()
+  });
+
+  await persistence.signIn("second@example.com", "secret123");
+  const initialized = await persistence.initialize({ initialDocument });
+
+  assert.equal(initialized.initializedFromInitial, true);
+  assert.equal(persistence.getCalendar().id, "calendar-new");
+  assert.equal(persistence.canEdit(), true);
+  assert.equal(persistence.getCalendars().length, 2);
+  const createCall = calls.find(({ url }) => url.includes("/rest/v1/rpc/create_calendar_for_current_user"));
+  assert.deepEqual(JSON.parse(createCall.options.body), {
+    requested_legacy_id: "calendario-test",
+    requested_name: "Cronograma de la cuenta nueva",
+    requested_coordinator: "Coordinación 2"
+  });
+});
+
+test("los demás cronogramas se pueden leer pero no escribir desde otra cuenta", async () => {
+  const calendars = [
+    {
+      id: "calendar-own",
+      legacy_id: "calendario-test",
+      name: "Mi cronograma",
+      coordinator: "Propio",
+      created_by: "user-2",
+      created_at: "2026-08-05T00:00:00Z"
+    },
+    {
+      id: "calendar-other",
+      legacy_id: "calendario-test",
+      name: "Cronograma de otra cuenta",
+      coordinator: "Otra",
+      created_by: "user-1",
+      created_at: "2026-08-06T00:00:00Z"
+    }
+  ];
+  const fetchImpl = async (url, options = {}) => {
+    if (url.includes("/auth/v1/token?grant_type=password")) {
+      return response({
+        access_token: "access-2",
+        refresh_token: "refresh-2",
+        expires_in: 3600,
+        user: { id: "user-2", email: "second@example.com" }
+      });
+    }
+    if (url.includes("/rest/v1/calendars?legacy_id=")) return response(calendars);
+    if (url.includes("/rest/v1/profiles?")) return response([
+      { id: "user-1", display_name: "Cuenta principal" },
+      { id: "user-2", display_name: "Cuenta secundaria" }
+    ]);
+    if (url.includes("/rest/v1/calendar_documents?calendar_id=eq.calendar-own") && options.method === "GET") {
+      return response([{ document: { calendarMeta: { name: "Mi cronograma" } }, revision: 3 }]);
+    }
+    if (url.includes("/rest/v1/calendar_documents?calendar_id=eq.calendar-other") && options.method === "GET") {
+      return response([{ document: { calendarMeta: { name: "Cronograma de otra cuenta" } }, revision: 7 }]);
+    }
+    throw new Error(`Ruta no simulada: ${url}`);
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    calendarKey: "calendario-test",
+    fetchImpl,
+    storage: storageMock()
+  });
+
+  await persistence.signIn("second@example.com", "secret123");
+  await persistence.initialize({ initialDocument: { calendarMeta: { name: "Mi cronograma" } } });
+  assert.equal(persistence.canEdit(), true);
+
+  await persistence.selectCalendar("calendar-other");
+  const other = await persistence.read();
+  assert.equal(other.document.calendarMeta.name, "Cronograma de otra cuenta");
+  assert.equal(persistence.getRole(), "viewer");
+  assert.equal(persistence.canEdit(), false);
+  await assert.rejects(
+    persistence.write({ calendarMeta: { name: "Cambio no autorizado" } }),
+    (error) => error.code === "calendar_read_only" && error.status === 403
+  );
+});
+
 test("una actualización sin filas se reporta como conflicto cloud", async () => {
   const persistence = createSupabasePersistence({
     enabled: true,
@@ -225,8 +361,12 @@ test("una actualización sin filas se reporta como conflicto cloud", async () =>
       if (url.includes("/auth/v1/token?grant_type=password")) {
         return response({ access_token: "access-1", refresh_token: "refresh-1", expires_in: 3600, user: { id: "user-1" } });
       }
-      if (url.includes("/rest/v1/calendars?legacy_id=")) return response([{ id: "calendar-1", name: "Cronograma HVAC", coordinator: "" }]);
-      if (url.includes("/rest/v1/calendar_members?")) return response([{ role: "owner" }]);
+      if (url.includes("/rest/v1/calendars?legacy_id=")) return response([{
+        id: "calendar-1",
+        name: "Cronograma HVAC",
+        coordinator: "",
+        created_by: "user-1"
+      }]);
       if (url.includes("/rest/v1/calendar_documents") && options.method === "GET") return response([{ document: { calendarMeta: { name: "Cronograma HVAC" } }, revision: 4 }]);
       if (url.includes("/rest/v1/calendar_documents") && options.method === "PATCH") return response([]);
       throw new Error(`Ruta no simulada: ${url}`);

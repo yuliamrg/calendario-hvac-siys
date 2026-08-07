@@ -1,6 +1,6 @@
 {
   "name": "calendario-hvac-siys",
-  "version": "0.15.0-beta.3",
+  "version": "0.15.0-beta.4",
   "private": true,
   "type": "module",
   "description": "Calendario local autocontenido para programación de servicios HVAC SI&S.",

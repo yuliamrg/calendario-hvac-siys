@@ -522,11 +522,86 @@ function renderAccessMode() {
   const guardedIds = [
     "newActivityButton", "importBaseButton", "newCatalogButton", "holidayButton",
     "bulkMoveButton", "bulkStatusButton", "bulkEditButton", "bulkDeleteButton",
-    "calendarSettingsButton", "importProgrammingButton", "resetDataButton", "mergeJsonButton",
+    "calendarSettingsButton", "importProgrammingButton", "resetDataButton", "restoreButton", "mergeJsonButton",
     "newQuarantineButton"
   ];
   for (const id of guardedIds) {
     if (dom[id]) dom[id].disabled = !hasEditControl;
+  }
+}
+
+function cloudCalendarLabel(calendar) {
+  const name = safeText(calendar.name || "Cronograma HVAC", 160);
+  const coordinator = safeText(calendar.coordinator || "", 160);
+  const userId = cloudPersistence?.getUser()?.id;
+  const isOwner = calendar.created_by === userId;
+  const owner = isOwner
+    ? "Mi cronograma"
+    : calendar.ownerName
+      ? `Solo lectura · ${safeText(calendar.ownerName, 160)}`
+      : "Solo lectura";
+  return [name, coordinator, owner].filter(Boolean).join(" · ");
+}
+
+function renderCloudCalendarSwitcher() {
+  if (!dom.cloudCalendarSwitcher || !dom.cloudCalendarSelect) return;
+  if (!CLOUD_MODE || !cloudPersistence) {
+    dom.cloudCalendarSwitcher.hidden = true;
+    return;
+  }
+  const calendars = cloudPersistence.getCalendars();
+  const current = cloudPersistence.getCalendar();
+  setChildren(
+    dom.cloudCalendarSelect,
+    ...calendars.map((calendar) => option(calendar.id, cloudCalendarLabel(calendar)))
+  );
+  dom.cloudCalendarSelect.value = current?.id ?? "";
+  dom.cloudCalendarSelect.disabled = calendars.length < 2;
+  dom.cloudCalendarSwitcher.hidden = false;
+}
+
+async function handleCloudCalendarChange(event) {
+  if (!cloudPersistence || !event.target.value) return;
+  const previousCalendarId = cloudPersistence.getCalendar()?.id ?? "";
+  const previousDocument = clone(appDocument);
+  const nextCalendarId = event.target.value;
+  if (!nextCalendarId || nextCalendarId === previousCalendarId) return;
+  event.target.disabled = true;
+  try {
+    await flushSave();
+    await cloudPersistence.selectCalendar(nextCalendarId);
+    const current = await cloudPersistence.read();
+    appDocument = current?.document ? sanitizeDocument(current.document) : createDefaultDocument();
+    selectedActivityIds.clear();
+    undoSnapshot = null;
+    activeDrawer = null;
+    closeDrawer();
+    storageAvailable = true;
+    const canEdit = cloudPersistence.canEdit();
+    setEditControl(
+      canEdit,
+      canEdit
+        ? ""
+        : `Este cronograma pertenece a ${cloudPersistence.getCalendar()?.ownerName || "otro usuario"} y está disponible en solo lectura.`
+    );
+    renderAll();
+    await renderStorageStatus();
+    setSaveIndicator("saved", "Guardado en Supabase");
+    showToast(canEdit ? "Se abrió tu cronograma." : "Se abrió el cronograma en modo de solo lectura.");
+  } catch (error) {
+    if (previousCalendarId && cloudPersistence.getCalendar()?.id !== previousCalendarId) {
+      try {
+        await cloudPersistence.selectCalendar(previousCalendarId);
+        await cloudPersistence.read();
+      } catch {
+        // Keep the original application document and report the switch error.
+      }
+    }
+    appDocument = previousDocument;
+    event.target.value = previousCalendarId;
+    showToast(`No se pudo abrir el cronograma: ${error.message}`, { type: "error", duration: 9000 });
+  } finally {
+    renderCloudCalendarSwitcher();
   }
 }
 
@@ -1098,12 +1173,14 @@ function renderBackupReminder() {
 async function renderStorageStatus() {
   if (CLOUD_MODE) {
     const user = cloudPersistence?.getUser();
+    const role = cloudPersistence?.canEdit() ? " · edición propia" : " · solo lectura";
     dom.storageStatusTitle.textContent = "Datos guardados en Supabase";
     dom.storageStatusText.textContent = user?.email
-      ? `Base compartida · ${user.email}`
-      : "Base compartida · sesión autenticada";
+      ? `Base compartida · ${user.email}${role}`
+      : `Base compartida · sesión autenticada${role}`;
     dom.requestPersistenceButton.hidden = true;
     dom.cloudSignOutButton.hidden = false;
+    renderCloudCalendarSwitcher();
     return;
   }
   dom.storageStatusTitle.textContent = "Datos guardados solamente en este navegador";
@@ -1240,6 +1317,7 @@ function renderAll() {
   renderSelectionBar();
   renderBackupReminder();
   renderAccessMode();
+  renderCloudCalendarSwitcher();
   if (activeDrawer?.type === "activity") renderActivityDrawer(activeDrawer.id);
   if (activeDrawer?.type === "day") renderDayDrawer(activeDrawer.date);
 }
@@ -2097,20 +2175,24 @@ function renderActivityDrawer(activityId) {
   const actions = createElement("div", "detail-actions");
   const edit = createElement("button", "button small", "Editar tarjeta");
   edit.type = "button";
+  edit.disabled = !hasEditControl;
   edit.addEventListener("click", () => openActivityDialog({ activityId }));
   const organize = createElement("button", "button small", isQuarantineActivity(activity) ? "Asignar fecha" : "Mover · Duplicar · Ampliar");
   organize.type = "button";
+  organize.disabled = !hasEditControl;
   organize.addEventListener("click", () => isQuarantineActivity(activity)
     ? openQuarantineAssignDialog(activityId)
     : openActivityDateActionDialog(activityId));
   if (!isQuarantineActivity(activity) && ["scheduled", "confirmed"].includes(activity.status)) {
   const quarantine = createElement("button", "button small", "Enviar a Pendiente");
     quarantine.type = "button";
+    quarantine.disabled = !hasEditControl;
     quarantine.addEventListener("click", () => openQuarantineDialog(activityId));
     actions.append(quarantine);
   }
   const remove = createElement("button", "button small ghost", "Eliminar");
   remove.type = "button";
+  remove.disabled = !hasEditControl;
   remove.addEventListener("click", () => deleteActivity(activityId));
   actions.append(edit, organize, remove);
   body.append(actions);
@@ -2125,6 +2207,7 @@ function renderActivityDrawer(activityId) {
   const statusSelect = document.createElement("select");
   statusSelect.id = "drawerStatusSelect";
   statusSelect.setAttribute("aria-label", "Nuevo estado de la actividad");
+  statusSelect.disabled = !hasEditControl;
   for (const [value, label] of Object.entries(ACTIVITY_STATUSES)) {
     if (value !== "to_schedule") statusSelect.append(option(value, label));
   }
@@ -2139,11 +2222,13 @@ function renderActivityDrawer(activityId) {
     input.name = "drawerStatusScope";
     input.value = value;
     input.checked = value === "single";
+    input.disabled = !hasEditControl;
     labelElement.append(input, createElement("span", "", label));
     scopeRow.append(labelElement);
   }
   const apply = createElement("button", "button primary small", "Aplicar estado");
   apply.type = "button";
+  apply.disabled = !hasEditControl;
   apply.addEventListener("click", () => {
     const scope = scopeRow.querySelector("input:checked")?.value ?? "single";
     updateActivityStatus(activityId, statusSelect.value, scope);
@@ -2191,6 +2276,7 @@ function renderDayDrawer(date) {
   }
   const add = createElement("button", "button primary", "Nueva actividad en esta fecha");
   add.type = "button";
+  add.disabled = !hasEditControl;
   add.addEventListener("click", () => openActivityDialog({ date }));
   body.append(add);
   dom.drawerBody.replaceChildren(body);
@@ -2207,6 +2293,10 @@ function updateActivityStatus(activityId, status, scope) {
 }
 
 function deleteActivity(activityId) {
+  if (!hasEditControl) {
+    showToast("Este cronograma está disponible únicamente en modo de solo lectura.", { type: "error" });
+    return;
+  }
   const activity = appDocument.activities.find((item) => item.id === activityId);
   if (!activity) return;
   if (!window.confirm("¿Eliminar esta tarjeta? Las demás fechas de la actividad multidía no se modificarán.")) return;
@@ -2369,6 +2459,10 @@ function setActivityFormMode(mode, planningBucket = "calendar") {
 }
 
 function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = "", activityId = "", duplicateId = "", planningBucket = "calendar" } = {}) {
+  if (!hasEditControl) {
+    showToast("Este cronograma está disponible únicamente en modo de solo lectura.", { type: "error" });
+    return;
+  }
   dom.activityForm.reset();
   showFormErrors(dom.activityFormErrors, []);
   forcedRangeDates = new Set();
@@ -2941,6 +3035,10 @@ function openResetDataDialog() {
 
 async function handleResetDataSubmit(event) {
   event.preventDefault();
+  if (!hasEditControl) {
+    showFormErrors(dom.resetDataErrors, ["Este cronograma está disponible únicamente en modo de solo lectura."]);
+    return;
+  }
   if (dom.resetConfirmation.value.trim() !== "REINICIAR") {
     showFormErrors(dom.resetDataErrors, ["Escribe REINICIAR exactamente para confirmar."]);
     return;
@@ -3507,6 +3605,9 @@ function initializeStaticOptions() {
 
 function bindEvents() {
   dom.cloudAuthForm?.addEventListener("submit", handleCloudAuthSubmit);
+  dom.cloudCalendarSelect?.addEventListener("change", (event) => {
+    handleCloudCalendarChange(event).catch((error) => showToast(error.message, { type: "error" }));
+  });
   dom.cloudAuthModeButton?.addEventListener("click", () => {
     setCloudAuthMode(cloudAuthMode === "sign-up" ? "sign-in" : "sign-up");
     showFormErrors(dom.cloudAuthErrors, []);
