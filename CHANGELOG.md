@@ -1,5 +1,23 @@
 # Historial de cambios
 
+## [0.15.0-beta.7] - 2026-08-07
+
+### Refactorización interna
+
+- Se separan dominio, importación, persistencia, presentación y CLI en módulos
+  enfocados, conservando las fachadas públicas existentes.
+- Se dividen coordinadores extensos, se centralizan utilidades repetidas y se
+  eliminan referencias muertas demostradas.
+- Los estilos se organizan por base, responsive y contrato visual sin cambiar
+  el orden de la cascada.
+- El build valida la sintaxis del bundle autocontenido y se añaden pruebas
+  directas para los módulos extraídos.
+
+### Compatibilidad
+
+- No cambia el esquema, el contrato de operaciones, el DOM ni los calendarios
+  separados de Supabase para stable y beta.
+
 ## [0.15.0-beta.6] - 2026-08-06
 
 ### Agenda diaria y días congestionados
