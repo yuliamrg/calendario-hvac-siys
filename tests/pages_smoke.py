@@ -57,6 +57,15 @@ def cloud_backup(page, url: str, email: str, password: str, artifact_dir: Path, 
     expect(page.locator("#storageStatusTitle")).to_have_text("Datos guardados en Supabase")
     expect(page.locator("#storageStatusText")).to_contain_text("Base compartida")
     expect(page.locator("#saveIndicatorText")).to_have_text("Guardado en Supabase")
+    calendar_select = page.locator("#cloudCalendarSelect")
+    refresh_calendars = page.locator("#refreshCloudCalendarsButton")
+    expect(calendar_select).to_be_visible()
+    expect(refresh_calendars).to_be_visible()
+    calendar_count = calendar_select.locator("option").count()
+    refresh_calendars.click()
+    expect(page.locator("#toastRegion .toast").filter(
+        has_text="cronogramas disponibles"
+    )).to_be_visible(timeout=10_000)
     with page.expect_download() as download_info:
         click_menu_action(page, "backupButton")
     backup_path = artifact_dir / f"respaldo-{label}.json"
@@ -66,7 +75,7 @@ def cloud_backup(page, url: str, email: str, password: str, artifact_dir: Path, 
     assert backup["format"] == "calendario-hvac-siys-backup"
     assert backup["channel"] == expected_channel
     assert backup["document"]["schemaVersion"] == 4
-    return backup
+    return {**backup, "calendarCount": calendar_count}
 
 
 def run_cloud_smoke(args, artifact_dir: Path) -> None:

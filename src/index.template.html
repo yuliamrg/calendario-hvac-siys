@@ -90,7 +90,10 @@
       </div>
       <div class="cloud-calendar-switcher" id="cloudCalendarSwitcher" hidden>
         <label for="cloudCalendarSelect">Cronograma</label>
-        <select id="cloudCalendarSelect" aria-label="Seleccionar cronograma"></select>
+        <div class="cloud-calendar-controls">
+          <select id="cloudCalendarSelect" aria-label="Seleccionar cronograma"></select>
+          <button class="button small ghost" id="refreshCloudCalendarsButton" type="button" title="Actualizar lista de cronogramas" aria-label="Actualizar lista de cronogramas">↻</button>
+        </div>
       </div>
       <button class="button small" id="requestPersistenceButton" type="button" hidden>Proteger almacenamiento</button>
       <button class="button small ghost" id="cloudSignOutButton" type="button" hidden>Cerrar sesión</button>

@@ -124,11 +124,20 @@ El workflow de Pages necesita las variables de repositorio
 los canales estable y BETA de GitHub Pages. Si el VPS usa otro dominio, debe
 añadirse como redirect URL en la configuración de Auth antes de publicar allí.
 
-El primer acceso cloud crea el calendario para la cuenta autenticada. Para
-abrirlo desde otro equipo, inicia sesión con la misma cuenta; el acceso de
-otras cuentas se puede añadir después mediante membresías de Supabase. En el
-mismo origen, la sesión se reutiliza entre stable y beta, pero los calendarios
-lógicos siguen separados.
+Cada cuenta Auth recibe un calendario lógico vacío por canal (stable y beta) al
+crearse; el primer acceso inicializa su documento JSON sin modificar otros
+cronogramas. Las cuentas existentes también se completan mediante una
+migración idempotente. Para abrir un cronograma desde otro equipo, inicia
+sesión con la cuenta correspondiente; los cronogramas de todos los propietarios
+del canal se pueden seleccionar en modo de solo lectura. En el mismo origen,
+la sesión se reutiliza entre stable y beta, pero los calendarios lógicos siguen
+separados.
+
+La lista se actualiza al recuperar el foco, volver a la pestaña, cada 30
+segundos o al pulsar **Actualizar lista de cronogramas**. Después de aplicar una
+migración, comprueba el estado con `npx supabase migration list --linked` y
+`npx supabase db push --linked --dry-run`; ambos deben quedar alineados y el
+segundo debe indicar que la base está actualizada.
 
 ## Persistencia local y copias de seguridad
 

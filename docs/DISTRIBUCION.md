@@ -34,6 +34,13 @@ GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo
 proyecto Supabase, pero cada uno apunta a un calendario lógico separado.
 
+Las migraciones de Supabase se aplican desde un entorno autorizado y se
+verifican con `migration list --linked` y `db push --linked --dry-run` antes de
+publicar. El workflow de Pages sólo construye el frontend: no debe usarse para
+suponer que el esquema remoto quedó actualizado. Las migraciones de provisión
+son idempotentes y crean un calendario vacío por canal para cada cuenta Auth;
+no alteran los documentos JSON existentes.
+
 ## Automatización
 
 CI comprueba:
