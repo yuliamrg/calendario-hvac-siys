@@ -1,5 +1,21 @@
 # Historial de cambios
 
+## [0.15.0-beta.8] - 2026-08-13
+
+### Cronogramas por usuario
+
+- Se actualiza automáticamente la lista de cronogramas al volver a la pestaña,
+  recuperar el foco, pulsar el botón de actualización o cada 30 segundos.
+- Las cuentas nuevas reciben un cronograma vacío por canal y se completa de
+  forma idempotente la cobertura de cuentas existentes sin calendario.
+- Se reparó y verificó el historial remoto de migraciones de Supabase para que
+  el esquema de lectura compartida quede alineado con el repositorio.
+
+### Compatibilidad
+
+- No se modifican actividades ni documentos existentes; la provisión sólo crea
+  filas de calendario faltantes y conserva la separación stable/beta.
+
 ## [0.15.0-beta.7] - 2026-08-07
 
 ### Refactorización interna

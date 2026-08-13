@@ -138,6 +138,9 @@ let storageAvailable = true;
 let hasEditControl = false;
 let editLockTimer = null;
 let cloudPersistence = null;
+let cloudCalendarRefreshTimer = null;
+let cloudCalendarRefreshInFlight = null;
+let cloudCalendarSwitching = false;
 let cloudAuthMode = "sign-in";
 let cloudAuthWaiter = null;
 let cloudMigrationNotice = "";
@@ -145,6 +148,7 @@ const tabId = crypto.randomUUID();
 const EDIT_LOCK_KEY = "edit-lock";
 const EDIT_LOCK_HEARTBEAT_MS = 5000;
 const EDIT_LOCK_STALE_MS = 15000;
+const CLOUD_CALENDAR_REFRESH_MS = 30000;
 const UI_PREFERENCES_KEY = `siys-sync-ui:${RUNTIME_CHANNEL}`;
 const uiPreferences = createJsonPreferences(localStorage, UI_PREFERENCES_KEY);
 const systemThemeQuery = window.matchMedia?.("(prefers-color-scheme: dark)") ?? null;
@@ -418,8 +422,47 @@ function renderCloudCalendarSwitcher() {
     ...calendars.map((calendar) => option(calendar.id, cloudCalendarLabel(calendar)))
   );
   dom.cloudCalendarSelect.value = current?.id ?? "";
-  dom.cloudCalendarSelect.disabled = calendars.length < 2;
+  dom.cloudCalendarSelect.disabled = calendars.length < 2 || cloudCalendarSwitching;
+  if (dom.refreshCloudCalendarsButton) {
+    dom.refreshCloudCalendarsButton.disabled = Boolean(cloudCalendarRefreshInFlight) || cloudCalendarSwitching;
+    dom.refreshCloudCalendarsButton.setAttribute("aria-busy", String(Boolean(cloudCalendarRefreshInFlight)));
+    dom.refreshCloudCalendarsButton.textContent = cloudCalendarRefreshInFlight ? "…" : "↻";
+  }
   dom.cloudCalendarSwitcher.hidden = false;
+}
+
+async function refreshCloudCalendars({ notify = false } = {}) {
+  if (!CLOUD_MODE || !cloudPersistence || cloudCalendarSwitching) return cloudPersistence?.getCalendars() ?? [];
+  if (cloudCalendarRefreshInFlight) return cloudCalendarRefreshInFlight;
+  cloudCalendarRefreshInFlight = (async () => {
+    try {
+      const calendars = await cloudPersistence.loadCalendars();
+      renderCloudCalendarSwitcher();
+      if (notify) showToast(`${calendars.length} cronogramas disponibles en este canal.`);
+      return calendars;
+    } catch (error) {
+      if (notify) {
+        showToast(`No se pudo actualizar la lista de cronogramas: ${error.message}`, {
+          type: "error",
+          duration: 9000
+        });
+      }
+      return cloudPersistence.getCalendars();
+    } finally {
+      cloudCalendarRefreshInFlight = null;
+      renderCloudCalendarSwitcher();
+    }
+  })();
+  renderCloudCalendarSwitcher();
+  return cloudCalendarRefreshInFlight;
+}
+
+function startCloudCalendarRefresh() {
+  if (!CLOUD_MODE || !cloudPersistence) return;
+  if (cloudCalendarRefreshTimer) clearInterval(cloudCalendarRefreshTimer);
+  cloudCalendarRefreshTimer = window.setInterval(() => {
+    if (!document.hidden && !cloudCalendarSwitching) refreshCloudCalendars().catch(() => {});
+  }, CLOUD_CALENDAR_REFRESH_MS);
 }
 
 async function handleCloudCalendarChange(event) {
@@ -428,6 +471,8 @@ async function handleCloudCalendarChange(event) {
   const previousDocument = clone(appDocument);
   const nextCalendarId = event.target.value;
   if (!nextCalendarId || nextCalendarId === previousCalendarId) return;
+  cloudCalendarSwitching = true;
+  renderCloudCalendarSwitcher();
   event.target.disabled = true;
   try {
     await flushSave();
@@ -463,6 +508,7 @@ async function handleCloudCalendarChange(event) {
     event.target.value = previousCalendarId;
     showToast(`No se pudo abrir el cronograma: ${error.message}`, { type: "error", duration: 9000 });
   } finally {
+    cloudCalendarSwitching = false;
     renderCloudCalendarSwitcher();
   }
 }
@@ -3836,6 +3882,13 @@ function bindCloudEvents() {
   dom.cloudCalendarSelect?.addEventListener("change", (event) => {
     handleCloudCalendarChange(event).catch((error) => showToast(error.message, { type: "error" }));
   });
+  dom.refreshCloudCalendarsButton?.addEventListener("click", () => {
+    refreshCloudCalendars({ notify: true }).catch((error) => showToast(error.message, { type: "error" }));
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshCloudCalendars().catch(() => {});
+  });
+  window.addEventListener("focus", () => refreshCloudCalendars().catch(() => {}));
   dom.cloudAuthModeButton?.addEventListener("click", () => {
     setCloudAuthMode(cloudAuthMode === "sign-up" ? "sign-in" : "sign-up");
     showFormErrors(dom.cloudAuthErrors, []);
@@ -4101,6 +4154,7 @@ function bindGlobalInteractionEvents() {
       writeStoredDocument(clone(appDocument)).catch(() => {});
     }
     if (editLockTimer) clearInterval(editLockTimer);
+    if (cloudCalendarRefreshTimer) clearInterval(cloudCalendarRefreshTimer);
     releaseEditLock().catch(() => {});
     editChannel?.close();
   });
@@ -4208,6 +4262,7 @@ async function initialize() {
   }
   renderAll();
   await renderStorageStatus();
+  startCloudCalendarRefresh();
   if (storageAvailable) setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
   if (cloudMigrationNotice) {
     showToast(cloudMigrationNotice, { duration: 10000 });

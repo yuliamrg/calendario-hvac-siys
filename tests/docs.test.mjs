@@ -110,6 +110,23 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
   assert.match(css, /\.day-overflow-card/);
 });
 
+test("la lista cloud de cronogramas tiene refresco y la provisión es idempotente", () => {
+  const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
+  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const migration = readFileSync(
+    resolve(root, "supabase", "migrations", "20260813160000_provision_user_calendars.sql"),
+    "utf8"
+  );
+  assert.match(template, /id="refreshCloudCalendarsButton"/);
+  assert.match(app, /function refreshCloudCalendars\(\{ notify = false \} = \{\}\)/);
+  assert.match(app, /CLOUD_CALENDAR_REFRESH_MS = 30000/);
+  assert.match(app, /visibilitychange/);
+  assert.match(app, /window\.addEventListener\("focus"/);
+  assert.match(migration, /create or replace function public\.handle_new_user/);
+  assert.match(migration, /on conflict \(legacy_id, created_by\) do nothing/);
+  assert.match(migration, /cross join/);
+});
+
 test("la guía de Base Operativa enumera hojas y exclusiones de privacidad", () => {
   const guide = readFileSync(resolve(root, "docs", "BASE_OPERATIVA.md"), "utf8");
   for (const sheet of [

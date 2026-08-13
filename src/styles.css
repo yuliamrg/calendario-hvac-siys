@@ -463,6 +463,19 @@ button:disabled {
   border-radius: 6px;
 }
 
+.cloud-calendar-controls {
+  align-items: center;
+  gap: 4px !important;
+}
+
+.cloud-calendar-controls .button {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px 6px;
+  font-size: 15px;
+  line-height: 1;
+}
+
 .backup-banner div,
 .storage-banner div,
 .access-banner div {
