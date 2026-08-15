@@ -119,10 +119,12 @@ Al soltar una tarjeta en otra fecha, SIYS Sync pregunta qué operación realizar
 Al editar una actividad ampliada se puede aplicar cliente, sede, ciudad,
 responsables, servicio y observaciones sólo al día o a toda la actividad. La
 fecha siempre pertenece a una tarjeta concreta y el estado conserva su alcance
-independiente. **Ampliar a rango** permite seleccionar desde/hasta, conservar
-fechas existentes y elegir entre ampliar la misma serie o duplicar tarjetas
-independientes. Ampliar sólo está disponible al arrastrar una tarjeta. Soltarla
-en su fecha actual no abre el diálogo ni genera historial.
+independiente. **Ampliar** abre la fecha de ampliación y una fecha final
+opcional: si se deja vacía se conserva la ampliación de un solo día; si se
+completa, se aplica el rango, se conservan las fechas existentes y se puede
+elegir entre ampliar la misma serie o duplicar tarjetas independientes.
+Ampliar sólo está disponible al arrastrar una tarjeta. Soltarla en su fecha
+actual no abre el diálogo ni genera historial.
 
 Si se intenta mover o editar una tarjeta de una actividad ampliada hacia otra
 fecha ya ocupada por esa misma actividad, la operación se rechaza sin cambios y

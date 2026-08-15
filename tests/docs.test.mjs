@@ -110,6 +110,18 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
   assert.match(css, /\.day-overflow-card/);
 });
 
+test("la actividad conserva un solo buscador de responsables y unifica la ampliacion", () => {
+  const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
+  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  assert.equal((template.match(/id="responsibleSearch"/g) ?? []).length, 1);
+  assert.doesNotMatch(template, /activityResponsibleText|activityResponsibleType|responsibleSuggestions/);
+  assert.doesNotMatch(template, /Ampliar a rango/);
+  assert.match(template, /id="seriesRangeFrom" type="date" required/);
+  assert.match(template, /id="seriesRangeTo" type="date"\s*>/);
+  assert.match(app, /openSeriesRangeDialog\(payload\.activityIds\[0\], \{ fromDate: payload\.date \}\)/);
+  assert.match(app, /const operation = toDate \? "activity\.extend-range"/);
+});
+
 test("la lista cloud de cronogramas tiene refresco y la provisión es idempotente", () => {
   const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");

@@ -1746,6 +1746,11 @@ html[data-theme="dark"] dialog::backdrop {
   font-weight: 400 !important;
 }
 
+.check-row[hidden],
+.radio-row[hidden] {
+  display: none !important;
+}
+
 .check-row input,
 .radio-row input {
   flex: 0 0 auto;
@@ -2039,13 +2044,6 @@ html[data-theme="dark"] dialog::backdrop {
   background: transparent;
   cursor: pointer;
   font-weight: 700;
-}
-
-.field-note-row {
-  display: grid;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .three-motion-canvas {

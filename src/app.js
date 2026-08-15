@@ -2055,7 +2055,6 @@ function handleCalendarDrop(event, date, holidayMap) {
       ? `${payload.activityIds.length} tarjetas seleccionadas. Se conservará la distancia entre sus fechas.`
       : `Actividad del ${formatDisplayDate(anchor.date)} hacia el ${formatDisplayDate(date)}.`;
     dom.dropExtendButton.hidden = payload.activityIds.length !== 1;
-    dom.dropExtendRangeButton.hidden = payload.activityIds.length !== 1;
     openDialog("dropActionDialog");
   }
 }
@@ -2150,17 +2149,6 @@ function applyPendingDrop(action) {
   pendingDrop = null;
   closeDialog("dropActionDialog");
   try {
-    if (action === "extend-range") {
-      if (payload.activityIds.length !== 1) throw new TypeError("Sólo se puede ampliar una tarjeta a la vez.");
-      const source = appDocument.activities.find((item) => item.id === payload.activityIds[0]);
-      const fromDate = source && compareISODate(source.date, payload.date) <= 0 ? source.date : payload.date;
-      const toDate = source && compareISODate(source.date, payload.date) >= 0 ? source.date : payload.date;
-      openSeriesRangeDialog(payload.activityIds[0], {
-        fromDate,
-        toDate
-      });
-      return;
-    }
     if (action === "move") {
       const label = payload.activityIds.length > 1
         ? `${payload.activityIds.length} tarjetas movidas`
@@ -2184,13 +2172,8 @@ function applyPendingDrop(action) {
       if (outcome.result.activityIds[0]) renderActivityDrawer(outcome.result.activityIds[0]);
     } else if (action === "extend") {
       if (payload.activityIds.length !== 1) throw new TypeError("Sólo se puede ampliar una tarjeta a la vez.");
-      const outcome = mutateWithContract("activity.extend", {
-        activityId: payload.activityIds[0],
-        targetDate: payload.date,
-        allowNonWorking: true
-      }, "Actividad ampliada a otro día");
-      if (outcome.changed) clearActivitySelection();
-      if (outcome.result.activityId) renderActivityDrawer(outcome.result.activityId);
+      openSeriesRangeDialog(payload.activityIds[0], { fromDate: payload.date });
+      return;
     }
     if (isNonWorkingDate(payload.date, payload.holidayMap)) {
       showToast("La fecha elegida es domingo o festivo. La programación se conservó por decisión manual.", {
@@ -2207,18 +2190,14 @@ function openSeriesRangeDialog(activityId, { fromDate = null, toDate = null } = 
   if (!activity || !hasEditControl || isQuarantineActivity(activity)) return;
   pendingSeriesRangeActivityId = activityId;
   seriesRangeForcedDates = new Set();
-  const start = fromDate && toDate && compareISODate(fromDate, toDate) <= 0
-    ? fromDate
-    : fromDate && compareISODate(fromDate, activity.date) < 0
-      ? fromDate
-      : activity.date;
+  const start = fromDate || activity.date;
   const end = toDate && compareISODate(toDate, start) >= 0
     ? toDate
-    : addDaysISO(activity.date, 7);
+    : "";
   dom.seriesRangeFrom.value = start;
   dom.seriesRangeTo.value = end;
   dom.seriesRangeIncludeNonWorking.checked = false;
-  dom.seriesRangeSummary.textContent = `Actividad del ${formatDisplayDate(activity.date)}. Las fechas existentes de esta misma actividad se conservarán sin duplicarse.`;
+  dom.seriesRangeSummary.textContent = `Actividad del ${formatDisplayDate(activity.date)}. Completa sólo la fecha de ampliación para trabajar un día; la fecha final es opcional para aplicar el rango. Las fechas existentes se conservarán sin duplicarse.`;
   showFormErrors(dom.seriesRangeErrors, []);
   updateSeriesRangePreview();
   openDialog("seriesRangeDialog");
@@ -2228,15 +2207,19 @@ function updateSeriesRangePreview() {
   const activity = appDocument.activities.find((item) => item.id === pendingSeriesRangeActivityId);
   const fromDate = dom.seriesRangeFrom.value;
   const toDate = dom.seriesRangeTo.value;
-  if (!activity || !fromDate || !toDate || compareISODate(toDate, fromDate) < 0) {
+  const endDate = toDate || fromDate;
+  const isRange = Boolean(toDate);
+  dom.seriesRangeNonWorkingLabel.hidden = !isRange;
+  if (!isRange) dom.seriesRangeIncludeNonWorking.checked = false;
+  if (!activity || !fromDate || (toDate && compareISODate(toDate, fromDate) < 0)) {
     dom.seriesRangePreview.hidden = true;
     dom.seriesRangePreview.replaceChildren();
     return;
   }
-  const holidays = holidayMapForRange(fromDate, toDate, appDocument.holidayOverrides);
-  const generated = generateSeriesDates(fromDate, toDate, holidays, {
-    includeAllNonWorking: dom.seriesRangeIncludeNonWorking.checked,
-    forceIncludeDates: [...seriesRangeForcedDates]
+  const holidays = holidayMapForRange(fromDate, endDate, appDocument.holidayOverrides);
+  const generated = generateSeriesDates(fromDate, endDate, holidays, {
+    includeAllNonWorking: !isRange || dom.seriesRangeIncludeNonWorking.checked,
+    forceIncludeDates: isRange ? [...seriesRangeForcedDates] : []
   });
   const existing = new Set(
     appDocument.activities
@@ -2272,24 +2255,42 @@ function applySeriesRangeAction(mode) {
   const activityId = pendingSeriesRangeActivityId;
   const fromDate = dom.seriesRangeFrom.value;
   const toDate = dom.seriesRangeTo.value;
-  if (!activityId || !fromDate || !toDate) return;
+  if (!activityId || !fromDate) return;
   try {
-    const outcome = mutateWithContract("activity.extend-range", {
-      activityId,
-      fromDate,
-      toDate,
-      mode,
-      includeNonWorking: dom.seriesRangeIncludeNonWorking.checked,
-      forceIncludeDates: [...seriesRangeForcedDates]
-    }, mode === "extend" ? "Actividad ampliada al rango" : "Actividad duplicada al rango");
+    const operation = toDate ? "activity.extend-range" : mode === "extend" ? "activity.extend" : "activity.duplicate";
+    const payload = toDate
+      ? {
+          activityId,
+          fromDate,
+          toDate,
+          mode,
+          includeNonWorking: dom.seriesRangeIncludeNonWorking.checked,
+          forceIncludeDates: [...seriesRangeForcedDates]
+        }
+      : mode === "extend"
+        ? { activityId, targetDate: fromDate, allowNonWorking: true }
+        : { activityIds: [activityId], targetDate: fromDate, anchorId: activityId, allowNonWorking: true };
+    const outcome = mutateWithContract(
+      operation,
+      payload,
+      toDate
+        ? mode === "extend" ? "Actividad ampliada al rango" : "Actividad duplicada al rango"
+        : mode === "extend" ? "Actividad ampliada a otro día" : "Actividad duplicada a otro día"
+    );
     if (outcome.warnings?.length) {
-      showToast(`${outcome.warnings.length} fecha(s) se omitieron o requieren revisión.`, { duration: 7000 });
+      showToast(
+        toDate
+          ? `${outcome.warnings.length} fecha(s) se omitieron o requieren revisión.`
+          : "La fecha elegida es domingo o festivo. La programación se conservó por decisión manual.",
+        { duration: 7000 }
+      );
     }
     closeDialog("seriesRangeDialog");
     pendingSeriesRangeActivityId = null;
     seriesRangeForcedDates = new Set();
     clearActivitySelection();
-    if (outcome.result.activityIds?.[0]) renderActivityDrawer(outcome.result.activityIds[0]);
+    const firstActivityId = outcome.result.activityId ?? outcome.result.activityIds?.[0];
+    if (firstActivityId) renderActivityDrawer(firstActivityId);
   } catch (error) {
     showFormErrors(dom.seriesRangeErrors, [error.message]);
   }
@@ -2717,17 +2718,6 @@ function populateActivitySelects({ clientId = "", siteId = "", responsibleIds = 
       .sort((a, b) => a.localeCompare(b, "es"))
       .map((city) => option(city, city))
   );
-  setChildren(
-    dom.responsibleSuggestions,
-    ...appDocument.catalog.responsibles
-      .filter((item) => item.active !== false)
-      .sort((a, b) => a.name.localeCompare(b.name, "es"))
-      .map((item) => option(item.name, item.name))
-  );
-  const selectedNames = responsibleIds
-    .map((id) => appDocument.catalog.responsibles.find((item) => item.id === id)?.name)
-    .filter(Boolean);
-  dom.activityResponsibleText.value = selectedNames.join(", ");
   renderResponsiblePicker(responsibleIds);
 }
 
@@ -2910,7 +2900,6 @@ function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = ""
   });
   dom.activityClientText.value = appDocument.catalog.clients.find((item) => item.id === resolvedClient)?.name ?? "";
   dom.activitySiteText.value = appDocument.catalog.sites.find((item) => item.id === resolvedSite)?.name ?? "";
-  dom.activityResponsibleType.value = "contractor";
   const linked = Boolean(source?.seriesId);
   dom.activityEditScopePanel.hidden = !(mode === "edit" && linked);
   dom.activityEditScope.value = "single";
@@ -2970,15 +2959,6 @@ function updateRangePreview() {
 
 function activityInputFromForm() {
   const responsibleIds = [...dom.responsiblePicker.querySelectorAll("input:checked")].map((input) => input.value);
-  const typedResponsibleNames = [...new Set(safeText(dom.activityResponsibleText.value, 1000)
-    .split(/[;,\n]/)
-    .map((item) => safeText(item, 240))
-    .filter(Boolean))];
-  const knownResponsibleNames = new Map(appDocument.catalog.responsibles.map((item) => [normalizeText(item.name), item.id]));
-  for (const name of typedResponsibleNames) {
-    const id = knownResponsibleNames.get(normalizeText(name));
-    if (id && !responsibleIds.includes(id)) responsibleIds.push(id);
-  }
   const clientName = safeText(dom.activityClientText.value, 160) || null;
   const siteName = safeText(dom.activitySiteText.value, 160) || null;
   const client = appDocument.catalog.clients.find((item) => normalizeText(item.name) === normalizeText(clientName));
@@ -2997,8 +2977,6 @@ function activityInputFromForm() {
     siteId: site?.id ?? dom.activitySite.value ?? null,
     clientName,
     siteName,
-    responsibleNames: typedResponsibleNames,
-    newResponsibleType: dom.activityResponsibleType.value,
     city: safeText(dom.activityCity.value, 120) || null,
     responsibleIds,
     serviceType: dom.activityServiceType.value,
@@ -3015,7 +2993,7 @@ function validateActivityInput(input) {
     status: input.planningBucket === "quarantine" ? "to_schedule" : input.status,
     clientId: input.clientId || (input.clientName ? "typed-client" : null),
     siteId: input.siteId || (input.siteName ? "typed-site" : null),
-    responsibleIds: input.responsibleIds.length || input.responsibleNames?.length ? ["typed-responsible"] : []
+    responsibleIds: input.responsibleIds
   };
   const errors = validateActivity(candidate);
   if (input.planningBucket !== "quarantine" && input.endDate && input.date && compareISODate(input.endDate, input.date) < 0) {
@@ -4248,13 +4226,11 @@ function bindPrimaryActionEvents() {
   dom.dropMoveButton.addEventListener("click", () => applyPendingDrop("move"));
   dom.dropDuplicateButton.addEventListener("click", () => applyPendingDrop("duplicate"));
   dom.dropExtendButton.addEventListener("click", () => applyPendingDrop("extend"));
-  dom.dropExtendRangeButton.addEventListener("click", () => applyPendingDrop("extend-range"));
   dom.activityDateActionForm.addEventListener("submit", (event) => event.preventDefault());
   dom.activityDateActionDate.addEventListener("change", updateActivityDateActionWarning);
   dom.touchMoveButton.addEventListener("click", () => applyTouchDateAction("move"));
   dom.touchDuplicateButton.addEventListener("click", () => applyTouchDateAction("duplicate"));
   dom.touchExtendButton.addEventListener("click", () => applyTouchDateAction("extend"));
-  dom.touchExtendRangeButton.addEventListener("click", () => applyTouchDateAction("extend-range"));
   dom.seriesRangeForm.addEventListener("submit", (event) => {
     event.preventDefault();
     applySeriesRangeAction("extend");
@@ -4366,7 +4342,6 @@ function bindActivityFormEvents() {
   dom.activitySiteText.addEventListener("input", resolveActivitySiteText);
   dom.activitySiteText.addEventListener("change", resolveActivitySiteText);
   dom.responsibleSearch.addEventListener("input", scheduleResponsiblePickerRender);
-  dom.activityResponsibleText.addEventListener("input", scheduleResponsiblePickerRender);
   dom.activityCity.addEventListener("input", scheduleResponsiblePickerRender);
   dom.activityServiceType.addEventListener("change", updateAdministrativeFormState);
   dom.activityDate.addEventListener("change", () => {
