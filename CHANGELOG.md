@@ -1,5 +1,20 @@
 # Historial de cambios
 
+## [0.15.0] - 2026-08-15
+
+### Promoción a estable
+
+- Se promueve íntegramente la línea `0.15.0-beta.8` a `0.15.0` después de su
+  validación en beta.
+- Incluye cronogramas por usuario y canal, lectura compartida, agenda diaria,
+  reordenamiento persistido, refactorización modular y provisión idempotente
+  de calendarios cloud.
+
+### Compatibilidad
+
+- Conserva el esquema, el contrato de operaciones, los respaldos, la CLI y la
+  separación de calendarios stable/beta.
+
 ## [0.15.0-beta.8] - 2026-08-13
 
 ### Cronogramas por usuario
