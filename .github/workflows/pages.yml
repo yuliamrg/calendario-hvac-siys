@@ -37,6 +37,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Install beta dependencies
+        run: npm ci
+      - name: Install stable dependencies
+        working-directory: stable-src
+        run: npm ci
       - name: Verify Supabase deployment configuration
         shell: bash
         run: |
