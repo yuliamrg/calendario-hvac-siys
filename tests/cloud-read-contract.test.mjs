@@ -81,6 +81,12 @@ function makeCloudFixture({ channel = "beta", calendars = calendarRows(channel),
     calls.push({ url, options });
     const forced = Object.entries(statusByPath).find(([pattern]) => url.includes(pattern));
     if (forced) return response({ message: forced[1].message ?? "error" }, forced[1].status);
+    if (url.includes("/auth/v1/token?grant_type=password")) return response({
+      access_token: "fixture-access-token",
+      refresh_token: "fixture-refresh-token",
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: USER
+    });
     if (url.includes("/auth/v1/user")) return response(USER);
     if (url.includes("/rest/v1/profiles?")) return response([{ id: USER.id, display_name: "Usuario Fixture" }]);
     if (url.includes("/rest/v1/calendars?legacy_id=")) {
@@ -109,6 +115,7 @@ async function invokeCli(args, fixture, env = {}) {
     stderr,
     fetch: fixture?.fetchImpl,
     sessionStore: fixture?.store,
+    stdin: fixture?.stdin,
     env: {
       SIYS_SUPABASE_URL: CONFIG.url,
       SIYS_SUPABASE_PUBLISHABLE_KEY: CONFIG.publishableKey,
@@ -308,4 +315,16 @@ test("T26 cloud login no acepta contraseña por argv", async () => {
   assert.equal(result.status, 2);
   assert.match(result.stderr, /INVALID_REQUEST/);
   assert.ok(!result.stderr.includes("no-debe-aparecer"));
+});
+
+test("T27 cloud login acepta contraseña solo por stdin", async () => {
+  const fixture = makeCloudFixture();
+  fixture.stdin = new PassThrough();
+  fixture.stdin.end("fixture-password\n");
+  const result = await invokeCli(["cloud", "login", "--email", USER.email, "--password-stdin", "--output", "json"], fixture);
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.loggedIn, true);
+  assert.ok(!result.stdout.includes("fixture-access-token"));
+  assert.equal(fixture.store.value.user.id, USER.id);
 });
