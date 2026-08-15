@@ -1,8 +1,10 @@
 # CLI `calendary`
 
-La CLI es una capa local y portable sobre el mismo contrato de la interfaz. No
-instala un servicio, no usa red y no abre IndexedDB: siempre lee una copia JSON
-y, para cambios, crea otra copia JSON.
+La CLI es una capa local y portable sobre el mismo contrato de la interfaz. La
+fuente `file` (predeterminada) no usa red ni abre IndexedDB: lee una copia JSON
+y, para cambios, crea otra copia JSON. La fuente `cloud` solo lee el documento
+actual de Supabase; no implementa escrituras cloud, migraciones, backfill ni
+historial as-of.
 
 El flujo operativo completo —incluida la carpeta canónica de respaldos, la
 separación estable/beta y la restauración verificada— está en
@@ -19,6 +21,51 @@ npm run cli -- activity list --input .\cronograma.json --from 2026-08-01 --to 20
 npm run cli -- activity extend-range --input .\cronograma.json --dry-run `
   --payload '{"activityId":"actividad_123","fromDate":"2026-08-03","toDate":"2026-08-14","mode":"extend"}'
 ```
+
+## Lectura cloud actual
+
+La fuente cloud requiere `SIYS_SUPABASE_URL`,
+`SIYS_SUPABASE_PUBLISHABLE_KEY` y una sesión autenticada. Stable y beta usan
+el mismo proyecto Supabase, pero sus `legacy_id` son distintos:
+
+```text
+stable → calendario-hvac-siys
+beta   → calendario-hvac-siys-beta
+```
+
+La contraseña nunca se pasa por argv. Puede iniciar sesión de forma
+interactiva o mediante stdin:
+
+```powershell
+npm run cli -- cloud login --email coordinador@example.com
+npm run cli -- cloud whoami --output json
+npm run cli -- cloud calendars --channel beta --output json
+npm run cli -- cloud logout
+```
+
+Para consultar un calendario actual la selección debe ser inequívoca. Si hay
+varios candidatos, la CLI devuelve `CALENDAR_AMBIGUOUS`; no elige el más
+reciente ni el primero:
+
+```powershell
+npm run cli -- activity list --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --from 2026-08-15 --to 2026-08-15 --output json
+```
+
+Cada resultado cloud incluye `source.kind`, `channel`, `calendarId`,
+`legacyId`, `calendarName`, `createdBy`, `cloudRevision`,
+`documentRevision`, `documentUpdatedAt`, `observedAt` y `documentHash`.
+`cloudRevision` y `documentRevision` son campos distintos; una diferencia
+produce `REVISION_MISMATCH`. `observedAt` es el momento de lectura y
+`documentUpdatedAt` el timestamp de la fila actual. `as-of` histórico no está
+soportado y falla con `HISTORICAL_QUERY_UNSUPPORTED`.
+
+La CLI solo realiza GET sobre `calendars`, `calendar_documents` y, cuando está
+disponible, `profiles`. Los errores de autenticación, RLS o red no hacen
+fallback silencioso al JSON local. Las operaciones de mutación con
+`--source cloud` fallan antes de realizar una petición con
+`CLOUD_WRITE_NOT_ALLOWED`.
 
 Una escritura nunca sobrescribe la entrada ni un destino existente:
 

@@ -18,19 +18,23 @@ export async function confirmDestructive(operation, values, stdin, stdout) {
   }
 }
 
-export function formatHumanResult(operation, outcome) {
+export function formatHumanResult(operation, outcome, source = null) {
+  const sourceLine = source?.kind === "cloud"
+    ? `Fuente cloud ${source.channel}/${source.calendarId}; revisión cloud=${source.cloudRevision ?? "?"}, documento=${source.documentRevision ?? "?"}; observado=${source.observedAt}.${source.warnings?.length ? ` Advertencias: ${source.warnings.join(", ")}.` : ""}`
+    : null;
   if (["activity.list", "catalog.list", "holiday.list"].includes(operation)) {
-    return outcome.result.items.map((item) => JSON.stringify(item)).join("\n") || "Sin resultados.";
+    return [sourceLine, outcome.result.items.map((item) => JSON.stringify(item)).join("\n") || "Sin resultados."].filter(Boolean).join("\n");
   }
-  return outcome.changed
+  const result = outcome.changed
     ? `OK ${operation}: revisión ${outcome.document.calendarMeta.revision}.`
     : `${operation}: sin cambios.\n${JSON.stringify(outcome.result, null, 2)}`;
+  return [sourceLine, result].filter(Boolean).join("\n");
 }
 
 export function exitCodeFor(error) {
-  if (["INVALID_REQUEST", "VALIDATION_FAILED", "INVALID_DOCUMENT", "UNSUPPORTED_SCHEMA", "INPUT_TOO_LARGE"].includes(error.code)) return 2;
-  if (error.code === "NOT_FOUND") return 3;
-  if (["CONFLICT", "OUTPUT_EXISTS", "CONFIRMATION_REQUIRED", "NON_WORKING_CONFIRMATION_REQUIRED"].includes(error.code)) return 4;
+  if (["INVALID_REQUEST", "VALIDATION_FAILED", "INVALID_DOCUMENT", "UNSUPPORTED_SCHEMA", "INPUT_TOO_LARGE", "HISTORICAL_QUERY_UNSUPPORTED", "CHANNEL_INVALID", "CONFIG_INVALID"].includes(error.code)) return 2;
+  if (["NOT_FOUND", "CALENDAR_NOT_FOUND", "CALENDAR_DOCUMENT_NOT_FOUND"].includes(error.code)) return 3;
+  if (["CONFLICT", "OUTPUT_EXISTS", "CONFIRMATION_REQUIRED", "NON_WORKING_CONFIRMATION_REQUIRED", "CALENDAR_AMBIGUOUS", "CHANNEL_MISMATCH", "CLOUD_WRITE_NOT_ALLOWED"].includes(error.code)) return 4;
   return 1;
 }
 

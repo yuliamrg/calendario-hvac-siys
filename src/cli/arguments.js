@@ -2,10 +2,10 @@ import { parseArgs } from "node:util";
 import { CALENDAR_OPERATIONS } from "../calendar-contract.js";
 import { readCalendarFile } from "./files.js";
 
-export const HELP = `calendary — calendario HVAC local por archivos JSON
+export const HELP = `calendary — calendario HVAC local por archivos JSON o lectura cloud
 
 Uso:
-  calendary <grupo> <acción> --input respaldo.json [opciones]
+  calendary <grupo> <acción> [opciones]
 
 Grupos y acciones:
   calendar  inspect | export-csv | export-quarantine-csv
@@ -14,6 +14,7 @@ Grupos y acciones:
   holiday   list | add | delete
   backup    restore | merge
   document  normalize-text
+  cloud     login | whoami | logout | calendars
 
 Contrato de entrada:
   --payload '<json>'       Objeto exacto de la operación (recomendado para automatización)
@@ -23,12 +24,21 @@ Contrato de entrada:
   --year, --month, --from, --to, --field, --value, --mode y --values.
 
 Archivos y seguridad:
-  --input archivo          Respaldo actual; obligatorio
+  --source file|cloud      Fuente (file por defecto; backup usa --source como ruta)
+  --input archivo          Respaldo actual; obligatorio con --source file
   --write archivo          Nuevo respaldo para operaciones de escritura
-  --source archivo         Respaldo origen para backup restore/merge
+  backup restore/merge     --source archivo es el respaldo origen
   --dry-run                Valida y muestra el resultado sin escribir
   --yes                    Confirma delete y restore sin preguntar
   --allow-non-working      Autoriza domingos o festivos
+
+Cloud read-only:
+  --channel stable|beta    Canal Supabase explícito
+  --calendar-id UUID       Calendario cloud inequívoco
+  --mine                   Restringe la selección a created_by del usuario autenticado
+  --as-of valor            No soportado: falla con HISTORICAL_QUERY_UNSUPPORTED
+  --email correo           Email para cloud login (la contraseña nunca va en argv)
+  --password-stdin         Lee la contraseña desde stdin sin mostrarla
 
 Salida:
   --output human|json      Formato de consola (predeterminado: human)
@@ -45,19 +55,29 @@ const VALUE_OPTIONS = [
   "common-scope", "status-scope", "type", "id", "override-id", "year", "month", "from", "to",
   "field", "value", "mode", "values", "client-id", "site-id", "city", "responsible-ids",
   "service-type", "planning-bucket", "observations", "query", "active", "name", "reason",
-  "client-name", "site-name", "responsible-names", "new-responsible-type"
+  "client-name", "site-name", "responsible-names", "new-responsible-type",
+  "channel", "calendar-id", "as-of", "email"
 ];
-const BOOLEAN_OPTIONS = ["dry-run", "yes", "allow-non-working", "quiet", "debug", "help", "version", "include-non-working", "include-activities", "include-catalog", "include-meta"];
+const BOOLEAN_OPTIONS = ["dry-run", "yes", "allow-non-working", "quiet", "debug", "help", "version", "include-non-working", "include-activities", "include-catalog", "include-meta", "mine", "password-stdin"];
+
+export const CLOUD_COMMANDS = Object.freeze(new Set([
+  "cloud.login", "cloud.whoami", "cloud.logout", "cloud.calendars"
+]));
 
 export function parseCli(argv) {
   const options = Object.fromEntries(VALUE_OPTIONS.map((name) => [name, { type: "string" }]));
   for (const name of BOOLEAN_OPTIONS) options[name] = { type: "boolean" };
-  const parsed = parseArgs({ args: argv, options, allowPositionals: true, strict: true });
+  let parsed;
+  try {
+    parsed = parseArgs({ args: argv, options, allowPositionals: true, strict: true });
+  } catch (error) {
+    throw Object.assign(new Error(error.message), { code: "INVALID_REQUEST", cause: error });
+  }
   if (parsed.values.version) return { version: true, values: parsed.values };
   if (parsed.values.help || parsed.positionals.length === 0) return { help: true, values: parsed.values };
   if (parsed.positionals.length !== 2) throw Object.assign(new Error("Indica exactamente un grupo y una acción."), { code: "INVALID_REQUEST" });
   const operation = `${parsed.positionals[0]}.${parsed.positionals[1]}`;
-  if (!CALENDAR_OPERATIONS[operation]) throw Object.assign(new Error(`Operación desconocida: ${operation}.`), { code: "INVALID_REQUEST" });
+  if (!CALENDAR_OPERATIONS[operation] && !CLOUD_COMMANDS.has(operation)) throw Object.assign(new Error(`Operación desconocida: ${operation}.`), { code: "INVALID_REQUEST" });
   return { operation, values: parsed.values };
 }
 
@@ -79,7 +99,7 @@ export async function buildPayload(operation, values) {
     "planning-bucket": "planningBucket"
   };
   for (const key of VALUE_OPTIONS) {
-    if (values[key] === undefined || ["input", "write", "source", "payload", "payload-file", "output", "csv-output"].includes(key)) continue;
+    if (values[key] === undefined || ["input", "write", "source", "payload", "payload-file", "output", "csv-output", "channel", "calendar-id", "as-of", "email"].includes(key)) continue;
     let value = values[key];
     if (["activity-ids", "responsible-ids", "responsible-names"].includes(key)) value = split(value);
     if (["year", "month"].includes(key)) value = Number(value);

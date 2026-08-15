@@ -30,7 +30,9 @@ importar código de interfaz, persistencia ni CLI.
    IndexedDB, bloqueo de edición y adaptador REST de Supabase.
 6. **Presentación (`src/ui/` y `src/app.js`)**: formato visible, DOM, eventos,
    diálogos y coordinación del estado de la página.
-7. **CLI (`src/cli/`)**: adaptación entre archivos JSON, argumentos y contrato.
+7. **CLI (`src/cli/`)**: adaptación entre argumentos, fuentes `FileCalendarSource`/
+   `CloudCalendarSource` y contrato. La fuente cloud es solo lectura; autenticación
+   y lectura PostgREST están separadas del dominio.
 8. **Distribución (`scripts/build.mjs`)**: concatena los módulos en orden de
    dependencia, valida la sintaxis resultante e inserta código, estilos, icono
    y SheetJS en el HTML final.
@@ -41,6 +43,9 @@ interfaz ----> importador ---^   |           ^
     |                         |           |
     +----> persistencia       +-----------+
     +----> presentación -----> dominio
+
+CLI source=file  ────────────┘
+CLI source=cloud ── GET Supabase → documento → contrato
 
 build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 ```
