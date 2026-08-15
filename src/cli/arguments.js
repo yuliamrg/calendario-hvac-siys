@@ -9,16 +9,17 @@ Uso:
 
 Grupos y acciones:
   calendar  inspect | export-csv | export-quarantine-csv
-  activity  list | get | create | edit | move | quarantine | assign-date | duplicate | extend | status | bulk-edit | delete
+  activity  list | get | create | edit | move | quarantine | assign-date | duplicate | extend | extend-range | status | bulk-edit | delete
   catalog   list | upsert
   holiday   list | add | delete
   backup    restore | merge
+  document  normalize-text
 
 Contrato de entrada:
   --payload '<json>'       Objeto exacto de la operación (recomendado para automatización)
   --payload-file archivo   Objeto exacto de la operación en un archivo JSON
   También se aceptan opciones de primer nivel: --activity-id, --activity-ids,
-  --target-date, --date, --end-date, --status, --scope, --type, --id,
+  --target-date, --date, --end-date, --from-date, --to-date, --status, --scope, --type, --id,
   --year, --month, --from, --to, --field, --value, --mode y --values.
 
 Archivos y seguridad:
@@ -40,12 +41,13 @@ Salida:
 
 const VALUE_OPTIONS = [
   "input", "write", "source", "payload", "payload-file", "output", "csv-output",
-  "activity-id", "activity-ids", "target-date", "date", "end-date", "status", "scope",
+  "activity-id", "activity-ids", "target-date", "date", "end-date", "from-date", "to-date", "status", "scope",
   "common-scope", "status-scope", "type", "id", "override-id", "year", "month", "from", "to",
   "field", "value", "mode", "values", "client-id", "site-id", "city", "responsible-ids",
-  "service-type", "planning-bucket", "observations", "query", "active", "name", "reason"
+  "service-type", "planning-bucket", "observations", "query", "active", "name", "reason",
+  "client-name", "site-name", "responsible-names", "new-responsible-type"
 ];
-const BOOLEAN_OPTIONS = ["dry-run", "yes", "allow-non-working", "quiet", "debug", "help", "version", "include-non-working"];
+const BOOLEAN_OPTIONS = ["dry-run", "yes", "allow-non-working", "quiet", "debug", "help", "version", "include-non-working", "include-activities", "include-catalog", "include-meta"];
 
 export function parseCli(argv) {
   const options = Object.fromEntries(VALUE_OPTIONS.map((name) => [name, { type: "string" }]));
@@ -71,7 +73,7 @@ export async function buildPayload(operation, values) {
   if (values["payload-file"]) payload = parseJson(await (await import("node:fs/promises")).readFile(values["payload-file"], "utf8"), "--payload-file");
   if (values.payload) payload = { ...payload, ...parseJson(values.payload, "--payload") };
   const map = {
-    "activity-id": "activityId", "target-date": "targetDate", "end-date": "endDate",
+    "activity-id": "activityId", "target-date": "targetDate", "end-date": "endDate", "from-date": "fromDate", "to-date": "toDate",
     "common-scope": "commonScope", "status-scope": "statusScope", "override-id": "overrideId",
     "client-id": "clientId", "site-id": "siteId", "service-type": "serviceType",
     "planning-bucket": "planningBucket"
@@ -79,13 +81,16 @@ export async function buildPayload(operation, values) {
   for (const key of VALUE_OPTIONS) {
     if (values[key] === undefined || ["input", "write", "source", "payload", "payload-file", "output", "csv-output"].includes(key)) continue;
     let value = values[key];
-    if (["activity-ids", "responsible-ids"].includes(key)) value = split(value);
+    if (["activity-ids", "responsible-ids", "responsible-names"].includes(key)) value = split(value);
     if (["year", "month"].includes(key)) value = Number(value);
     if (key === "active") value = value === "true";
     if (["value", "values"].includes(key)) value = parseJson(value, `--${key}`);
     payload[map[key] ?? key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
   }
   if (values["include-non-working"]) payload.includeNonWorking = true;
+  if (values["include-activities"]) payload.includeActivities = true;
+  if (values["include-catalog"]) payload.includeCatalog = true;
+  if (values["include-meta"]) payload.includeMeta = true;
   if (values["allow-non-working"]) payload.allowNonWorking = true;
   if (operation === "activity.edit" && !payload.patch) {
     const patchFields = ["date", "planningBucket", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status", "observations"];

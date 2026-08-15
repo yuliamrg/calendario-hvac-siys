@@ -13,9 +13,9 @@ const NOW = "2026-08-03T12:00:00.000Z";
 const ALL_OPERATIONS = [
   "calendar.inspect", "calendar.export-csv", "calendar.export-quarantine-csv",
   "activity.list", "activity.get", "activity.create", "activity.edit", "activity.move", "activity.quarantine", "activity.assign-date",
-  "activity.duplicate", "activity.extend", "activity.status", "activity.bulk-edit", "activity.delete",
+  "activity.duplicate", "activity.extend", "activity.extend-range", "activity.status", "activity.bulk-edit", "activity.delete",
   "catalog.list", "catalog.upsert", "holiday.list", "holiday.add", "holiday.delete",
-  "backup.restore", "backup.merge"
+  "backup.restore", "backup.merge", "document.normalize-text"
 ];
 
 function invoke(args) {
@@ -199,15 +199,23 @@ test("ruta e2e de la CLI cubre el contrato completo y sus controles operativos",
     });
     const extendedId = extended.result.result.activityId;
     assert.ok(extendedId);
+    const extendedRange = await writeOperation("activity", "extend-range", {
+      activityId: seriesIds[1], fromDate: "2026-08-12", toDate: "2026-08-14", mode: "extend"
+    });
+    assert.equal(extendedRange.result.result.activityIds.length, 3);
 
     const status = await writeOperation("activity", "status", {
       activityId: duplicateId, status: "in_progress", scope: "single"
     });
     assert.deepEqual(status.result.result.activityIds, [duplicateId]);
     const bulk = await writeOperation("activity", "bulk-edit", {
-      activityIds: [duplicateId, extendedId], field: "observations", mode: "append", value: "Nota e2e"
+      activityIds: [duplicateId, extendedId], field: "observations", mode: "append", value: "NOTA E2E"
     });
     assert.equal(bulk.result.result.activityIds.length, 2);
+    const normalized = await writeOperation("document", "normalize-text", {
+      includeActivities: true, includeCatalog: false, includeMeta: false
+    });
+    assert.equal(normalized.result.result.counts.fields > 0, true);
     const deleted = await writeOperation("activity", "delete", { activityIds: [extendedId] }, ["--yes"]);
     assert.deepEqual(deleted.result.result.activityIds, [extendedId]);
 

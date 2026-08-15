@@ -1,5 +1,26 @@
 # Historial de cambios
 
+## [0.16.0-beta.1] - 2026-08-15
+
+### Nuevas implementaciones en beta
+
+- Se bloquean colisiones de una misma actividad ampliada al mover o editar una tarjeta.
+- Se puede ampliar o duplicar una actividad a un rango, omitiendo domingos y festivos
+  salvo inclusión explícita.
+- Los filtros aceptan un día exacto o un rango inclusivo.
+- Los responsables se ordenan por cobertura territorial del grupo y la Base Operativa
+  admite la columna opcional `Cobertura`.
+- Cliente, sede y responsables pueden escribirse con sugerencias; los nombres nuevos
+  se crean de forma atómica y manual.
+- Se agrega normalización controlada de textos visibles y una capa opcional de movimiento
+  visual con Three.js autocontenido, con protección para accesibilidad y WebGL no disponible.
+
+### Compatibilidad
+
+- Stable permanece apuntando a `v0.15.0`; esta rama sólo prepara la línea beta `0.16.0`.
+- Se conserva el esquema 4 y las operaciones existentes; las nuevas operaciones se agregan
+  de forma compatible.
+
 ## [0.15.0] - 2026-08-15
 
 ### Promoción a estable

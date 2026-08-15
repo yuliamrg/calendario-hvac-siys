@@ -13,7 +13,7 @@ import {
   todayInBogota,
   toISODate
 } from "./domain/dates.js";
-import { normalizeKey, normalizeText, safeText } from "./domain/text.js";
+import { normalizeDisplayText, normalizeKey, normalizeText, safeText } from "./domain/text.js";
 import {
   colombianHolidays,
   generateSeriesDates,
@@ -53,7 +53,7 @@ export {
   todayInBogota,
   toISODate
 } from "./domain/dates.js";
-export { normalizeKey, normalizeText, safeText } from "./domain/text.js";
+export { normalizeDisplayText, normalizeKey, normalizeText, safeText } from "./domain/text.js";
 export {
   colombianHolidays,
   easterSunday,
@@ -75,7 +75,7 @@ export { buildMonthlyCsv, buildQuarantineCsv } from "./domain/csv-export.js";
 export { activityMatchesFilters, normalizeFilterArray } from "./domain/activity-filters.js";
 export { importDiff, mergeImportedItems } from "./domain/import-merge.js";
 
-export const APP_VERSION = "0.15.0";
+export const APP_VERSION = "0.16.0-beta.1";
 export const SCHEMA_VERSION = 4;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -133,7 +133,9 @@ export function createDefaultDocument(today = todayInBogota(), now = new Date().
         responsibles: [],
         serviceTypes: [],
         statuses: [],
-        planningBuckets: []
+        planningBuckets: [],
+        dateFrom: null,
+        dateTo: null
       }
     },
     holidayOverrides: [],
@@ -468,6 +470,15 @@ export function moveActivities(
   }
   const delta = differenceInDays(anchor.date, targetDate);
   if (mode === "preserve" && delta === 0) return [];
+  const nextDates = new Map(
+    document.activities
+      .filter((activity) => ids.has(activity.id))
+      .map((activity) => [activity.id, mode === "same" ? targetDate : addDaysISO(activity.date, delta)])
+  );
+  const conflicts = findActivityDateConflicts(document, activityIds, nextDates);
+  if (conflicts.length) {
+    throw new TypeError("El movimiento crearía dos tarjetas de la misma actividad el mismo día.");
+  }
   const moved = [];
   for (const activity of document.activities) {
     if (!ids.has(activity.id)) continue;
@@ -487,6 +498,43 @@ export function moveActivities(
     moved.push({ id: activity.id, from: previousDate, to: activity.date });
   }
   return moved;
+}
+
+export function findActivityDateConflicts(document, activityIds, nextDates) {
+  const ids = new Set((activityIds ?? []).map(String));
+  const selected = document.activities.filter((activity) => ids.has(activity.id));
+  const dates = nextDates instanceof Map
+    ? nextDates
+    : new Map(Object.entries(nextDates ?? {}));
+  const conflicts = [];
+  for (const activity of selected) {
+    if (!activity.seriesId) continue;
+    const nextDate = dates.get(activity.id) ?? activity.date;
+    for (const candidate of document.activities) {
+      const candidateDate = ids.has(candidate.id)
+        ? dates.get(candidate.id) ?? candidate.date
+        : candidate.date;
+      if (
+        candidate.id !== activity.id &&
+        candidate.seriesId === activity.seriesId &&
+        candidateDate === nextDate
+      ) {
+        conflicts.push({
+          activityId: activity.id,
+          conflictingActivityId: candidate.id,
+          seriesId: activity.seriesId,
+          date: nextDate
+        });
+      }
+    }
+  }
+  const seen = new Set();
+  return conflicts.filter((item) => {
+    const key = `${item.activityId}|${item.conflictingActivityId}|${item.date}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function reorderActivities(
@@ -624,6 +672,8 @@ export function extendActivity(
   const source = document.activities.find((item) => item.id === activityId);
   if (!source) throw new TypeError("No se encontró la actividad.");
   if (source.date === targetDate) return null;
+  const conflicts = findActivityDateConflicts(document, [source.id], new Map([[source.id, targetDate]]));
+  if (conflicts.length) throw new TypeError("Esta actividad ya tiene una tarjeta en la fecha de destino.");
 
   let seriesId = source.seriesId;
   if (!seriesId) {
@@ -671,6 +721,116 @@ export function extendActivity(
   if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
   document.activities.push(extended);
   return extended;
+}
+
+export function extendActivityRange(
+  document,
+  activityId,
+  fromDate,
+  toDate,
+  holidayMap,
+  {
+    mode = "extend",
+    includeNonWorking = false,
+    forceIncludeDates = [],
+    idFactory = () => crypto.randomUUID(),
+    now = new Date().toISOString()
+  } = {}
+) {
+  parseISODate(fromDate);
+  parseISODate(toDate);
+  if (compareISODate(toDate, fromDate) < 0) throw new TypeError("La fecha final no puede ser anterior a la inicial.");
+  if (!["extend", "duplicate"].includes(mode)) throw new TypeError("Modo de rango inválido.");
+  const source = document.activities.find((item) => item.id === activityId);
+  if (!source) throw new TypeError("No se encontró la actividad.");
+  if (isQuarantineActivity(source)) throw new TypeError("Una actividad Pendiente no puede ampliarse desde esta acción.");
+  const generated = generateSeriesDates(fromDate, toDate, holidayMap, {
+    includeAllNonWorking: Boolean(includeNonWorking),
+    forceIncludeDates
+  });
+  if (mode === "duplicate") {
+    const copies = generated.included.map((date) => ({
+      ...structuredClone(source),
+      id: makeId("actividad", idFactory),
+      seriesId: null,
+      date,
+      status: "scheduled",
+      sortOrder: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      history: [{
+        at: now,
+        action: "duplicated",
+        detail: `Duplicada desde ${source.id} para un rango`
+      }]
+    }));
+    const errors = copies.flatMap((activity) => validateActivity(activity));
+    if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
+    document.activities.push(...copies);
+    return { activities: copies, seriesId: null, omitted: generated.omitted };
+  }
+
+  const existingDates = new Set(
+    document.activities
+      .filter((activity) => activity.seriesId && activity.seriesId === source.seriesId)
+      .map((activity) => activity.date)
+  );
+  if (!source.seriesId) existingDates.add(source.date);
+  const omitted = [...generated.omitted];
+  const dates = generated.included.filter((date) => {
+    if (!existingDates.has(date)) return true;
+    omitted.push({ date, reason: "La actividad ya tiene una tarjeta en esa fecha.", code: "SERIES_DATE_EXISTS" });
+    return false;
+  });
+  if (!dates.length) return { activities: [], seriesId: source.seriesId ?? null, omitted };
+
+  let seriesId = source.seriesId;
+  if (!seriesId) {
+    seriesId = makeId("serie", idFactory);
+    source.seriesId = seriesId;
+    source.updatedAt = now;
+    source.history ??= [];
+    source.history.push({
+      at: now,
+      action: "series_created",
+      detail: "Actividad convertida en programación ampliada por rango"
+    });
+    document.series.push({
+      id: seriesId,
+      createdAt: now,
+      updatedAt: now,
+      originalStart: source.date,
+      originalEnd: source.date
+    });
+  }
+  const extended = dates.map((date) => ({
+    ...structuredClone(source),
+    id: makeId("actividad", idFactory),
+    seriesId,
+    date,
+    status: "scheduled",
+    sortOrder: null,
+    completedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    history: [{
+      at: now,
+      action: "extended",
+      detail: `Actividad ampliada desde ${source.date} para un rango`
+    }]
+  }));
+  const errors = extended.flatMap((activity) => validateActivity(activity));
+  if (errors.length) throw new TypeError([...new Set(errors)].join(" "));
+  document.activities.push(...extended);
+  const series = document.series.find((item) => item.id === seriesId);
+  if (series) {
+    const allDates = document.activities.filter((activity) => activity.seriesId === seriesId).map((activity) => activity.date).sort(compareISODate);
+    series.originalStart = allDates[0] ?? series.originalStart;
+    series.originalEnd = allDates.at(-1) ?? series.originalEnd;
+    series.updatedAt = now;
+  }
+  return { activities: extended, seriesId, omitted };
 }
 
 export const BULK_EDIT_FIELDS = Object.freeze({
@@ -1050,7 +1210,9 @@ function sanitizeSettings(rawSettings, baseSettings) {
       planningBuckets: normalizeFilterArray(
         rawSettings?.filters?.planningBuckets,
         rawSettings?.filters?.planningBucket
-      )
+      ),
+      dateFrom: isISODateString(rawSettings?.filters?.dateFrom) ? rawSettings.filters.dateFrom : null,
+      dateTo: isISODateString(rawSettings?.filters?.dateTo) ? rawSettings.filters.dateTo : null
     }
   };
 }

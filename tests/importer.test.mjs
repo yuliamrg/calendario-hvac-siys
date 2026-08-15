@@ -256,6 +256,16 @@ test("parseBaseWorkbook aplica lista blanca, normaliza y conserva desconocidos c
   }
 });
 
+test("parseBaseWorkbook importa cobertura territorial opcional por responsable", () => {
+  const workbook = syntheticWorkbook();
+  workbook.Sheets.dm_directorio_siys = makeSheet([
+    ["nombre", "empresa", "tipo", "ciudad base", "grupo", "Cobertura", "alturas", "cursos"],
+    ["Ana Cobertura", "SIYS", "nomina", "Pereira", "SIYS Pereira", "Armenia, Pereira; Manizales", null, null]
+  ]);
+  const parsed = parseBaseWorkbook(workbook, { fileName: "cobertura.xlsx" });
+  assert.deepEqual(parsed.catalog.responsibles[0].coverage, ["Armenia", "Pereira", "Manizales"]);
+});
+
 test("buildImportPreview clasifica cambios y faltantes sin confundir overrides", () => {
   const parsed = parseBaseWorkbook(syntheticWorkbook());
   const document = createDefaultDocument("2026-07-30");

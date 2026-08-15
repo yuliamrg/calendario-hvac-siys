@@ -16,6 +16,8 @@ Requiere Node.js 20 o superior. Desde el repositorio:
 npm run cli -- --help
 npm run cli -- calendar inspect --input .\cronograma.json --output json
 npm run cli -- activity list --input .\cronograma.json --from 2026-08-01 --to 2026-08-31
+npm run cli -- activity extend-range --input .\cronograma.json --dry-run `
+  --payload '{"activityId":"actividad_123","fromDate":"2026-08-03","toDate":"2026-08-14","mode":"extend"}'
 ```
 
 Una escritura nunca sobrescribe la entrada ni un destino existente:
@@ -42,7 +44,9 @@ npm run cli -- activity create `
 Use `--dry-run` para validar sin generar archivo. Las operaciones destructivas
 `activity delete`, `holiday delete` y `backup restore` solicitan confirmación;
 en procesos no interactivos requieren `--yes`. Las fechas dominicales o
-festivas requieren `--allow-non-working`.
+festivas requieren `--allow-non-working` cuando la operación tiene ese control.
+Para normalizar texto visible o ampliar rangos se recomienda usar `--payload`
+con el objeto exacto del contrato.
 
 ## Salidas y códigos
 
@@ -65,4 +69,4 @@ npm run goal:check
 La ruta lógica y la matriz completa están en
 [PRUEBAS_CLI.md](PRUEBAS_CLI.md). La prueba e2e usa una copia sintética
 temporal, encadena cada operación sobre el respaldo anterior y comprueba que
-las 19 operaciones del contrato sean invocables desde la CLI.
+las operaciones públicas del contrato sean invocables desde la CLI.

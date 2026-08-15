@@ -64,7 +64,8 @@ const SOURCE_FIELDS = Object.freeze({
     "baseCity",
     "group",
     "heights",
-    "courses"
+    "courses",
+    "coverage"
   ]
 });
 
@@ -81,6 +82,13 @@ function initialsFor(name) {
   if (!parts.length) return "";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts.at(-1)[0]}`.toUpperCase();
+}
+
+function coverageList(value) {
+  return [...new Set(String(value ?? "")
+    .split(/[;,|\n]/)
+    .map((item) => cleanLabel(item, 120))
+    .filter(Boolean))];
 }
 
 function pushUnique(items, item, seen, warnings, sheet, rowNumber) {
@@ -333,7 +341,8 @@ function parseResponsibles(table, warnings) {
     baseCity: ["ciudad base"],
     heights: { aliases: ["alturas"], required: false },
     group: ["grupo"],
-    courses: { aliases: ["cursos"], required: false }
+    courses: { aliases: ["cursos"], required: false },
+    coverage: { aliases: ["cobertura", "ciudades de cobertura", "zonas de cobertura"], required: false }
   }, warnings);
   const items = [];
   const seen = new Set();
@@ -384,7 +393,7 @@ function parseResponsibles(table, warnings) {
       heights: textOrNull(rowValue(row, indexes.heights), 120),
       courses: textOrNull(rowValue(row, indexes.courses), 500),
       active: true,
-      coverage: [],
+      ...(indexes.coverage >= 0 ? { coverage: coverageList(rowValue(row, indexes.coverage)) } : {}),
       source: SOURCE,
       aliases: [],
       favorite: false

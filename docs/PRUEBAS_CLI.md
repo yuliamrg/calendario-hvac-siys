@@ -29,13 +29,13 @@ respaldo nuevo. La secuencia representa el uso operativo esperado:
 
 | Archivo | Alcance |
 |---|---|
-| `tests/contract.test.mjs` | atomicidad, revisiones, reglas del contrato y 19 operaciones |
+| `tests/contract.test.mjs` | atomicidad, revisiones, reglas del contrato y operaciones públicas |
 | `tests/cli.test.mjs` | ayuda, JSON, escritura nueva y confirmación no interactiva |
 | `tests/cli-e2e.test.mjs` | ruta completa de CLI con proceso real y archivos temporales |
 
-La prueba e2e exige que todas las operaciones del contrato estén presentes en
-la cobertura: `calendar.inspect`, `calendar.export-csv`, las diez operaciones
-de actividad, catálogo, festivos y respaldos.
+La prueba e2e exige que todas las operaciones públicas del contrato estén
+presentes en la cobertura, incluyendo calendario, actividades, catálogo,
+festivos, respaldos y normalización documental.
 
 ## Ejecución
 

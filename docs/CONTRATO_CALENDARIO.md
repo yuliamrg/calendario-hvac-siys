@@ -31,9 +31,9 @@ Los errores exponen `CalendarContractError.code`: `INVALID_REQUEST`,
 | `calendar.inspect` | `{}` | metadatos, conteos y rango |
 | `calendar.export-csv` | `{ year, month }` | contenido, MIME y nombre CSV |
 | `calendar.export-quarantine-csv` | `{}` | CSV independiente de actividades Pendiente |
-| `activity.list` | `from`, `to`, `clientId`, `siteId`, `city`, listas de responsables/servicios/estados/bandejas, `query` | `items` resueltos |
+| `activity.list` | `from`/`to` o `dateFrom`/`dateTo`, `clientId`, `siteId`, `city`, listas de responsables/servicios/estados/bandejas, `query` | `items` resueltos |
 | `activity.get` | `{ activityId }` | actividad resuelta |
-| `activity.create` | fecha/rango o `planningBucket: "quarantine"`, referencias, servicio, estado, observaciones y política no laborable | IDs, serie y fechas omitidas |
+| `activity.create` | fecha/rango o `planningBucket: "quarantine"`, referencias o `clientName`/`siteName`/`responsibleNames`, servicio, estado, observaciones y política no laborable | IDs, serie, catálogo creado y fechas omitidas |
 | `activity.edit` | `{ activityId, patch, commonScope, statusScope, allowNonWorking }`; `patch` admite `planningBucket` | IDs y campos cambiados |
 | `activity.move` | `{ activityIds, targetDate, anchorId?, mode?, allowNonWorking? }` | movimientos |
 | `activity.reorder` | `{ activityIds, targetId?, targetDate?, position: "first"|"last"|"before"|"after" }` | orden persistente dentro del mismo día |
@@ -41,6 +41,7 @@ Los errores exponen `CalendarContractError.code`: `INVALID_REQUEST`,
 | `activity.assign-date` | `{ activityId, targetDate, allowNonWorking? }` | tarjeta devuelta a `calendar` como `scheduled` |
 | `activity.duplicate` | `{ activityIds, targetDate, anchorId?, allowNonWorking? }` | IDs nuevos |
 | `activity.extend` | `{ activityId, targetDate, allowNonWorking? }` | tarjeta y serie |
+| `activity.extend-range` | `{ activityId, fromDate, toDate, mode: "extend"|"duplicate", includeNonWorking?, forceIncludeDates? }` | IDs nuevos, serie y fechas omitidas |
 | `activity.status` | `{ activityId, status, scope? }` | IDs afectados |
 | `activity.bulk-edit` | `{ activityIds, field, value, mode? }` | IDs y campo |
 | `activity.delete` | `{ activityIds }` | IDs eliminados |
@@ -51,6 +52,7 @@ Los errores exponen `CalendarContractError.code`: `INVALID_REQUEST`,
 | `holiday.delete` | `{ overrideId }` | ID eliminado |
 | `backup.restore` | `{ document }` | revisión origen y conteos |
 | `backup.merge` | `{ document }` | conteos, detalles y advertencias |
+| `document.normalize-text` | `{ includeActivities?, includeCatalog?, includeMeta? }` | conteo de campos normalizados |
 
 Los payloads son estrictos: campos desconocidos se rechazan. Las fechas usan
 `YYYY-MM-DD`; los alcances son `single`, `future` o `series` según la operación;
@@ -60,6 +62,10 @@ existir y ser coherentes. En esquema 4, una actividad `quarantine` usa
 `date: null`, `status: "to_schedule"` y `seriesId: null`; una actividad del
 calendario usa `planningBucket: "calendar"` y fecha válida. Los documentos
 anteriores se migran al calendario.
+
+`activity.move`, `activity.edit` y `activity.extend` rechazan con `CONFLICT` una
+fecha que ya esté ocupada por otra tarjeta de la misma serie. `activity.extend-range`
+omite fechas ya existentes de esa serie y las devuelve en `warnings`.
 
 `activity.reorder` sólo acepta tarjetas del calendario que pertenezcan al mismo
 día. `targetId` se usa con `before` o `after`; `first` y `last` no requieren una

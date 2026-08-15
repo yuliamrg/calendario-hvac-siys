@@ -10,7 +10,8 @@ import {
   parseISODate,
   todayInBogota
 } from "../src/domain/dates.js";
-import { normalizeKey, normalizeText, safeText } from "../src/domain/text.js";
+import { normalizeDisplayText, normalizeKey, normalizeText, safeText } from "../src/domain/text.js";
+import { responsibleCoverageScore, sortResponsiblesByCoverage } from "../src/domain/responsible-ranking.js";
 import {
   colombianHolidays,
   generateSeriesDates,
@@ -39,9 +40,24 @@ test("la fachada del núcleo conserva las utilidades de dominio extraídas", () 
   assert.equal(core.normalizeKey, normalizeKey);
   assert.equal(core.normalizeText, normalizeText);
   assert.equal(core.safeText, safeText);
+  assert.equal(core.normalizeDisplayText, normalizeDisplayText);
   assert.equal(core.colombianHolidays, colombianHolidays);
   assert.equal(core.generateSeriesDates, generateSeriesDates);
   assert.equal(core.holidayMapForRange, holidayMapForRange);
+});
+
+test("la normalización visible usa mayúscula inicial por línea", () => {
+  assert.equal(normalizeDisplayText("  VISITA TECNICA\nRUTA PEREIRA  "), "Visita tecnica\nRuta pereira");
+});
+
+test("la cobertura del grupo prioriza responsables de la zona atendida", () => {
+  const responsibles = [
+    { name: "Ana", group: "SIYS Pereira", baseCity: "Pereira", coverage: ["Armenia", "Pereira", "Manizales"] },
+    { name: "Carlos", group: "SIYS Pereira", baseCity: "Pereira", coverage: [] },
+    { name: "Laura", group: "Otra zona", baseCity: "Bogotá", coverage: [] }
+  ];
+  assert.equal(responsibleCoverageScore(responsibles[1], "Armenia", responsibles), 0);
+  assert.deepEqual(sortResponsiblesByCoverage(responsibles, "Armenia").slice(0, 2).map((item) => item.name), ["Ana", "Carlos"]);
 });
 
 test("las utilidades de fecha validan y calculan sin depender del documento", () => {

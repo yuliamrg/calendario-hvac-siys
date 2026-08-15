@@ -42,7 +42,9 @@ export function mergeImportedItems(existing, incoming, sourceFields, preservedFi
       byKey.set(item.sourceKey, item);
       continue;
     }
-    for (const field of sourceFields) current[field] = item[field];
+    for (const field of sourceFields) {
+      if (item[field] !== undefined) current[field] = item[field];
+    }
     for (const field of preservedFields) {
       if (current[field] === undefined && item[field] !== undefined) current[field] = item[field];
     }

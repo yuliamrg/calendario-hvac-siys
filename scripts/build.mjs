@@ -5,10 +5,12 @@ import { spawnSync } from "node:child_process";
 const root = resolve(import.meta.dirname, "..");
 const applicationModulePaths = [
   "domain/text.js",
+  "domain/responsible-ranking.js",
   "domain/dates.js",
   "domain/calendar-enums.js",
   "domain/activity-order.js",
   "domain/activity-filters.js",
+  "ui/three-motion.js",
   "domain/import-merge.js",
   "domain/backup-merge.js",
   "domain/csv-export.js",
@@ -36,6 +38,7 @@ const stylePaths = [
 const paths = {
   template: resolve(root, "src", "index.template.html"),
   vendor: resolve(root, "vendor", "xlsx.full.min.js"),
+  three: resolve(root, "node_modules", "three", "build", "three.cjs"),
   license: resolve(root, "vendor", "LICENSE.txt"),
   notice: resolve(root, "vendor", "NOTICE.txt"),
   brandIcon: resolve(root, "src", "assets", "siys-sync-icon.svg"),
@@ -44,11 +47,12 @@ const paths = {
   pagesOutput: resolve(root, "dist", "index.html")
 };
 
-const [template, styles, applicationModules, vendor, license, notice, brandIcon] = await Promise.all([
+const [template, styles, applicationModules, vendor, threeModule, license, notice, brandIcon] = await Promise.all([
   readFile(paths.template, "utf8"),
   Promise.all(stylePaths.map((path) => readFile(path, "utf8"))),
   Promise.all(applicationModulePaths.map((path) => readFile(path, "utf8"))),
   readFile(paths.vendor, "utf8"),
+  readFile(paths.three, "utf8"),
   readFile(paths.license, "utf8"),
   readFile(paths.notice, "utf8"),
   readFile(paths.brandIcon)
@@ -76,6 +80,10 @@ SheetJS Community Edition 0.20.3
 ${notice.replaceAll("--", "—")}
 
 ${license.replaceAll("--", "—")}
+
+Three.js 0.185.1
+Copyright © 2010-2026 three.js authors
+Released under the MIT License: https://github.com/mrdoob/three.js/blob/dev/LICENSE
 -->`;
 
 const stripLocalModuleLinks = (source) => source
@@ -90,7 +98,13 @@ const slots = {
 };
 const escapeInlineScript = (source) => source.replace(/<\/script/gi, "<\\/script");
 const escapeInlineStyle = (source) => source.replace(/<\/style/gi, "<\\/style");
+const exposeThreeGlobal = (source) => `(function () {
+  const exports = {};
+${source.replace(/ +\t/g, "\t")}
+  globalThis.THREE = exports;
+})();`;
 const appBundle = applicationModules.map(stripLocalModuleLinks).join("\n\n");
+const vendorBundle = `${vendor}\n${exposeThreeGlobal(threeModule)}`;
 const syntaxCheck = spawnSync(process.execPath, ["--input-type=module", "--check", "-"], {
   input: appBundle,
   encoding: "utf8"
@@ -113,7 +127,7 @@ const slottedTemplate = template
 
 const html = slottedTemplate
   .replace(slots.css, () => escapeInlineStyle(styles.join("\n\n")))
-  .replace(slots.vendor, () => escapeInlineScript(vendor))
+  .replace(slots.vendor, () => escapeInlineScript(vendorBundle))
   .replace(slots.app, () => escapeInlineScript(appBundle))
   .replace(slots.license, () => licenseComment)
   .replace("__SIYS_SUPABASE_CONFIG_VALUE__", () => JSON.stringify(supabaseConfig))

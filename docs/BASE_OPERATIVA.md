@@ -65,5 +65,9 @@ La plantilla conserva estos encabezados, que deben permanecer sin cambios:
 | `dm_ciudad` | `id`, `Zona`, `Ciudad` |
 | `dm_clientes` | `id`, `Nombre` |
 | `dm_sede` | `id`, `Cliente`, `Zona`, `Ciudad`, `Centro comercial`, `Nombre`, `Dirección`, `Ingresos`, `Requiere App` |
-| `dm_directorio_siys` | `Nombre`, `Empresa`, `Tipo`, `Ciudad base`, `Grupo`, `Alturas`, `Cursos` |
+| `dm_directorio_siys` | `Nombre`, `Empresa`, `Tipo`, `Ciudad base`, `Grupo`, `Cobertura`, `Alturas`, `Cursos` |
 | `dm_equipo_cronograma` | `_id`, `subsidiary._id`, `subsidiary.name`, `responsable ejecucion`, `Frecuencia` y meses |
+
+`Cobertura` es opcional. Registra las ciudades atendidas separadas por coma;
+al elegir una ciudad en una actividad, la aplicación une las coberturas de las
+personas del mismo grupo y las presenta primero.
