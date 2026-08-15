@@ -33,6 +33,11 @@ Arrastre un cliente o sede a una fecha, haga clic en el fondo del día o pulse
 **Nueva actividad**. La tarjeta contiene fecha, cliente, sede, ciudad, uno o
 varios responsables, tipo de servicio, estado y observaciones.
 
+En **Cliente**, **Sede** y **Escribir responsables** se puede escribir el valor
+completo o elegir una sugerencia. Si un nombre no existe, la aplicación crea el
+registro manual necesario junto con la actividad en una sola operación; para
+responsables nuevos se debe indicar si son de nómina o contratistas.
+
 Los servicios disponibles son mantenimiento preventivo, mantenimiento
 correctivo, llamada de emergencia, diagnóstico, garantía y administrativo. En la
 vista previa, la segunda línea de cada tarjeta inicia con un código corto: `MP`
@@ -114,8 +119,14 @@ Al soltar una tarjeta en otra fecha, SIYS Sync pregunta qué operación realizar
 Al editar una actividad ampliada se puede aplicar cliente, sede, ciudad,
 responsables, servicio y observaciones sólo al día o a toda la actividad. La
 fecha siempre pertenece a una tarjeta concreta y el estado conserva su alcance
-independiente. Ampliar sólo está disponible al arrastrar una tarjeta. Soltarla
+independiente. **Ampliar a rango** permite seleccionar desde/hasta, conservar
+fechas existentes y elegir entre ampliar la misma serie o duplicar tarjetas
+independientes. Ampliar sólo está disponible al arrastrar una tarjeta. Soltarla
 en su fecha actual no abre el diálogo ni genera historial.
+
+Si se intenta mover o editar una tarjeta de una actividad ampliada hacia otra
+fecha ya ocupada por esa misma actividad, la operación se rechaza sin cambios y
+se muestra el conflicto.
 
 ## 5. Filtros y exportaciones
 
@@ -125,6 +136,8 @@ clientes, sedes, responsables, servicios, estados y bandejas. Dentro de una cate
 acepta cualquiera de los valores; entre categorías deben cumplirse todos.
 
 Los chips muestran los filtros activos y permiten retirarlos individualmente.
+El bloque **Rango de fechas** permite elegir un día exacto usando la misma fecha
+en ambos campos o un intervalo inclusivo.
 Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
 
 - **CSV:** exporta las actividades del mes y separa nómina de contratistas.
@@ -137,6 +150,16 @@ Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
   servicios, estados y convenciones, incluso en días densos.
 - **Descargar copia del cronograma:** crea la copia portable completa
   (internamente es un archivo JSON).
+
+En **Gestionar > Normalizar textos visibles** se pueden seleccionar actividades,
+catálogos y datos de identificación. Sólo se cambia texto visible a mayúscula
+inicial y resto en minúscula; identificadores, fechas, códigos, estados, tipos e
+historial permanecen protegidos. La operación queda registrada y se puede deshacer.
+
+En **Configuración > Animaciones visuales** se activa una capa opcional de
+movimiento CSS y Three.js. Respeta `prefers-reduced-motion`, usa WebGL sólo si
+está disponible y se desactiva sin afectar la programación cuando el navegador
+no puede renderizarlo.
 
 ## 6. Importar programación con plantilla
 
@@ -214,7 +237,7 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages contiene la estable `v0.14.1` y `/beta/` contiene la
+La raíz de GitHub Pages contiene la estable `v0.15.0` y `/beta/` contiene la
 línea beta correspondiente; ambos usan Supabase Auth y la base cloud
 compartida, con calendarios lógicos independientes. La versión visible y el
 `channel` del respaldo deben comprobarse antes de trasladar datos. Los datos

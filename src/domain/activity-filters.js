@@ -1,4 +1,5 @@
 import { ACTIVITY_STATUSES, PLANNING_BUCKETS, SERVICE_TYPES } from "./calendar-enums.js";
+import { compareISODate } from "./dates.js";
 import { normalizeText, safeText } from "./text.js";
 
 export function cleanStringArray(value, maxLength = 160, maxItems = 200) {
@@ -27,6 +28,10 @@ export function activityMatchesFilters(activity, filters, maps) {
     statuses: normalizeFilterArray(filters?.statuses),
     planningBuckets: normalizeFilterArray(filters?.planningBuckets)
   };
+  const dateFrom = safeText(filters?.dateFrom, 10);
+  const dateTo = safeText(filters?.dateTo, 10);
+  if (dateFrom && (!activity.date || compareISODate(activity.date, dateFrom) < 0)) return false;
+  if (dateTo && (!activity.date || compareISODate(activity.date, dateTo) > 0)) return false;
   if (selected.cities.length && !selected.cities.includes(activity.city ?? "")) return false;
   if (selected.clients.length && !selected.clients.includes(activity.clientId ?? "")) return false;
   if (selected.sites.length && !selected.sites.includes(activity.siteId ?? "")) return false;

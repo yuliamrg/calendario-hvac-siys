@@ -99,12 +99,12 @@ test("la edición respeta el alcance de datos, estado y fecha", () => {
       activityId: target.id,
       commonScope: "series",
       statusScope: "future",
-      patch: { observations: "Serie actualizada", status: "confirmed", date: "2026-08-04" }
+      patch: { observations: "Serie actualizada", status: "confirmed", date: "2026-08-06" }
     }
   }, { now: "2026-08-03T13:00:00.000Z" });
   assert.ok(edited.document.activities.every((item) => item.observations === "Serie actualizada"));
   assert.ok(edited.document.activities.every((item) => item.status === "confirmed"));
-  assert.equal(edited.document.activities.find((item) => item.id === target.id).date, "2026-08-04");
+  assert.equal(edited.document.activities.find((item) => item.id === target.id).date, "2026-08-06");
   assert.equal(edited.document.calendarMeta.revision, ranged.calendarMeta.revision + 1);
 });
 
@@ -193,6 +193,76 @@ test("estado y edición múltiple idénticos son no-op", () => {
   });
   assert.equal(status.changed, false);
   assert.equal(bulk.changed, false);
+});
+
+test("mover una tarjeta de una serie a otra fecha ocupada devuelve conflicto atómico", () => {
+  const created = createOne(documentFixture(), { endDate: "2026-08-05" }).document;
+  const source = created.activities[0];
+  const snapshot = structuredClone(created);
+  assert.throws(
+    () => executeCalendarOperation(created, {
+      operation: "activity.move",
+      payload: { activityIds: [source.id], targetDate: "2026-08-04", allowNonWorking: true }
+    }),
+    (error) => error instanceof CalendarContractError && error.code === "CONFLICT"
+  );
+  assert.deepEqual(created, snapshot);
+});
+
+test("ampliar a rango reutiliza la serie, omite domingos y permite forzar una fecha", () => {
+  const created = createOne(documentFixture()).document;
+  const source = created.activities[0];
+  const ranged = executeCalendarOperation(created, {
+    operation: "activity.extend-range",
+    payload: {
+      activityId: source.id,
+      fromDate: "2026-08-03",
+      toDate: "2026-08-10",
+      includeNonWorking: false,
+      forceIncludeDates: ["2026-08-09"]
+    }
+  }, { now: NOW, idFactory: idFactory() });
+  assert.equal(ranged.result.seriesId, ranged.document.activities[0].seriesId);
+  assert.equal(ranged.document.activities.filter((item) => item.seriesId === ranged.result.seriesId).length, 7);
+  assert.ok(ranged.document.activities.some((item) => item.date === "2026-08-09"));
+  assert.equal(ranged.document.activities.filter((item) => item.date === "2026-08-03").length, 1);
+});
+
+test("crear actividad acepta nombres escritos y crea referencias manuales de forma atómica", () => {
+  const document = createDefaultDocument("2026-08-03", NOW);
+  const result = executeCalendarOperation(document, {
+    operation: "activity.create",
+    payload: {
+      date: "2026-08-03",
+      clientName: "Cliente Escrito",
+      siteName: "Sede Escrito",
+      city: "Pereira",
+      responsibleNames: ["Ana Escrita"],
+      newResponsibleType: "contractor",
+      serviceType: "preventive",
+      status: "scheduled",
+      observations: "Actividad escrita"
+    }
+  }, { now: NOW, idFactory: idFactory() });
+  assert.equal(result.document.catalog.clients.length, 1);
+  assert.equal(result.document.catalog.sites.length, 1);
+  assert.equal(result.document.catalog.responsibles.length, 1);
+  assert.equal(result.document.activities[0].clientId, result.document.catalog.clients[0].id);
+  assert.deepEqual(result.document.activities[0].responsibleIds, [result.document.catalog.responsibles[0].id]);
+});
+
+test("normalizar textos cambia sólo campos visibles elegidos y protege catálogos por defecto", () => {
+  const document = createOne(documentFixture(), { city: "PEREIRA", observations: "VISITA TECNICA" }).document;
+  document.calendarMeta.name = "CRONOGRAMA HVAC";
+  const result = executeCalendarOperation(document, {
+    operation: "document.normalize-text",
+    payload: { includeActivities: true, includeCatalog: false, includeMeta: true }
+  }, { now: NOW });
+  assert.equal(result.document.activities[0].city, "Pereira");
+  assert.equal(result.document.activities[0].observations, "Visita tecnica");
+  assert.equal(result.document.calendarMeta.name, "Cronograma hvac");
+  assert.equal(result.document.catalog.clients[0].name, "Cliente Uno");
+  assert.equal(result.result.counts.fields >= 3, true);
 });
 
 test("catálogo y excepciones conservan origen y detectan conflictos", () => {

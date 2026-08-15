@@ -34,6 +34,7 @@ import {
   monthGridDates,
   moveActivities,
   moveActivityToQuarantine,
+  normalizeDisplayText,
   normalizeKey,
   normalizeFilterArray,
   normalizeText,
@@ -83,6 +84,9 @@ import {
 import { createMutationController } from "./ui/mutation-controller.js";
 import { createIndexedDocumentStore } from "./persistence/indexed-document-store.js";
 import { createJsonPreferences } from "./persistence/json-preferences.js";
+import {
+  responsibleCoverageScore
+} from "./domain/responsible-ranking.js";
 
 const RUNTIME_CHANNEL = runtimeChannelForLocation(location);
 const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
@@ -128,11 +132,13 @@ let pendingProgrammingImport = null;
 let dragContext = null;
 let pendingDrop = null;
 let pendingTouchActivityId = null;
+let pendingSeriesRangeActivityId = null;
 let pendingQuarantineActivityId = null;
 let pendingQuarantineAssignId = null;
 let mobileAgendaDate = null;
 let mutationController = null;
 let forcedRangeDates = new Set();
+let seriesRangeForcedDates = new Set();
 let responsibleRenderTimer = null;
 let storageAvailable = true;
 let hasEditControl = false;
@@ -226,9 +232,94 @@ function handleThemeSubmit(event) {
   event.preventDefault();
   const selected = dom.themeForm.querySelector('input[name="themeMode"]:checked')?.value ?? "system";
   uiPreferences.update({ theme: selected });
+  uiPreferences.update({ motion: dom.motionEnabled.checked });
   applyThemePreference();
+  applyMotionPreference();
   closeDialog("themeDialog");
   showToast(`Tema ${selected === "system" ? "del sistema" : selected === "dark" ? "oscuro" : "claro"} aplicado.`);
+}
+
+function motionPreference() {
+  return uiPreferences.read().motion === true;
+}
+
+function applyMotionPreference() {
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  const enabled = motionPreference() && !reduced;
+  document.body.classList.toggle("motion-enhanced", enabled);
+  globalThis.calendaryThreeMotion?.setEnabled(enabled);
+  if (dom.motionEnabled) dom.motionEnabled.checked = motionPreference();
+  if (dom.motionButton) {
+    dom.motionButton.setAttribute("aria-pressed", String(motionPreference()));
+    dom.motionButton.querySelector("strong").textContent = `Animaciones visuales: ${motionPreference() ? "activas" : "inactivas"}`;
+  }
+}
+
+function toggleMotionPreference() {
+  const next = !motionPreference();
+  uiPreferences.update({ motion: next });
+  applyMotionPreference();
+  showToast(next ? "Animaciones visuales activadas." : "Animaciones visuales desactivadas.");
+}
+
+function normalizationCandidate(value, maxLength) {
+  return typeof value === "string" && value.trim() ? normalizeDisplayText(value, maxLength) : value;
+}
+
+function updateNormalizationPreview() {
+  const counts = { activities: 0, catalog: 0, meta: 0 };
+  const changed = (value, maxLength) => normalizationCandidate(value, maxLength) !== value;
+  if (dom.normalizeActivities.checked) {
+    counts.activities = appDocument.activities.reduce((total, activity) => total + Number(
+      changed(activity.city, 120) || changed(activity.observations, 5000)
+    ), 0);
+  }
+  if (dom.normalizeMeta.checked) {
+    counts.meta = [appDocument.calendarMeta.name, appDocument.calendarMeta.coordinator]
+      .reduce((total, value) => total + Number(changed(value, 160)), 0);
+  }
+  if (dom.normalizeCatalog.checked) {
+    const values = [
+      ...appDocument.catalog.cities.flatMap((item) => [item.name]),
+      ...appDocument.catalog.clients.flatMap((item) => [item.name]),
+      ...appDocument.catalog.sites.flatMap((item) => [item.name, item.city, item.zone, item.shoppingCenter, item.address, item.entryConditions]),
+      ...appDocument.catalog.responsibles.flatMap((item) => [item.name, item.company, item.baseCity, item.group, ...(item.coverage ?? [])])
+    ];
+    counts.catalog = values.reduce((total, value) => total + Number(changed(value, 240)), 0);
+  }
+  dom.normalizeTextPreview.textContent = `Vista previa: ${counts.activities} actividad(es), ${counts.catalog} campo(s) de catálogo y ${counts.meta} campo(s) de identificación cambiarían.`;
+}
+
+function openNormalizeTextDialog() {
+  if (!hasEditControl) {
+    showToast("Este cronograma está disponible únicamente en modo de solo lectura.", { type: "error" });
+    return;
+  }
+  dom.normalizeActivities.checked = true;
+  dom.normalizeCatalog.checked = false;
+  dom.normalizeMeta.checked = false;
+  showFormErrors(dom.normalizeTextErrors, []);
+  updateNormalizationPreview();
+  openDialog("normalizeTextDialog");
+}
+
+function handleNormalizeTextSubmit(event) {
+  event.preventDefault();
+  if (!dom.normalizeActivities.checked && !dom.normalizeCatalog.checked && !dom.normalizeMeta.checked) {
+    showFormErrors(dom.normalizeTextErrors, ["Selecciona al menos un grupo de textos."]);
+    return;
+  }
+  try {
+    const outcome = mutateWithContract("document.normalize-text", {
+      includeActivities: dom.normalizeActivities.checked,
+      includeCatalog: dom.normalizeCatalog.checked,
+      includeMeta: dom.normalizeMeta.checked
+    }, "Textos visibles normalizados");
+    closeDialog("normalizeTextDialog");
+    showToast(`${outcome.result.counts.fields} campo(s) normalizado(s).`);
+  } catch (error) {
+    showFormErrors(dom.normalizeTextErrors, [error.message]);
+  }
 }
 
 function currentMonthParts() {
@@ -903,6 +994,20 @@ function renderFilters() {
       chips.append(chip);
     }
   }
+  const dateFrom = appDocument.settings.filters.dateFrom;
+  const dateTo = appDocument.settings.filters.dateTo;
+  if (dateFrom || dateTo) {
+    count += 1;
+    const chip = createElement("button", "filter-chip", `Fecha: ${dateFrom || "…"} → ${dateTo || "…"} ×`);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      appDocument.settings.filters.dateFrom = null;
+      appDocument.settings.filters.dateTo = null;
+      renderAll();
+      scheduleSave();
+    });
+    chips.append(chip);
+  }
   dom.filterChips.replaceChildren(chips);
   dom.filterCount.textContent = String(count);
   dom.clearFiltersButton.hidden = count === 0 && !appDocument.settings.filters.query;
@@ -973,6 +1078,10 @@ function renderFilterDialog() {
     fragment.append(section);
   }
   dom.filterGrid.replaceChildren(fragment);
+  dom.filterDateFrom.value = appDocument.settings.filters.dateFrom ?? "";
+  dom.filterDateTo.value = appDocument.settings.filters.dateTo ?? "";
+  dom.filterDateError.hidden = true;
+  dom.filterDateError.textContent = "";
 }
 
 function openFilterDialog() {
@@ -990,7 +1099,9 @@ function clearAllFilters({ close = false } = {}) {
     responsibles: [],
     serviceTypes: [],
     statuses: [],
-    planningBuckets: []
+    planningBuckets: [],
+    dateFrom: null,
+    dateTo: null
   };
   if (close) closeDialog("filterDialog");
   renderAll();
@@ -999,11 +1110,26 @@ function clearAllFilters({ close = false } = {}) {
 
 function handleFilterSubmit(event) {
   event.preventDefault();
+  const dateFrom = dom.filterDateFrom.value || null;
+  const dateTo = dom.filterDateTo.value || null;
+  try {
+    if (dateFrom) parseISODate(dateFrom);
+    if (dateTo) parseISODate(dateTo);
+    if (dateFrom && dateTo && compareISODate(dateTo, dateFrom) < 0) {
+      throw new TypeError("La fecha final no puede ser anterior a la inicial.");
+    }
+  } catch (error) {
+    dom.filterDateError.textContent = error.message;
+    dom.filterDateError.hidden = false;
+    return;
+  }
   for (const definition of filterDefinitions()) {
     appDocument.settings.filters[definition.key] = [
       ...dom.filterGrid.querySelectorAll(`input[name="filter-${definition.key}"]:checked`)
     ].map((input) => input.value);
   }
+  appDocument.settings.filters.dateFrom = dateFrom;
+  appDocument.settings.filters.dateTo = dateTo;
   closeDialog("filterDialog");
   renderAll();
   scheduleSave();
@@ -1929,6 +2055,7 @@ function handleCalendarDrop(event, date, holidayMap) {
       ? `${payload.activityIds.length} tarjetas seleccionadas. Se conservará la distancia entre sus fechas.`
       : `Actividad del ${formatDisplayDate(anchor.date)} hacia el ${formatDisplayDate(date)}.`;
     dom.dropExtendButton.hidden = payload.activityIds.length !== 1;
+    dom.dropExtendRangeButton.hidden = payload.activityIds.length !== 1;
     openDialog("dropActionDialog");
   }
 }
@@ -1937,7 +2064,7 @@ function hasActiveActivityFilters() {
   const filters = appDocument.settings.filters ?? {};
   return Boolean(filters.query?.trim()) || [
     "cities", "clients", "sites", "responsibles", "serviceTypes", "statuses", "planningBuckets"
-  ].some((key) => Array.isArray(filters[key]) && filters[key].length);
+  ].some((key) => Array.isArray(filters[key]) && filters[key].length) || Boolean(filters.dateFrom || filters.dateTo);
 }
 
 function calendarActivitiesForDate(date, maps = lookupMaps()) {
@@ -2023,6 +2150,17 @@ function applyPendingDrop(action) {
   pendingDrop = null;
   closeDialog("dropActionDialog");
   try {
+    if (action === "extend-range") {
+      if (payload.activityIds.length !== 1) throw new TypeError("Sólo se puede ampliar una tarjeta a la vez.");
+      const source = appDocument.activities.find((item) => item.id === payload.activityIds[0]);
+      const fromDate = source && compareISODate(source.date, payload.date) <= 0 ? source.date : payload.date;
+      const toDate = source && compareISODate(source.date, payload.date) >= 0 ? source.date : payload.date;
+      openSeriesRangeDialog(payload.activityIds[0], {
+        fromDate,
+        toDate
+      });
+      return;
+    }
     if (action === "move") {
       const label = payload.activityIds.length > 1
         ? `${payload.activityIds.length} tarjetas movidas`
@@ -2061,6 +2199,99 @@ function applyPendingDrop(action) {
     }
   } catch (error) {
     showToast(error.message, { type: "error" });
+  }
+}
+
+function openSeriesRangeDialog(activityId, { fromDate = null, toDate = null } = {}) {
+  const activity = appDocument.activities.find((item) => item.id === activityId);
+  if (!activity || !hasEditControl || isQuarantineActivity(activity)) return;
+  pendingSeriesRangeActivityId = activityId;
+  seriesRangeForcedDates = new Set();
+  const start = fromDate && toDate && compareISODate(fromDate, toDate) <= 0
+    ? fromDate
+    : fromDate && compareISODate(fromDate, activity.date) < 0
+      ? fromDate
+      : activity.date;
+  const end = toDate && compareISODate(toDate, start) >= 0
+    ? toDate
+    : addDaysISO(activity.date, 7);
+  dom.seriesRangeFrom.value = start;
+  dom.seriesRangeTo.value = end;
+  dom.seriesRangeIncludeNonWorking.checked = false;
+  dom.seriesRangeSummary.textContent = `Actividad del ${formatDisplayDate(activity.date)}. Las fechas existentes de esta misma actividad se conservarán sin duplicarse.`;
+  showFormErrors(dom.seriesRangeErrors, []);
+  updateSeriesRangePreview();
+  openDialog("seriesRangeDialog");
+}
+
+function updateSeriesRangePreview() {
+  const activity = appDocument.activities.find((item) => item.id === pendingSeriesRangeActivityId);
+  const fromDate = dom.seriesRangeFrom.value;
+  const toDate = dom.seriesRangeTo.value;
+  if (!activity || !fromDate || !toDate || compareISODate(toDate, fromDate) < 0) {
+    dom.seriesRangePreview.hidden = true;
+    dom.seriesRangePreview.replaceChildren();
+    return;
+  }
+  const holidays = holidayMapForRange(fromDate, toDate, appDocument.holidayOverrides);
+  const generated = generateSeriesDates(fromDate, toDate, holidays, {
+    includeAllNonWorking: dom.seriesRangeIncludeNonWorking.checked,
+    forceIncludeDates: [...seriesRangeForcedDates]
+  });
+  const existing = new Set(
+    appDocument.activities
+      .filter((item) => item.seriesId && item.seriesId === activity.seriesId)
+      .map((item) => item.date)
+  );
+  if (!activity.seriesId) existing.add(activity.date);
+  const wrapper = createElement("div");
+  const newDates = generated.included.filter((date) => !existing.has(date));
+  wrapper.append(createElement("strong", "", `${newDates.length} tarjeta${newDates.length === 1 ? "" : "s"} nueva${newDates.length === 1 ? "" : "s"} se crearán.`));
+  if (generated.included.length && newDates.length < generated.included.length) {
+    wrapper.append(createElement("p", "", `${generated.included.length - newDates.length} fecha${generated.included.length - newDates.length === 1 ? "" : "s"} ya pertenece${generated.included.length - newDates.length === 1 ? "" : "n"} a esta actividad.`));
+  }
+  for (const item of generated.omitted) {
+    const label = createElement("label", "check-row");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = seriesRangeForcedDates.has(item.date);
+    checkbox.dataset.forceDate = item.date;
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) seriesRangeForcedDates.add(item.date);
+      else seriesRangeForcedDates.delete(item.date);
+      updateSeriesRangePreview();
+    });
+    label.append(checkbox, createElement("span", "", `${formatDisplayDate(item.date, { weekday: "long" })}: ${item.reason}. Incluir sólo esta fecha`));
+    wrapper.append(label);
+  }
+  dom.seriesRangePreview.replaceChildren(wrapper);
+  dom.seriesRangePreview.hidden = false;
+}
+
+function applySeriesRangeAction(mode) {
+  const activityId = pendingSeriesRangeActivityId;
+  const fromDate = dom.seriesRangeFrom.value;
+  const toDate = dom.seriesRangeTo.value;
+  if (!activityId || !fromDate || !toDate) return;
+  try {
+    const outcome = mutateWithContract("activity.extend-range", {
+      activityId,
+      fromDate,
+      toDate,
+      mode,
+      includeNonWorking: dom.seriesRangeIncludeNonWorking.checked,
+      forceIncludeDates: [...seriesRangeForcedDates]
+    }, mode === "extend" ? "Actividad ampliada al rango" : "Actividad duplicada al rango");
+    if (outcome.warnings?.length) {
+      showToast(`${outcome.warnings.length} fecha(s) se omitieron o requieren revisión.`, { duration: 7000 });
+    }
+    closeDialog("seriesRangeDialog");
+    pendingSeriesRangeActivityId = null;
+    seriesRangeForcedDates = new Set();
+    clearActivitySelection();
+    if (outcome.result.activityIds?.[0]) renderActivityDrawer(outcome.result.activityIds[0]);
+  } catch (error) {
+    showFormErrors(dom.seriesRangeErrors, [error.message]);
   }
 }
 
@@ -2466,10 +2697,14 @@ function populateActivitySelects({ clientId = "", siteId = "", responsibleIds = 
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
   setChildren(
     dom.activityClient,
-    option("", "Selecciona un cliente"),
     ...clients.map((item) => option(item.id, item.name))
   );
   dom.activityClient.value = clientId || "";
+  setChildren(
+    dom.clientSuggestions,
+    ...clients.map((item) => option(item.name, item.name))
+  );
+  dom.activityClientText.value = clients.find((item) => item.id === clientId)?.name ?? "";
   populateSiteSelect(clientId, siteId);
 
   setChildren(
@@ -2482,6 +2717,17 @@ function populateActivitySelects({ clientId = "", siteId = "", responsibleIds = 
       .sort((a, b) => a.localeCompare(b, "es"))
       .map((city) => option(city, city))
   );
+  setChildren(
+    dom.responsibleSuggestions,
+    ...appDocument.catalog.responsibles
+      .filter((item) => item.active !== false)
+      .sort((a, b) => a.name.localeCompare(b.name, "es"))
+      .map((item) => option(item.name, item.name))
+  );
+  const selectedNames = responsibleIds
+    .map((id) => appDocument.catalog.responsibles.find((item) => item.id === id)?.name)
+    .filter(Boolean);
+  dom.activityResponsibleText.value = selectedNames.join(", ");
   renderResponsiblePicker(responsibleIds);
 }
 
@@ -2492,20 +2738,18 @@ function populateSiteSelect(clientId, selectedSiteId = "") {
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
   setChildren(
     dom.activitySite,
-    option("", clientId ? "Selecciona una sede" : "Selecciona primero un cliente"),
     ...sites.map((site) => option(site.id, `${site.name}${site.city ? ` · ${site.city}` : ""}`))
   );
   dom.activitySite.value = sites.some((site) => site.id === selectedSiteId) ? selectedSiteId : "";
+  setChildren(
+    dom.siteSuggestions,
+    ...sites.map((site) => option(site.name, `${site.name}${site.city ? ` · ${site.city}` : ""}`))
+  );
+  dom.activitySiteText.value = sites.find((site) => site.id === selectedSiteId)?.name ?? "";
 }
 
 function responsibleScore(responsible, city) {
-  const target = normalizeText(city);
-  if (!target) return 9;
-  if (normalizeText(responsible.baseCity) === target) return 0;
-  if ((responsible.coverage ?? []).some((item) => normalizeText(item) === target)) return 1;
-  if (normalizeText(responsible.group).includes(target)) return 2;
-  if (normalizeText(responsible.baseCity) === "nacional" || normalizeText(responsible.group) === "nacional") return 3;
-  return 9;
+  return responsibleCoverageScore(responsible, city, appDocument.catalog.responsibles);
 }
 
 function renderResponsiblePicker(selectedIds = null) {
@@ -2580,8 +2824,29 @@ function syncActivityLocationFromSite() {
   const site = appDocument.catalog.sites.find((item) => item.id === dom.activitySite.value);
   if (site) {
     dom.activityClient.value = site.clientId || dom.activityClient.value;
+    dom.activityClientText.value = appDocument.catalog.clients.find((item) => item.id === site.clientId)?.name ?? dom.activityClientText.value;
+    dom.activitySiteText.value = site.name;
     dom.activityCity.value = site.city || dom.activityCity.value;
   }
+  renderResponsiblePicker();
+}
+
+function resolveActivityClientText() {
+  const value = safeText(dom.activityClientText.value, 160);
+  const client = appDocument.catalog.clients.find((item) => normalizeText(item.name) === normalizeText(value));
+  dom.activityClient.value = client?.id ?? "";
+  populateSiteSelect(client?.id ?? "", "");
+  renderResponsiblePicker();
+}
+
+function resolveActivitySiteText() {
+  const value = safeText(dom.activitySiteText.value, 160);
+  const clientId = dom.activityClient.value || null;
+  const site = appDocument.catalog.sites.find((item) => (
+    normalizeText(item.name) === normalizeText(value) && (!clientId || item.clientId === clientId)
+  ));
+  dom.activitySite.value = site?.id ?? "";
+  if (site?.city) dom.activityCity.value = site.city;
   renderResponsiblePicker();
 }
 
@@ -2643,6 +2908,9 @@ function openActivityDialog({ date = todayInBogota(), clientId = "", siteId = ""
     siteId: resolvedSite,
     responsibleIds: source?.responsibleIds ?? []
   });
+  dom.activityClientText.value = appDocument.catalog.clients.find((item) => item.id === resolvedClient)?.name ?? "";
+  dom.activitySiteText.value = appDocument.catalog.sites.find((item) => item.id === resolvedSite)?.name ?? "";
+  dom.activityResponsibleType.value = "contractor";
   const linked = Boolean(source?.seriesId);
   dom.activityEditScopePanel.hidden = !(mode === "edit" && linked);
   dom.activityEditScope.value = "single";
@@ -2702,6 +2970,21 @@ function updateRangePreview() {
 
 function activityInputFromForm() {
   const responsibleIds = [...dom.responsiblePicker.querySelectorAll("input:checked")].map((input) => input.value);
+  const typedResponsibleNames = [...new Set(safeText(dom.activityResponsibleText.value, 1000)
+    .split(/[;,\n]/)
+    .map((item) => safeText(item, 240))
+    .filter(Boolean))];
+  const knownResponsibleNames = new Map(appDocument.catalog.responsibles.map((item) => [normalizeText(item.name), item.id]));
+  for (const name of typedResponsibleNames) {
+    const id = knownResponsibleNames.get(normalizeText(name));
+    if (id && !responsibleIds.includes(id)) responsibleIds.push(id);
+  }
+  const clientName = safeText(dom.activityClientText.value, 160) || null;
+  const siteName = safeText(dom.activitySiteText.value, 160) || null;
+  const client = appDocument.catalog.clients.find((item) => normalizeText(item.name) === normalizeText(clientName));
+  const site = appDocument.catalog.sites.find((item) => (
+    normalizeText(item.name) === normalizeText(siteName) && (!client?.id || item.clientId === client.id)
+  ));
   return {
     date: dom.activityDialog.dataset.planningBucket === "quarantine" ? null : dom.activityDate.value,
     endDate: dom.activityDialog.dataset.planningBucket === "quarantine"
@@ -2710,8 +2993,12 @@ function activityInputFromForm() {
     planningBucket: dom.activityDialog.dataset.planningBucket || "calendar",
     includeNonWorking: dom.includeNonWorking.checked,
     forceIncludeDates: [...forcedRangeDates],
-    clientId: dom.activityClient.value || null,
-    siteId: dom.activitySite.value || null,
+    clientId: client?.id ?? dom.activityClient.value ?? null,
+    siteId: site?.id ?? dom.activitySite.value ?? null,
+    clientName,
+    siteName,
+    responsibleNames: typedResponsibleNames,
+    newResponsibleType: dom.activityResponsibleType.value,
     city: safeText(dom.activityCity.value, 120) || null,
     responsibleIds,
     serviceType: dom.activityServiceType.value,
@@ -2726,7 +3013,9 @@ function validateActivityInput(input) {
     date: input.planningBucket === "quarantine" ? null : input.date,
     planningBucket: input.planningBucket,
     status: input.planningBucket === "quarantine" ? "to_schedule" : input.status,
-    responsibleIds: input.responsibleIds
+    clientId: input.clientId || (input.clientName ? "typed-client" : null),
+    siteId: input.siteId || (input.siteName ? "typed-site" : null),
+    responsibleIds: input.responsibleIds.length || input.responsibleNames?.length ? ["typed-responsible"] : []
   };
   const errors = validateActivity(candidate);
   if (input.planningBucket !== "quarantine" && input.endDate && input.date && compareISODate(input.endDate, input.date) < 0) {
@@ -3462,7 +3751,7 @@ function downloadBaseTemplate() {
     dm_ciudad: [["id", "Zona", "Ciudad"]],
     dm_clientes: [["id", "Nombre"]],
     dm_sede: [["id", "Cliente", "Zona", "Ciudad", "Centro comercial", "Nombre", "Dirección", "Ingresos", "Requiere App"]],
-    dm_directorio_siys: [["Nombre", "Empresa", "Tipo", "Ciudad base", "Grupo", "Alturas", "Cursos"]],
+    dm_directorio_siys: [["Nombre", "Empresa", "Tipo", "Ciudad base", "Grupo", "Cobertura", "Alturas", "Cursos"]],
     dm_equipo_cronograma: [[
       "_id", "subsidiary._id", "subsidiary.name", "responsable ejecucion", "Frecuencia",
       "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -3479,6 +3768,7 @@ function downloadBaseTemplate() {
     ["dm_sede requiere id, Cliente, Zona, Ciudad, Centro comercial y Nombre. Dirección e Ingresos son opcionales."],
     ["Requiere App acepta: Necesita App, No necesita App o vacío si está pendiente de confirmar."],
     ["dm_directorio_siys requiere Nombre, Empresa, Tipo, Ciudad base y Grupo. Tipo sólo puede ser Nómina o Contratista."],
+    ["Cobertura es opcional: escribe ciudades separadas por coma; se usa para ordenar responsables por zona del grupo."],
     ["Alturas y Cursos son opcionales; registra únicamente requisitos operativos, sin documentos personales."],
     ["La aplicación muestra una vista previa y no elimina registros ausentes de una actualización."],
     ["Esta plantilla está vacía: no reemplaza una copia vigente de la Base Operativa ni contiene datos actuales."]
@@ -3938,6 +4228,7 @@ function bindPrimaryActionEvents() {
   });
   dom.baseTemplateButton.addEventListener("click", downloadBaseTemplate);
   dom.programmingTemplateButton.addEventListener("click", downloadProgrammingTemplate);
+  dom.normalizeTextButton.addEventListener("click", openNormalizeTextDialog);
   dom.importProgrammingButton.addEventListener("click", () => dom.programmingFileInput.click());
   dom.holidayButton.addEventListener("click", () => {
     renderHolidayDialog();
@@ -3946,17 +4237,41 @@ function bindPrimaryActionEvents() {
   dom.helpButton.addEventListener("click", () => openDialog("helpDialog"));
   dom.calendarSettingsButton.addEventListener("click", openCalendarSettingsDialog);
   dom.themeButton.addEventListener("click", cycleThemePreference);
+  dom.motionButton.addEventListener("click", toggleMotionPreference);
   dom.themeForm.addEventListener("submit", handleThemeSubmit);
+  dom.normalizeTextForm.addEventListener("submit", handleNormalizeTextSubmit);
+  for (const input of [dom.normalizeActivities, dom.normalizeCatalog, dom.normalizeMeta]) {
+    input.addEventListener("change", updateNormalizationPreview);
+  }
   dom.resetDataButton.addEventListener("click", openResetDataDialog);
   dom.resetDataForm.addEventListener("submit", handleResetDataSubmit);
   dom.dropMoveButton.addEventListener("click", () => applyPendingDrop("move"));
   dom.dropDuplicateButton.addEventListener("click", () => applyPendingDrop("duplicate"));
   dom.dropExtendButton.addEventListener("click", () => applyPendingDrop("extend"));
+  dom.dropExtendRangeButton.addEventListener("click", () => applyPendingDrop("extend-range"));
   dom.activityDateActionForm.addEventListener("submit", (event) => event.preventDefault());
   dom.activityDateActionDate.addEventListener("change", updateActivityDateActionWarning);
   dom.touchMoveButton.addEventListener("click", () => applyTouchDateAction("move"));
   dom.touchDuplicateButton.addEventListener("click", () => applyTouchDateAction("duplicate"));
   dom.touchExtendButton.addEventListener("click", () => applyTouchDateAction("extend"));
+  dom.touchExtendRangeButton.addEventListener("click", () => applyTouchDateAction("extend-range"));
+  dom.seriesRangeForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    applySeriesRangeAction("extend");
+  });
+  dom.seriesRangeDuplicateButton.addEventListener("click", () => applySeriesRangeAction("duplicate"));
+  dom.seriesRangeFrom.addEventListener("change", () => {
+    seriesRangeForcedDates.clear();
+    updateSeriesRangePreview();
+  });
+  dom.seriesRangeTo.addEventListener("change", () => {
+    seriesRangeForcedDates.clear();
+    updateSeriesRangePreview();
+  });
+  dom.seriesRangeIncludeNonWorking.addEventListener("change", () => {
+    seriesRangeForcedDates.clear();
+    updateSeriesRangePreview();
+  });
   dom.quarantineForm.addEventListener("submit", handleQuarantineSubmit);
   dom.quarantineAssignForm.addEventListener("submit", handleQuarantineAssignSubmit);
   dom.quarantineAssignDate.addEventListener("change", renderQuarantineAssignWarning);
@@ -4041,11 +4356,17 @@ function bindCalendarAndCatalogEvents() {
 function bindActivityFormEvents() {
   dom.activityClient.addEventListener("change", () => {
     populateSiteSelect(dom.activityClient.value);
+    dom.activityClientText.value = appDocument.catalog.clients.find((item) => item.id === dom.activityClient.value)?.name ?? "";
     dom.activityCity.value = "";
     renderResponsiblePicker();
   });
   dom.activitySite.addEventListener("change", syncActivityLocationFromSite);
+  dom.activityClientText.addEventListener("input", resolveActivityClientText);
+  dom.activityClientText.addEventListener("change", resolveActivityClientText);
+  dom.activitySiteText.addEventListener("input", resolveActivitySiteText);
+  dom.activitySiteText.addEventListener("change", resolveActivitySiteText);
   dom.responsibleSearch.addEventListener("input", scheduleResponsiblePickerRender);
+  dom.activityResponsibleText.addEventListener("input", scheduleResponsiblePickerRender);
   dom.activityCity.addEventListener("input", scheduleResponsiblePickerRender);
   dom.activityServiceType.addEventListener("change", updateAdministrativeFormState);
   dom.activityDate.addEventListener("change", () => {
@@ -4139,6 +4460,7 @@ function bindGlobalInteractionEvents() {
   systemThemeQuery?.addEventListener("change", () => {
     if (themePreference() === "system") applyThemePreference();
   });
+  window.matchMedia?.("(prefers-reduced-motion: reduce)")?.addEventListener("change", applyMotionPreference);
   compactLayoutQuery?.addEventListener("change", () => {
     if (!compactLayoutQuery.matches && dom.mobileMonthDialog.open) {
       closeMobileMonthPicker({ restoreFocus: false });
@@ -4246,6 +4568,7 @@ async function initialize() {
   bindEvents();
   applyCatalogPreference();
   applyThemePreference();
+  applyMotionPreference();
   appDocument = await loadInitialDocument();
   if (CLOUD_MODE && storageAvailable) {
     const canEdit = cloudPersistence?.canEdit() ?? false;

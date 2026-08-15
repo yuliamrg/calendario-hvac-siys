@@ -724,6 +724,23 @@ test("los filtros permiten OR dentro de una categoría y AND entre categorías",
   assert.equal(activityMatchesFilters(activities[0], filters, maps), false);
 });
 
+test("los filtros de fecha admiten un día exacto o un rango inclusivo", () => {
+  const activity = {
+    date: "2026-08-05",
+    clientId: "c1",
+    siteId: "s1",
+    city: "Pereira",
+    responsibleIds: [],
+    serviceType: "preventive",
+    status: "scheduled",
+    observations: ""
+  };
+  const maps = { clients: new Map(), sites: new Map(), responsibles: new Map() };
+  assert.equal(activityMatchesFilters(activity, { dateFrom: "2026-08-05", dateTo: "2026-08-05" }, maps), true);
+  assert.equal(activityMatchesFilters(activity, { dateFrom: "2026-08-06", dateTo: "2026-08-08" }, maps), false);
+  assert.equal(activityMatchesFilters(activity, { dateFrom: "2026-08-01", dateTo: "2026-08-06" }, maps), true);
+});
+
 test("la migración transforma filtros simples heredados en selecciones múltiples", () => {
   assert.deepEqual(normalizeFilterArray(undefined, "completed"), ["completed"]);
   assert.deepEqual(normalizeFilterArray(undefined, "all"), []);

@@ -23,7 +23,9 @@ import {
   deleteActivities,
   differenceInDays,
   duplicateActivities,
+  extendActivityRange,
   extendActivity,
+  findActivityDateConflicts,
   holidayMapForRange,
   isNonWorkingDate,
   isQuarantineActivity,
@@ -32,6 +34,7 @@ import {
   moveActivityToQuarantine,
   moveActivities,
   normalizeText,
+  normalizeDisplayText,
   parseISODate,
   reorderActivities,
   safeText,
@@ -55,6 +58,7 @@ export const CALENDAR_OPERATIONS = Object.freeze({
   "activity.assign-date": Object.freeze({ readOnly: false, destructive: false }),
   "activity.duplicate": Object.freeze({ readOnly: false, destructive: false }),
   "activity.extend": Object.freeze({ readOnly: false, destructive: false }),
+  "activity.extend-range": Object.freeze({ readOnly: false, destructive: false }),
   "activity.status": Object.freeze({ readOnly: false, destructive: false }),
   "activity.bulk-edit": Object.freeze({ readOnly: false, destructive: false }),
   "activity.delete": Object.freeze({ readOnly: false, destructive: true }),
@@ -65,7 +69,8 @@ export const CALENDAR_OPERATIONS = Object.freeze({
   "holiday.add": Object.freeze({ readOnly: false, destructive: false }),
   "holiday.delete": Object.freeze({ readOnly: false, destructive: true }),
   "backup.restore": Object.freeze({ readOnly: false, destructive: true }),
-  "backup.merge": Object.freeze({ readOnly: false, destructive: false })
+  "backup.merge": Object.freeze({ readOnly: false, destructive: false }),
+  "document.normalize-text": Object.freeze({ readOnly: false, destructive: false })
 });
 
 export class CalendarContractError extends Error {
@@ -154,6 +159,128 @@ function validateReferences(document, activity) {
   if (missing.length) {
     fail("VALIDATION_FAILED", `Responsables inexistentes: ${missing.join(", ")}.`, { missing });
   }
+}
+
+function typedNames(value) {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[;,\n]/)
+      : [];
+  return [...new Set(values.map((item) => safeText(item, 240)).filter(Boolean))];
+}
+
+function findCatalogItemByName(collection, name, extra = () => true) {
+  const target = normalizeText(name);
+  return collection.find((item) => extra(item) && normalizeText(item.name) === target);
+}
+
+function resolveTypedCatalogReferences(document, input, payload, context) {
+  const created = { clients: [], sites: [], responsibles: [] };
+  let clientId = input.clientId || null;
+  let siteId = input.siteId || null;
+
+  const clientName = safeText(payload.clientName, 160);
+  if (clientName) {
+    const existing = findCatalogItemByName(document.catalog.clients, clientName);
+    if (existing) {
+      clientId = existing.id;
+    } else {
+      const id = makeId("cliente", context.idFactory);
+      const client = {
+        id,
+        sourceKey: `manual:${id}`,
+        name: clientName,
+        active: true,
+        source: "manual",
+        aliases: [],
+        updatedAt: context.now
+      };
+      document.catalog.clients.push(client);
+      created.clients.push(id);
+      clientId = id;
+    }
+  }
+
+  const siteName = safeText(payload.siteName, 160);
+  if (siteName) {
+    if (!clientId) fail("VALIDATION_FAILED", "Escribe o selecciona un cliente antes de crear una sede.");
+    const existing = findCatalogItemByName(
+      document.catalog.sites,
+      siteName,
+      (item) => !item.clientId || item.clientId === clientId
+    );
+    if (existing) {
+      siteId = existing.id;
+      if (!input.city && existing.city) input.city = existing.city;
+    } else {
+      const id = makeId("sede", context.idFactory);
+      const site = {
+        id,
+        sourceKey: `manual:${id}`,
+        clientId,
+        name: siteName,
+        city: safeText(input.city, 120) || null,
+        zone: null,
+        shoppingCenter: null,
+        address: null,
+        entryConditions: null,
+        requiresApp: false,
+        active: true,
+        source: "manual",
+        aliases: [],
+        coverageHints: [],
+        updatedAt: context.now
+      };
+      document.catalog.sites.push(site);
+      created.sites.push(id);
+      siteId = id;
+    }
+  }
+
+  const responsibleIds = [...new Set((input.responsibleIds ?? []).map(String).filter(Boolean))];
+  const names = typedNames(payload.responsibleNames);
+  const responsibleType = payload.newResponsibleType ?? "contractor";
+  if (!Object.hasOwn(RESPONSIBLE_TYPES, responsibleType)) {
+    fail("VALIDATION_FAILED", "El tipo de los nuevos responsables no es válido.");
+  }
+  for (const name of names) {
+    const existing = findCatalogItemByName(document.catalog.responsibles, name);
+    if (existing) {
+      if (!responsibleIds.includes(existing.id)) responsibleIds.push(existing.id);
+      continue;
+    }
+    const id = makeId("responsable", context.idFactory);
+    const responsible = {
+      id,
+      sourceKey: `manual:${id}`,
+      name,
+      initials: contractInitialsFor(name),
+      company: null,
+      responsibleType,
+      baseCity: safeText(input.city, 120) || null,
+      group: null,
+      heights: null,
+      courses: null,
+      active: true,
+      source: "manual",
+      coverage: [],
+      aliases: [],
+      favorite: false,
+      updatedAt: context.now
+    };
+    document.catalog.responsibles.push(responsible);
+    created.responsibles.push(id);
+    responsibleIds.push(id);
+  }
+
+  return {
+    ...input,
+    clientId,
+    siteId,
+    responsibleIds,
+    createdCatalog: created
+  };
 }
 
 function buildActivityView(activity, maps) {
@@ -282,11 +409,13 @@ function inspectCalendar(document) {
 
 function listActivities(document, payload) {
   allowOnly(payload, [
-    "from", "to", "clientId", "siteId", "city", "responsibleIds", "serviceTypes", "statuses", "planningBuckets", "query"
+    "from", "to", "dateFrom", "dateTo", "clientId", "siteId", "city", "responsibleIds", "serviceTypes", "statuses", "planningBuckets", "query"
   ]);
-  if (payload.from) parseISODate(payload.from);
-  if (payload.to) parseISODate(payload.to);
-  if (payload.from && payload.to && compareISODate(payload.to, payload.from) < 0) {
+  const from = payload.dateFrom ?? payload.from;
+  const to = payload.dateTo ?? payload.to;
+  if (from) parseISODate(from);
+  if (to) parseISODate(to);
+  if (from && to && compareISODate(to, from) < 0) {
     fail("VALIDATION_FAILED", "La fecha final no puede ser anterior a la inicial.");
   }
   const maps = buildCatalogLookup(document);
@@ -298,11 +427,11 @@ function listActivities(document, payload) {
     responsibles: payload.responsibleIds ?? [],
     serviceTypes: payload.serviceTypes ?? [],
     statuses: payload.statuses ?? [],
-    planningBuckets: payload.planningBuckets ?? []
+    planningBuckets: payload.planningBuckets ?? [],
+    dateFrom: from ?? null,
+    dateTo: to ?? null
   };
   return document.activities
-    .filter((activity) => !payload.from || (typeof activity.date === "string" && compareISODate(activity.date, payload.from) >= 0))
-    .filter((activity) => !payload.to || (typeof activity.date === "string" && compareISODate(activity.date, payload.to) <= 0))
     .filter((activity) => activityMatchesFilters(activity, filters, maps))
     .sort((a, b) => {
       if (a.date === null && b.date !== null) return 1;
@@ -315,13 +444,14 @@ function listActivities(document, payload) {
 function createActivity(document, payload, context) {
   allowOnly(payload, [
     "date", "endDate", "planningBucket", "clientId", "siteId", "city", "responsibleIds", "serviceType", "status",
-    "observations", "includeNonWorking", "forceIncludeDates"
+    "observations", "includeNonWorking", "forceIncludeDates", "clientName", "siteName", "responsibleNames",
+    "newResponsibleType"
   ]);
   const planningBucket = payload.planningBucket ?? "calendar";
   if (!Object.hasOwn(PLANNING_BUCKETS, planningBucket)) {
     fail("VALIDATION_FAILED", "La bandeja de planificación no es válida.");
   }
-  const input = {
+  const input = resolveTypedCatalogReferences(document, {
     date: planningBucket === "quarantine" ? null : payload.date,
     endDate: planningBucket === "quarantine" ? null : (payload.endDate || payload.date),
     planningBucket,
@@ -334,7 +464,7 @@ function createActivity(document, payload, context) {
     observations: safeText(payload.observations, 5000),
     includeNonWorking: Boolean(payload.includeNonWorking),
     forceIncludeDates: payload.forceIncludeDates ?? []
-  };
+  }, payload, context);
   if (planningBucket === "quarantine") {
     if (payload.date !== undefined && payload.date !== null) {
       fail("VALIDATION_FAILED", "Una actividad Pendiente debe crearse sin fecha.");
@@ -352,7 +482,7 @@ function createActivity(document, payload, context) {
     const activity = createQuarantineActivity(input, context);
     document.activities.push(activity);
     return {
-      result: { activityIds: [activity.id], seriesId: null, omittedDates: [] },
+      result: { activityIds: [activity.id], seriesId: null, omittedDates: [], createdCatalog: input.createdCatalog },
       warnings: [],
       audit: { action: "activity_created", detail: "Pendiente creado" }
     };
@@ -372,7 +502,8 @@ function createActivity(document, payload, context) {
     result: {
       activityIds: generated.activities.map((item) => item.id),
       seriesId: generated.series?.id ?? null,
-      omittedDates: generated.omitted
+      omittedDates: generated.omitted,
+      createdCatalog: input.createdCatalog
     },
     warnings: generated.omitted.map((item) => ({
       code: "NON_WORKING_DATE_OMITTED",
@@ -459,6 +590,21 @@ function editActivity(document, payload, now) {
     const errors = validateActivity(draft);
     if (errors.length) fail("VALIDATION_FAILED", errors.join(" "), { activityId: draft.id });
     if (commonIds.has(draft.id) || draft.id === existing.id) validateReferences(document, draft);
+  }
+  if (
+    existing.seriesId &&
+    targetBucket === "calendar" &&
+    Object.hasOwn(patch, "date") &&
+    patch.date !== existing.date
+  ) {
+    const conflicts = findActivityDateConflicts(document, [existing.id], new Map([[existing.id, patch.date]]));
+    if (conflicts.length) {
+      fail(
+        "CONFLICT",
+        "El cambio crearía dos tarjetas de la misma actividad el mismo día.",
+        { conflicts }
+      );
+    }
   }
   const changedIds = [];
   for (let index = 0; index < document.activities.length; index += 1) {
@@ -737,6 +883,18 @@ function executeActivityHandler(operation, document, payload, context) {
     }
     const dates = movementDates(document, ids, targetDate, anchorId, mode);
     const warnings = requireNonWorkingDecision(document, dates, payload.allowNonWorking);
+    const conflicts = findActivityDateConflicts(
+      document,
+      ids,
+      new Map(ids.map((id, index) => [id, dates[index]]))
+    );
+    if (conflicts.length) {
+      fail(
+        "CONFLICT",
+        "El movimiento crearía dos tarjetas de la misma actividad el mismo día.",
+        { conflicts }
+      );
+    }
     if (operation === "activity.move") {
       const moves = moveActivities(document, ids, targetDate, { anchorId, mode, now: context.now });
       return {
@@ -758,15 +916,62 @@ function executeActivityHandler(operation, document, payload, context) {
   }
   if (operation === "activity.extend") {
     allowOnly(payload, ["activityId", "targetDate", "allowNonWorking"]);
+    const activityId = requireText(payload.activityId, "activityId", 160);
     const targetDate = requireText(payload.targetDate, "targetDate", 10);
     parseISODate(targetDate);
-    findActivityOrThrow(document, payload.activityId);
+    findActivityOrThrow(document, activityId);
     const warnings = requireNonWorkingDecision(document, [targetDate], payload.allowNonWorking);
-    const extended = extendActivity(document, payload.activityId, targetDate, context);
+    const conflicts = findActivityDateConflicts(document, [activityId], new Map([[activityId, targetDate]]));
+    if (conflicts.length) {
+      fail("CONFLICT", "Esta actividad ya tiene una tarjeta en la fecha de destino.", { conflicts });
+    }
+    const extended = extendActivity(document, activityId, targetDate, context);
     return {
       result: { activityId: extended?.id ?? null, seriesId: extended?.seriesId ?? null },
       warnings,
       audit: { action: "activity_extended", detail: extended ? "Actividad ampliada a otro día" : "Sin cambios" }
+    };
+  }
+  if (operation === "activity.extend-range") {
+    allowOnly(payload, ["activityId", "fromDate", "toDate", "mode", "includeNonWorking", "forceIncludeDates"]);
+    const activityId = requireText(payload.activityId, "activityId", 160);
+    const fromDate = requireText(payload.fromDate, "fromDate", 10);
+    const toDate = requireText(payload.toDate, "toDate", 10);
+    parseISODate(fromDate);
+    parseISODate(toDate);
+    if (compareISODate(toDate, fromDate) < 0) {
+      fail("VALIDATION_FAILED", "La fecha final no puede ser anterior a la inicial.");
+    }
+    const mode = payload.mode ?? "extend";
+    if (!["extend", "duplicate"].includes(mode)) fail("INVALID_REQUEST", "mode no es válido.");
+    findActivityOrThrow(document, activityId);
+    const holidays = holidayMapForRange(fromDate, toDate, document.holidayOverrides);
+    const generated = extendActivityRange(document, activityId, fromDate, toDate, holidays, {
+      mode,
+      includeNonWorking: Boolean(payload.includeNonWorking),
+      forceIncludeDates: payload.forceIncludeDates ?? [],
+      idFactory: context.idFactory,
+      now: context.now
+    });
+    if (mode === "duplicate" && !generated.activities.length) {
+      fail("VALIDATION_FAILED", "El rango no contiene fechas programables.", { omitted: generated.omitted });
+    }
+    const warnings = generated.omitted.map((item) => ({
+      code: item.code === "SERIES_DATE_EXISTS" ? "SERIES_DATE_EXISTS" : "NON_WORKING_DATE_OMITTED",
+      message: `${item.date}: ${item.reason}.`,
+      details: item
+    }));
+    return {
+      result: {
+        activityIds: generated.activities.map((item) => item.id),
+        seriesId: generated.seriesId,
+        omittedDates: generated.omitted
+      },
+      warnings,
+      audit: {
+        action: mode === "extend" ? "activity_extended_range" : "activity_duplicated_range",
+        detail: `${generated.activities.length} tarjeta(s) ${mode === "extend" ? "ampliada(s)" : "duplicada(s)"} en rango`
+      }
     };
   }
   if (operation === "activity.status") {
@@ -884,13 +1089,84 @@ function executeBackupHandler(operation, document, payload) {
   }
 }
 
+function executeDocumentHandler(operation, document, payload, context) {
+  if (operation !== "document.normalize-text") return undefined;
+  allowOnly(payload, ["includeActivities", "includeCatalog", "includeMeta"]);
+  const includeActivities = payload.includeActivities !== false;
+  const includeCatalog = Boolean(payload.includeCatalog);
+  const includeMeta = Boolean(payload.includeMeta);
+  const counts = { activities: 0, catalog: 0, meta: 0, fields: 0 };
+  const normalizeField = (item, field, maxLength, bucket) => {
+    if (typeof item?.[field] !== "string" || !item[field].trim()) return;
+    const next = normalizeDisplayText(item[field], maxLength);
+    if (next === item[field]) return;
+    item[field] = next;
+    counts[bucket] += 1;
+    counts.fields += 1;
+  };
+
+  if (includeActivities) {
+    for (const activity of document.activities) {
+      const before = counts.fields;
+      normalizeField(activity, "city", 120, "activities");
+      normalizeField(activity, "observations", 5000, "activities");
+      if (counts.fields !== before) {
+        activity.updatedAt = context.now;
+        activity.history ??= [];
+        activity.history.push({
+          at: context.now,
+          action: "text_normalized",
+          detail: "Texto visible normalizado"
+        });
+      }
+    }
+  }
+  if (includeCatalog) {
+    const collections = [
+      [document.catalog.cities, [["name", 120]]],
+      [document.catalog.clients, [["name", 160]]],
+      [document.catalog.sites, [["name", 160], ["city", 120], ["zone", 120], ["shoppingCenter", 160], ["address", 240], ["entryConditions", 1000]]],
+      [document.catalog.responsibles, [["name", 240], ["company", 240], ["baseCity", 120], ["group", 160]]]
+    ];
+    for (const [collection, fields] of collections) {
+      for (const item of collection ?? []) {
+        const before = counts.fields;
+        for (const [field, maxLength] of fields) normalizeField(item, field, maxLength, "catalog");
+        if (Array.isArray(item.coverage)) {
+          const nextCoverage = item.coverage.map((value) => normalizeDisplayText(value, 160));
+          if (JSON.stringify(nextCoverage) !== JSON.stringify(item.coverage)) {
+            item.coverage = [...new Set(nextCoverage.filter(Boolean))];
+            counts.catalog += 1;
+            counts.fields += 1;
+          }
+        }
+        if (counts.fields !== before) item.updatedAt = context.now;
+      }
+    }
+  }
+  if (includeMeta) {
+    const before = counts.fields;
+    normalizeField(document.calendarMeta, "name", 160, "meta");
+    normalizeField(document.calendarMeta, "coordinator", 160, "meta");
+    if (counts.fields !== before) document.calendarMeta.updatedAt = context.now;
+  }
+  return {
+    result: { counts },
+    audit: {
+      action: "document_text_normalized",
+      detail: `${counts.fields} campo(s) de texto normalizado(s)`
+    }
+  };
+}
+
 function executeOperationHandler(operation, document, payload, context) {
   const handlers = {
     calendar: executeCalendarHandler,
     activity: executeActivityHandler,
     catalog: executeCatalogHandler,
     holiday: executeHolidayHandler,
-    backup: executeBackupHandler
+    backup: executeBackupHandler,
+    document: executeDocumentHandler
   };
   const handler = handlers[operation.split(".", 1)[0]];
   if (!handler) fail("INVALID_REQUEST", `Operación no implementada: ${operation}.`);

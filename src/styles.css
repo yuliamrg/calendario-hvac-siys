@@ -2040,3 +2040,67 @@ html[data-theme="dark"] dialog::backdrop {
   cursor: pointer;
   font-weight: 700;
 }
+
+.field-note-row {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.three-motion-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  opacity: .8;
+}
+
+.inline-error {
+  margin: 8px 0 0;
+}
+
+.filter-date-group {
+  margin-bottom: 14px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.motion-enhanced .calendar-grid {
+    perspective: 1200px;
+  }
+
+  body.motion-enhanced .day-cell {
+    animation: calendar-cell-enter 420ms cubic-bezier(.2, .8, .2, 1) both;
+    animation-delay: calc(var(--calendar-index, 0) * 12ms);
+    transform-origin: center top;
+  }
+
+  body.motion-enhanced .activity-card,
+  body.motion-enhanced .catalog-site,
+  body.motion-enhanced .responsible-row,
+  body.motion-enhanced .button,
+  body.motion-enhanced .icon-button,
+  body.motion-enhanced .filter-chip {
+    transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+
+  body.motion-enhanced .activity-card:hover,
+  body.motion-enhanced .catalog-site:hover,
+  body.motion-enhanced .responsible-row:hover {
+    transform: translateY(-2px) rotateX(.5deg);
+    box-shadow: 0 12px 24px rgba(15, 33, 25, .14);
+  }
+
+  body.motion-enhanced .button:hover,
+  body.motion-enhanced .icon-button:hover,
+  body.motion-enhanced .filter-chip:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes calendar-cell-enter {
+  from { opacity: 0; transform: translateY(8px) rotateX(-1deg); }
+  to { opacity: 1; transform: translateY(0) rotateX(0); }
+}

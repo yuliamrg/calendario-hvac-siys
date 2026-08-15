@@ -45,6 +45,7 @@
               <button class="menu-action" id="backupButton" type="button"><strong>Descargar copia del cronograma</strong><small>Guárdala para recuperar o trasladar tus datos</small></button>
               <button class="menu-action" id="restoreButton" type="button"><strong>Recuperar una copia del cronograma</strong><small>Reemplaza los datos actuales</small></button>
               <button class="menu-action" id="mergeJsonButton" type="button"><strong>Combinar otra copia</strong><small>Añade y actualiza sin borrar lo existente</small></button>
+              <button class="menu-action" id="normalizeTextButton" type="button"><strong>Normalizar textos visibles</strong><small>Mayúscula inicial y resto en minúscula, con campos protegidos</small></button>
               <button class="menu-action danger-text" id="resetDataButton" type="button"><strong>Borrar y empezar de cero</strong><small>Descarga una copia antes de reiniciar</small></button>
             </div>
           </details>
@@ -63,6 +64,7 @@
               <button class="menu-action" id="holidayButton" type="button"><strong>Festivos y ajustes</strong><small>Excepciones del calendario colombiano</small></button>
               <button class="menu-action" id="calendarSettingsButton" type="button"><strong>Nombre del cronograma</strong><small>Identificación y coordinador</small></button>
               <button class="menu-action" id="themeButton" type="button" title="Cambiar tema"><strong>Tema: Sistema</strong><small>Cambiar entre sistema, claro y oscuro</small></button>
+              <button class="menu-action" id="motionButton" type="button"><strong>Animaciones visuales</strong><small>Transiciones profundas respetando rendimiento y accesibilidad</small></button>
               <button class="menu-action" id="helpButton" type="button"><strong>Ayuda y privacidad</strong><small>Uso, almacenamiento y respaldos</small></button>
             </div>
           </details>
@@ -297,15 +299,15 @@
         <div class="form-grid two-columns">
           <label>
             <span>Cliente</span>
-            <select id="activityClient" name="clientId" data-testid="activity-client">
-              <option value="">Selecciona un cliente</option>
-            </select>
+            <input id="activityClientText" type="text" maxlength="160" list="clientSuggestions" autocomplete="off" placeholder="Escribe o elige un cliente" data-testid="activity-client">
+            <select id="activityClient" name="clientId" hidden aria-hidden="true"></select>
+            <datalist id="clientSuggestions"></datalist>
           </label>
           <label>
             <span>Sede</span>
-            <select id="activitySite" name="siteId" data-testid="activity-site">
-              <option value="">Selecciona una sede</option>
-            </select>
+            <input id="activitySiteText" type="text" maxlength="160" list="siteSuggestions" autocomplete="off" placeholder="Escribe o elige una sede" data-testid="activity-site">
+            <select id="activitySite" name="siteId" hidden aria-hidden="true"></select>
+            <datalist id="siteSuggestions"></datalist>
           </label>
           <label>
             <span>Ciudad</span>
@@ -323,6 +325,18 @@
         <label class="responsible-search">
           <span>Buscar responsable</span>
           <input id="responsibleSearch" type="search" placeholder="Nombre, ciudad o grupo…" autocomplete="off">
+        </label>
+        <label class="responsible-search">
+          <span>Escribir responsables</span>
+          <input id="activityResponsibleText" type="text" list="responsibleSuggestions" maxlength="1000" autocomplete="off" placeholder="Nombres separados por coma o punto y coma">
+          <datalist id="responsibleSuggestions"></datalist>
+        </label>
+        <label class="field-note-row">
+          <span>Tipo para nombres nuevos</span>
+          <select id="activityResponsibleType">
+            <option value="contractor">Contratista</option>
+            <option value="payroll">Personal de nómina</option>
+          </select>
         </label>
         <div class="responsible-picker" id="responsiblePicker" data-testid="responsible-picker"></div>
       </div>
@@ -372,6 +386,7 @@
         <button class="button primary" id="dropMoveButton" type="button">Mover</button>
         <button class="button" id="dropDuplicateButton" type="button">Duplicar</button>
         <button class="button" id="dropExtendButton" type="button">Ampliar</button>
+        <button class="button" id="dropExtendRangeButton" type="button">Ampliar a rango</button>
       </div>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="dropActionDialog">Cancelar</button>
@@ -392,9 +407,32 @@
         <button class="button primary" id="touchMoveButton" type="button">Mover</button>
         <button class="button" id="touchDuplicateButton" type="button">Duplicar</button>
         <button class="button" id="touchExtendButton" type="button">Ampliar</button>
+        <button class="button" id="touchExtendRangeButton" type="button">Ampliar a rango</button>
       </div>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="activityDateActionDialog">Cancelar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="seriesRangeDialog" aria-labelledby="seriesRangeDialogTitle">
+    <form id="seriesRangeForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Programación ampliada</p><h2 id="seriesRangeDialogTitle">Trabajar un rango de fechas</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="seriesRangeDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="field-note" id="seriesRangeSummary">Las fechas ya existentes se conservarán y no se duplicarán dentro de la misma actividad.</p>
+      <div class="form-errors" id="seriesRangeErrors" role="alert" hidden></div>
+      <div class="form-grid two-columns">
+        <label><span>Desde</span><input id="seriesRangeFrom" type="date" required></label>
+        <label><span>Hasta</span><input id="seriesRangeTo" type="date" required></label>
+      </div>
+      <label class="check-row"><input id="seriesRangeIncludeNonWorking" type="checkbox"><span>Incluir domingos y festivos del rango</span></label>
+      <div class="range-preview" id="seriesRangePreview" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="seriesRangeDialog">Cancelar</button>
+        <button class="button" id="seriesRangeDuplicateButton" type="button">Duplicar tarjetas del rango</button>
+        <button class="button primary" id="seriesRangeExtendButton" type="submit">Ampliar actividad</button>
       </footer>
     </form>
   </dialog>
@@ -466,6 +504,7 @@
         <label class="radio-row"><input name="themeMode" type="radio" value="dark"><span>Oscuro</span></label>
         <label class="radio-row"><input name="themeMode" type="radio" value="system"><span>Usar configuración del sistema</span></label>
       </fieldset>
+      <label class="check-row"><input id="motionEnabled" type="checkbox"><span>Activar animaciones visuales mejoradas cuando el sistema no pida reducir movimiento</span></label>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="themeDialog">Cancelar</button>
         <button class="button primary" type="submit">Aplicar tema</button>
@@ -480,10 +519,38 @@
         <button class="icon-button" type="button" data-close-dialog="filterDialog" aria-label="Cerrar">×</button>
       </header>
       <p class="field-note">Dentro de cada categoría se acepta cualquiera de los valores seleccionados; entre categorías deben cumplirse todos.</p>
+      <fieldset class="filter-group filter-date-group">
+        <legend>Rango de fechas</legend>
+        <div class="form-grid two-columns">
+          <label><span>Desde</span><input id="filterDateFrom" type="date"></label>
+          <label><span>Hasta</span><input id="filterDateTo" type="date"></label>
+        </div>
+        <p class="form-errors inline-error" id="filterDateError" role="alert" hidden></p>
+        <p class="field-note">Usa la misma fecha en ambos campos para ver un solo día.</p>
+      </fieldset>
       <div class="filter-grid" id="filterGrid"></div>
       <footer class="modal-footer">
         <button class="button ghost" id="clearFiltersDialogButton" type="button">Limpiar todo</button>
         <button class="button primary" type="submit">Aplicar filtros</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="normalizeTextDialog" aria-labelledby="normalizeTextDialogTitle">
+    <form id="normalizeTextForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Limpieza controlada</p><h2 id="normalizeTextDialogTitle">Normalizar textos visibles</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="normalizeTextDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="field-note">Se protegen identificadores, fechas, códigos, estados, tipos de servicio e historial. La operación queda en el historial del cronograma y admite deshacer.</p>
+      <label class="check-row"><input id="normalizeActivities" type="checkbox" checked><span>Actividades: ciudad y observaciones</span></label>
+      <label class="check-row"><input id="normalizeMeta" type="checkbox"><span>Nombre y coordinador del cronograma</span></label>
+      <label class="check-row"><input id="normalizeCatalog" type="checkbox"><span>Catálogos: nombres, ciudades, grupos y cobertura</span></label>
+      <p class="field-note" id="normalizeTextPreview"></p>
+      <div class="form-errors" id="normalizeTextErrors" role="alert" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="normalizeTextDialog">Cancelar</button>
+        <button class="button primary" type="submit">Normalizar y guardar</button>
       </footer>
     </form>
   </dialog>
