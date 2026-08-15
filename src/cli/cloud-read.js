@@ -195,7 +195,7 @@ export class CloudCalendarSource {
       : (Number.isInteger(Number(record.revision)) ? Number(record.revision) : null);
     const revision = documentRevision(record.document);
     const warnings = cloudRevision !== null && revision !== null && cloudRevision !== revision
-      ? ["REVISION_MISMATCH"]
+      ? ["REVISION_COUNTERS_DIFFER"]
       : [];
     return {
       document: record.document,

@@ -56,8 +56,11 @@ npm run cli -- activity list --source cloud --channel beta `
 Cada resultado cloud incluye `source.kind`, `channel`, `calendarId`,
 `legacyId`, `calendarName`, `createdBy`, `cloudRevision`,
 `documentRevision`, `documentUpdatedAt`, `observedAt` y `documentHash`.
-`cloudRevision` y `documentRevision` son campos distintos; una diferencia
-produce `REVISION_MISMATCH`. `observedAt` es el momento de lectura y
+`cloudRevision` y `documentRevision` son contadores independientes: el primero
+corresponde a la fila `calendar_documents` y el segundo a
+`document.calendarMeta.revision`. No se exige igualdad; si ambos existen y
+difieren, se conservan y se informa `REVISION_COUNTERS_DIFFER`, sin bloquear
+la lectura ni presentar el documento como corrupto. `observedAt` es el momento de lectura y
 `documentUpdatedAt` el timestamp de la fila actual. `as-of` histórico no está
 soportado y falla con `HISTORICAL_QUERY_UNSUPPORTED`.
 

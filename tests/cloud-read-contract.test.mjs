@@ -189,19 +189,24 @@ test("T10 cloudRevision se conserva", async () => {
   const fixture = makeCloudFixture({ cloudRevision: 12, documentRevision: 12 });
   const loaded = await fixture.source.load({ channel: "beta", calendarId: CALENDAR_BETA });
   assert.equal(loaded.source.cloudRevision, 12);
+  assert.equal(loaded.source.documentRevision, 12);
+  assert.deepEqual(loaded.source.warnings, []);
 });
 
-test("T11 documentRevision se conserva separada", async () => {
+test("T11 cloudRevision mayor que documentRevision es válido y se conserva", async () => {
   const fixture = makeCloudFixture({ cloudRevision: 12, documentRevision: 9 });
   const loaded = await fixture.source.load({ channel: "beta", calendarId: CALENDAR_BETA });
+  assert.equal(loaded.source.cloudRevision, 12);
   assert.equal(loaded.source.documentRevision, 9);
-  assert.notEqual(loaded.source.cloudRevision, loaded.source.documentRevision);
+  assert.deepEqual(loaded.source.warnings, ["REVISION_COUNTERS_DIFFER"]);
 });
 
-test("T12 mismatch genera warning REVISION_MISMATCH", async () => {
-  const fixture = makeCloudFixture({ cloudRevision: 12, documentRevision: 9 });
+test("T12 cloudRevision menor que documentRevision es válido y se conserva", async () => {
+  const fixture = makeCloudFixture({ cloudRevision: 4, documentRevision: 9 });
   const loaded = await fixture.source.load({ channel: "beta", calendarId: CALENDAR_BETA });
-  assert.deepEqual(loaded.source.warnings, ["REVISION_MISMATCH"]);
+  assert.equal(loaded.source.cloudRevision, 4);
+  assert.equal(loaded.source.documentRevision, 9);
+  assert.deepEqual(loaded.source.warnings, ["REVISION_COUNTERS_DIFFER"]);
 });
 
 test("T13 observedAt está presente", async () => {
@@ -235,15 +240,20 @@ test("T16 activity.list reutiliza calendar-contract", async () => {
 });
 
 test("T17 filtro today/from/to correcto", async () => {
-  const fixture = makeCloudFixture();
-  const result = await invokeCli([
-    "activity", "list", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_BETA,
-    "--from", "2026-08-15", "--to", "2026-08-15", "--output", "json"
-  ], fixture);
-  assert.equal(result.status, 0, result.stderr);
-  const output = JSON.parse(result.stdout);
-  assert.deepEqual(output.result.items.map((item) => item.id), ["activity-today"]);
-  assert.equal(output.source.channel, "beta");
+  for (const [cloudRevision, documentRevision] of [[12, 9], [4, 9]]) {
+    const fixture = makeCloudFixture({ cloudRevision, documentRevision });
+    const result = await invokeCli([
+      "activity", "list", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_BETA,
+      "--from", "2026-08-15", "--to", "2026-08-15", "--output", "json"
+    ], fixture);
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.deepEqual(output.result.items.map((item) => item.id), ["activity-today"]);
+    assert.equal(output.source.channel, "beta");
+    assert.equal(output.source.cloudRevision, cloudRevision);
+    assert.equal(output.source.documentRevision, documentRevision);
+    assert.deepEqual(output.source.warnings, ["REVISION_COUNTERS_DIFFER"]);
+  }
 });
 
 test("T18 source=file continúa funcionando", async () => {
