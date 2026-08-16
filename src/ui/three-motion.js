@@ -6,6 +6,7 @@ const calendaryThreeMotion = (() => {
   let canvas = null;
   let frameHandle = null;
   let enabled = false;
+  let suspended = false;
 
   function reducedMotion() {
     return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
@@ -77,7 +78,7 @@ const calendaryThreeMotion = (() => {
   }
 
   function animate(time = 0) {
-    if (!enabled || !renderer || !scene || !camera || !group) return;
+    if (!enabled || suspended || !renderer || !scene || !camera || !group) return;
     group.rotation.y = time * 0.000035;
     group.rotation.x = Math.sin(time * 0.00018) * 0.06;
     group.children.forEach((child) => {
@@ -90,20 +91,37 @@ const calendaryThreeMotion = (() => {
     frameHandle = globalThis.requestAnimationFrame?.(animate) ?? null;
   }
 
-  function setEnabled(value) {
-    enabled = Boolean(value) && !reducedMotion();
-    if (!enabled) {
-      if (frameHandle !== null) globalThis.cancelAnimationFrame?.(frameHandle);
-      frameHandle = null;
-      if (canvas) canvas.hidden = true;
-      return;
-    }
-    if (!createScene()) return;
+  function stopAnimation() {
+    if (frameHandle !== null) globalThis.cancelAnimationFrame?.(frameHandle);
+    frameHandle = null;
+    if (canvas) canvas.hidden = true;
+  }
+
+  function startAnimation() {
+    if (!enabled || suspended || !createScene()) return;
     canvas.hidden = false;
     if (frameHandle === null) frameHandle = globalThis.requestAnimationFrame?.(animate) ?? null;
   }
 
-  return Object.freeze({ setEnabled });
+  function setEnabled(value) {
+    enabled = Boolean(value) && !reducedMotion();
+    if (!enabled) {
+      stopAnimation();
+      return;
+    }
+    startAnimation();
+  }
+
+  function setSuspended(value) {
+    suspended = Boolean(value);
+    if (suspended) {
+      stopAnimation();
+      return;
+    }
+    startAnimation();
+  }
+
+  return Object.freeze({ setEnabled, setSuspended });
 })();
 
 globalThis.calendaryThreeMotion = calendaryThreeMotion;

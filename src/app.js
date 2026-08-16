@@ -255,6 +255,11 @@ function applyMotionPreference() {
   }
 }
 
+function updateMotionSuspension() {
+  const modalOpen = Boolean(document.querySelector("dialog[open]"));
+  globalThis.calendaryThreeMotion?.setSuspended(modalOpen || document.hidden);
+}
+
 function toggleMotionPreference() {
   const next = !motionPreference();
   uiPreferences.update({ motion: next });
@@ -360,6 +365,7 @@ function openCloudAuthDialog(message = "") {
   showFormErrors(dom.cloudAuthErrors, message ? [message] : []);
   dom.cloudAuthDialog.hidden = false;
   if (!dom.cloudAuthDialog.open) dom.cloudAuthDialog.showModal();
+  updateMotionSuspension();
   window.setTimeout(() => dom.cloudAuthEmail.focus(), 0);
 }
 
@@ -396,6 +402,7 @@ async function handleCloudAuthSubmit(event) {
     const waiter = cloudAuthWaiter;
     cloudAuthWaiter = null;
     dom.cloudAuthDialog.close();
+    updateMotionSuspension();
     waiter?.resolve(result.session);
   } catch (error) {
     showFormErrors(dom.cloudAuthErrors, [error.message]);
@@ -849,11 +856,13 @@ async function sha256Hex(arrayBuffer) {
 function closeDialog(id) {
   const dialog = dom[id];
   if (dialog?.open) dialog.close();
+  updateMotionSuspension();
 }
 
 function openDialog(id) {
   const dialog = dom[id];
   if (!dialog.open) dialog.showModal();
+  updateMotionSuspension();
 }
 
 function focusReferenceFor(element) {
@@ -886,6 +895,7 @@ function closeDrawer({ restoreFocus = true } = {}) {
   dom.detailDrawer.classList.remove("open");
   dom.detailDrawer.setAttribute("aria-hidden", "true");
   if (dom.detailDrawer.open) dom.detailDrawer.close();
+  updateMotionSuspension();
   activeDrawer = null;
   drawerReturnFocus = null;
   if (focusTarget && document.activeElement !== focusTarget) {
@@ -899,6 +909,7 @@ function openDrawer() {
   if (!dom.detailDrawer.open) dom.detailDrawer.showModal();
   dom.detailDrawer.classList.add("open");
   dom.detailDrawer.setAttribute("aria-hidden", "false");
+  updateMotionSuspension();
   if (!wasOpen) {
     window.requestAnimationFrame(() => dom.closeDrawerButton.focus());
   }
@@ -927,6 +938,7 @@ function openMobileMonthPicker() {
   dom.mobileMonthGridHost.append(dom.monthGridWrap);
   dom.mobileMonthTitle.textContent = dom.monthTitle.textContent;
   if (!dom.mobileMonthDialog.open) dom.mobileMonthDialog.showModal();
+  updateMotionSuspension();
 }
 
 function closeMobileMonthPicker({ restoreFocus = true } = {}) {
@@ -934,6 +946,7 @@ function closeMobileMonthPicker({ restoreFocus = true } = {}) {
     dom.calendarPanel.insertBefore(dom.monthGridWrap, dom.mobileAgenda);
   }
   if (dom.mobileMonthDialog.open) dom.mobileMonthDialog.close();
+  updateMotionSuspension();
   if (restoreFocus) dom.mobileMonthButton.focus();
 }
 
@@ -4409,6 +4422,7 @@ function bindGlobalInteractionEvents() {
     }
   });
   for (const dialog of document.querySelectorAll("dialog")) {
+    dialog.addEventListener("close", updateMotionSuspension);
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) {
         const rectangle = dialog.getBoundingClientRect();
@@ -4436,6 +4450,7 @@ function bindGlobalInteractionEvents() {
     if (themePreference() === "system") applyThemePreference();
   });
   window.matchMedia?.("(prefers-reduced-motion: reduce)")?.addEventListener("change", applyMotionPreference);
+  document.addEventListener("visibilitychange", updateMotionSuspension);
   compactLayoutQuery?.addEventListener("change", () => {
     if (!compactLayoutQuery.matches && dom.mobileMonthDialog.open) {
       closeMobileMonthPicker({ restoreFocus: false });
