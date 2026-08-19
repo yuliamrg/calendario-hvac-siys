@@ -78,9 +78,18 @@ import {
   DAY_NAMES,
   MAX_VISIBLE_CARDS,
   SERVICE_CODES,
-  SERVICE_SHORT_LABELS,
-  STATUS_ICONS
+  SERVICE_SHORT_LABELS
 } from "./ui/calendar-constants.js";
+import {
+  activityObservationsTooltip,
+  activityResponsiblePresentation,
+  activityStatusPresentation,
+  buildActivityPresentation
+} from "./ui/activity-presentation.js";
+import {
+  buildExportActivityRow,
+  layoutExportActivityRow
+} from "./ui/export-layout.js";
 import { createMutationController } from "./ui/mutation-controller.js";
 import { createIndexedDocumentStore } from "./persistence/indexed-document-store.js";
 import { createJsonPreferences } from "./persistence/json-preferences.js";
@@ -941,6 +950,29 @@ function openMobileMonthPicker() {
   updateMotionSuspension();
 }
 
+function openDayExportDialog() {
+  closeAllActionMenus();
+  closeMobileMore();
+  dom.dayExportDate.value = mobileAgendaDate || appDocument.settings.currentDate || todayInBogota();
+  showFormErrors(dom.dayExportErrors, []);
+  openDialog("dayExportDialog");
+  window.requestAnimationFrame(() => dom.dayExportDate.focus());
+}
+
+function handleDayExportSubmit(event) {
+  event.preventDefault();
+  const date = dom.dayExportDate.value;
+  try {
+    parseISODate(date);
+  } catch {
+    showFormErrors(dom.dayExportErrors, ["Selecciona una fecha válida."]);
+    dom.dayExportDate.focus();
+    return;
+  }
+  closeDialog("dayExportDialog");
+  exportDayImage(date).catch((error) => showToast(error.message, { type: "error" }));
+}
+
 function closeMobileMonthPicker({ restoreFocus = true } = {}) {
   if (dom.monthGridWrap.parentElement === dom.mobileMonthGridHost) {
     dom.calendarPanel.insertBefore(dom.monthGridWrap, dom.mobileAgenda);
@@ -972,19 +1004,39 @@ function matchesActivityFilters(activity, maps, filters = appDocument.settings.f
 }
 
 function responsibleVisualClass(activity, maps) {
-  const types = new Set(
-    activity.responsibleIds
-      .map((id) => maps.responsibles.get(id)?.responsibleType)
-      .filter(Boolean)
-  );
-  if (!types.size) return "unassigned";
-  if (types.size > 1) return "mixed";
-  return types.has("contractor") ? "contractor" : "payroll";
+  return activityResponsiblePresentation(activity, maps.responsibles).visualVariant;
 }
 
-function activityObservationsTooltip(activity) {
-  const observations = safeText(activity.observations, 500);
-  return observations ? `Observaciones: ${observations}` : "Sin observaciones registradas";
+function buildResponsibleSummary(activity, maps) {
+  const responsibles = activityResponsiblePresentation(activity, maps.responsibles);
+  const summary = createElement("span", "responsible-summary");
+  summary.setAttribute("aria-hidden", "true");
+  summary.title = responsibles.accessibleLabel;
+  if (!responsibles.entries.length) {
+    summary.append(createElement("span", "responsible-summary-empty", "—"));
+    return { element: summary };
+  }
+  const visible = responsibles.entries.slice(0, 2);
+  for (const responsible of visible) {
+    const typeClass = responsible.visualVariant === "contractor" ? "contractor" : "payroll";
+    const avatar = createElement("span", `responsible-avatar ${typeClass}`, responsible.initials);
+    avatar.title = responsible.name;
+    summary.append(avatar);
+  }
+  if (responsibles.entries.length > visible.length) {
+    summary.append(createElement("span", "responsible-more", `+${responsibles.entries.length - visible.length}`));
+  }
+  return { element: summary };
+}
+
+function statusIconElement(status) {
+  const statusPresentation = activityStatusPresentation(status);
+  const icon = createElement("span", `status-icon status-icon-${status}`);
+  icon.setAttribute("aria-hidden", "true");
+  if (!["scheduled", "to_schedule", "in_progress"].includes(status)) {
+    icon.textContent = statusPresentation.icon;
+  }
+  return icon;
 }
 
 function renderFilters() {
@@ -1603,56 +1655,64 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   const title = activity.serviceType === "administrative" && !client
     ? "Administrativo"
     : client?.name ?? serviceLabel ?? "Cliente sin catálogo";
-  const observationSummary = safeText(activity.observations, 240);
-  const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
+  const rescheduled = activity.history?.some((item) => item.action === "rescheduled");
+  const presentation = buildActivityPresentation(activity, {
+    responsibles: maps.responsibles,
+    title,
+    siteName: site?.name,
+    serviceLabel,
+    rescheduled
+  });
+  const responsibleSummary = buildResponsibleSummary(activity, maps);
+  const locationLabel = [
+    site?.name || activity.city,
+    quarantine ? PLANNING_BUCKETS.quarantine : ""
+  ].filter(Boolean).join(" · ");
+  const card = createElement("article", `activity-card ${presentation.responsibles.visualVariant} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
   card.draggable = hasEditControl;
   card.dataset.activityId = activity.id;
   card.dataset.serviceCode = serviceCode;
+  card.dataset.responsibleCount = String(presentation.responsibles.count);
   card.title = activityObservationsTooltip(activity);
   card.setAttribute(
     "aria-label",
-    `${title}${site?.name ? `, ${site.name}` : ""}, tipo de servicio: ${serviceLabel}, estado: ${ACTIVITY_STATUSES[activity.status]}${observationSummary ? `, observaciones: ${observationSummary}` : ""}`
+    presentation.accessibleLabel
   );
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
 
   appendActivityCardSelection(card, activity, quarantine);
 
   const copyBlock = createElement("span", "activity-copy");
-  const assigned = activity.responsibleIds
-    .map((id) => maps.responsibles.get(id))
-    .filter(Boolean)
-    .map((item) => item.initials || displayInitialsFor(item.name))
-    .join(" · ");
-  copyBlock.append(createElement("strong", "", title));
-  const metadata = [
-    site?.name || activity.city,
-    assigned || "Sin responsable",
-    quarantine ? PLANNING_BUCKETS.quarantine : ""
-  ].filter(Boolean).join(" · ");
-  const small = createElement("small");
+  const head = createElement("span", "activity-head");
   const serviceCodeElement = createElement("span", "service-code", serviceCode);
   serviceCodeElement.title = activityObservationsTooltip(activity);
   serviceCodeElement.setAttribute("aria-hidden", "true");
-  small.append(serviceCodeElement);
-  if (metadata) small.append(document.createTextNode(` · ${metadata}`));
-  copyBlock.append(small);
+  const moved = rescheduled ? createElement("span", "rescheduled-indicator", "↪") : null;
+  if (moved) {
+    moved.title = "Actividad reprogramada";
+    moved.setAttribute("aria-hidden", "true");
+  }
+  const titleElement = createElement("strong", "activity-title", title);
+  titleElement.title = title;
+  head.append(serviceCodeElement);
+  if (moved) head.append(moved);
+  head.append(titleElement, responsibleSummary.element);
+  const location = createElement("small", "activity-location", locationLabel || "Sin sede");
+  location.title = locationLabel || "Sin sede";
+  copyBlock.append(head, location);
   card.append(copyBlock);
 
   const flags = createElement("span", "card-flags");
-  const openDetail = createElement("button", "quick-open", STATUS_ICONS[activity.status] ?? "•");
+  const openDetail = createElement("button", `quick-open status-action status-${activity.status}`);
+  openDetail.append(statusIconElement(activity.status));
   openDetail.type = "button";
-  openDetail.title = "Abrir detalle";
+  openDetail.title = `Abrir detalle · ${presentation.status.accessibleLabel}`;
   openDetail.setAttribute("aria-label", `Abrir detalle de ${title}`);
   openDetail.addEventListener("click", (event) => {
     event.stopPropagation();
     renderActivityDrawer(activity.id);
   });
   flags.append(openDetail);
-  if (activity.history?.some((item) => item.action === "rescheduled")) {
-    const moved = createElement("span", "", "↪");
-    moved.title = "Actividad reprogramada";
-    flags.append(moved);
-  }
   if (!quarantine && hasEditControl && activity.status !== "completed" && activity.status !== "cancelled") {
     const complete = createElement("button", "quick-complete", "✓");
     complete.type = "button";
@@ -1693,6 +1753,10 @@ function renderMobileAgenda(date, items, maps, holiday) {
     `${items.length} actividad${items.length === 1 ? "" : "es"} visible${items.length === 1 ? "" : "s"}`
   ].filter(Boolean).join(" · ");
   dom.mobileAgendaAddButton.disabled = !hasEditControl;
+  dom.mobileAgendaExportButton.disabled = !date;
+  dom.mobileAgendaExportButton.title = date
+    ? `Descargar imagen de ${formatDisplayDate(date)}`
+    : "Selecciona un día para descargar su imagen";
   const fragment = document.createDocumentFragment();
   if (!items.length) {
     const empty = createElement("div", "mobile-agenda-empty");
@@ -1739,16 +1803,20 @@ function buildDayOverflowButton(date, items, maps) {
     const title = activity.serviceType === "administrative" && !client
       ? "Administrativo"
       : client?.name ?? serviceLabel;
+    const presentation = buildActivityPresentation(activity, {
+      responsibles: maps.responsibles,
+      title,
+      serviceLabel
+    });
     const preview = createElement(
       "span",
       `day-overflow-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}`
     );
     preview.style.setProperty("--stack-index", String(index));
-    preview.title = `${title} · ${serviceLabel} · ${ACTIVITY_STATUSES[activity.status]}`;
-    preview.append(
-      createElement("span", "day-overflow-service", `${serviceCode} ${STATUS_ICONS[activity.status] ?? "•"}`),
-      createElement("span", "day-overflow-title", title)
-    );
+    preview.title = presentation.observationsTooltip;
+    const service = createElement("span", "day-overflow-service", serviceCode);
+    service.append(statusIconElement(presentation.status.key));
+    preview.append(service, createElement("span", "day-overflow-title", title));
     stack.append(preview);
   }
 
@@ -2541,13 +2609,24 @@ function renderActivityDrawer(activityId) {
   const maps = lookupMaps();
   const client = maps.clients.get(activity.clientId);
   const site = maps.sites.get(activity.siteId);
-  const assigned = activity.responsibleIds.map((id) => maps.responsibles.get(id)).filter(Boolean);
+  const drawerTitle = client?.name ?? (activity.serviceType === "administrative" ? "Administrativo" : "Actividad");
+  const presentation = buildActivityPresentation(activity, {
+    responsibles: maps.responsibles,
+    title: drawerTitle,
+    siteName: site?.name,
+    serviceLabel: SERVICE_TYPES[activity.serviceType] ?? "Actividad"
+  });
   dom.drawerEyebrow.textContent = SERVICE_TYPES[activity.serviceType] ?? "Actividad";
-  dom.drawerTitle.textContent = client?.name ?? (activity.serviceType === "administrative" ? "Administrativo" : "Actividad");
+  dom.drawerTitle.textContent = drawerTitle;
 
   const body = createElement("div", "detail-grid activity-detail-grid");
   const badgeRow = createElement("div", "responsible-chips");
-  badgeRow.append(createElement("span", `status-badge ${activity.status}`, `${STATUS_ICONS[activity.status]} ${ACTIVITY_STATUSES[activity.status]}`));
+  const statusBadge = createElement("span", `status-badge ${activity.status}`);
+  statusBadge.append(
+    statusIconElement(activity.status),
+    document.createTextNode(presentation.status.label)
+  );
+  badgeRow.append(statusBadge);
   badgeRow.append(createElement("span", "service-badge", SERVICE_SHORT_LABELS[activity.serviceType] ?? activity.serviceType));
   if (activity.history?.some((item) => item.action === "rescheduled")) {
     badgeRow.append(createElement("span", "chip", "↪ Reprogramada"));
@@ -2565,18 +2644,19 @@ function renderActivityDrawer(activityId) {
   body.append(detailItem("Ciudad", activity.city || site?.city));
 
   const responsibleChips = createElement("div", "responsible-chips");
-  if (!assigned.length) responsibleChips.append(createElement("span", "chip", "Sin responsable"));
-  for (const responsible of assigned) {
-    const typeClass = responsible.responsibleType === "contractor" ? "contractor" : "payroll";
+  if (!presentation.responsibles.entries.length) responsibleChips.append(createElement("span", "chip", "Sin responsable"));
+  for (const responsible of presentation.responsibles.entries) {
+    const catalogResponsible = maps.responsibles.get(responsible.id) ?? maps.responsibles.get(String(responsible.id));
+    const typeClass = responsible.visualVariant === "contractor" ? "contractor" : "payroll";
     const chip = createElement("span", `chip ${typeClass}`, responsible.name);
-    chip.title = [RESPONSIBLE_TYPES[responsible.responsibleType], responsible.baseCity, responsible.company]
+    chip.title = [RESPONSIBLE_TYPES[responsible.responsibleType], catalogResponsible?.baseCity, catalogResponsible?.company]
       .filter(Boolean)
       .join(" · ");
     responsibleChips.append(chip);
   }
   body.append(detailItem("Responsables", responsibleChips));
   body.append(detailItem("Tipo de servicio", SERVICE_TYPES[activity.serviceType]));
-  body.append(detailItem("Estado", ACTIVITY_STATUSES[activity.status]));
+  body.append(detailItem("Estado", presentation.status.label));
   body.append(detailItem("Observaciones", activity.observations, { wide: true }));
 
   if (site?.entryConditions || site?.requiresApp != null || site?.address) {
@@ -2656,11 +2736,18 @@ function renderDayDrawer(date) {
     card.draggable = reorderEnabled;
     body.append(card);
   }
+  const dayActions = createElement("div", "detail-actions day-actions");
+  const exportButton = createElement("button", "button small ghost", "Descargar imagen del día");
+  exportButton.type = "button";
+  exportButton.addEventListener("click", () => {
+    exportDayImage(date).catch((error) => showToast(error.message, { type: "error" }));
+  });
   const add = createElement("button", "button primary", "Nueva actividad en esta fecha");
   add.type = "button";
   add.disabled = !hasEditControl;
   add.addEventListener("click", () => openActivityDialog({ date }));
-  body.append(add);
+  dayActions.append(exportButton, add);
+  body.append(dayActions);
   dom.drawerBody.replaceChildren(body);
   openDrawer();
 }
@@ -3529,20 +3616,78 @@ function exportQuarantineCsv() {
   showToast("Listado de pendientes descargado.");
 }
 
-async function exportQuarantineImage() {
+function drawExportLines(context, lines, x, y, {
+  font,
+  color,
+  lineHeight,
+  bold = false
+}) {
+  context.font = `${bold ? "700 " : ""}${font}`;
+  context.fillStyle = color;
+  lines.forEach((line, index) => context.fillText(line, x, y + index * lineHeight));
+}
+
+function activityListExportRows(activities, maps, measureContext, logicalWidth, accentFor) {
+  const textWidth = logicalWidth - 56;
+  return activities.map((activity) => {
+    const client = maps.clients.get(activity.clientId);
+    const site = maps.sites.get(activity.siteId);
+    const row = buildExportActivityRow(activity, {
+      client,
+      site,
+      responsibles: maps.responsibles
+    });
+    const laidOut = layoutExportActivityRow(row, measureContext, {
+      maxWidth: textWidth,
+      minHeight: 122,
+      topPadding: 18
+    });
+    return {
+      ...laidOut,
+      accent: accentFor(activity, laidOut)
+    };
+  });
+}
+
+async function exportActivityListImage({
+  title,
+  subtitle,
+  activities,
+  fileName,
+  emptyMessage,
+  auditAction,
+  auditDetail,
+  successMessage,
+  pending = false
+}) {
   const darkExport = document.documentElement.dataset.theme === "dark";
   const palette = darkExport
     ? { page: "#101713", header: "#315f35", headerText: "#f4faf5", text: "#edf4ee", secondary: "#c1ccc3", row: "#202b23", grid: "#465247" }
     : { page: "#f5f7f3", header: "#4f7d32", headerText: "#ffffff", text: "#1e2a21", secondary: "#566057", row: "#ffffff", grid: "#cfd8cf" };
   const maps = lookupMaps();
-  const pending = appDocument.activities
-    .filter((activity) => isQuarantineActivity(activity) && matchesActivityFilters(activity, maps))
-    .sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id));
   const logicalWidth = 1320;
   const headerHeight = 176;
-  const rowHeight = 88;
   const legendHeight = 72;
-  const logicalHeight = headerHeight + Math.max(1, pending.length) * rowHeight + legendHeight;
+  const measureCanvas = document.createElement("canvas");
+  const measureContext = measureCanvas.getContext("2d");
+  const pendingAccent = darkExport ? "#f0a16d" : "#b85f2d";
+  const rows = activityListExportRows(
+    activities,
+    maps,
+    measureContext,
+    logicalWidth,
+    (_activity, row) => pending
+      ? pendingAccent
+      : row.responsibleVariant === "contractor"
+        ? "#ed7d31"
+        : row.responsibleVariant === "mixed"
+          ? "#a87c63"
+          : row.responsibleVariant === "unassigned"
+            ? "#8b928b"
+            : "#58a29a"
+  );
+  const rowsHeight = rows.reduce((sum, row) => sum + row.height, 0);
+  const logicalHeight = headerHeight + rowsHeight + legendHeight;
   const scale = 2;
   const canvas = document.createElement("canvas");
   canvas.width = logicalWidth * scale;
@@ -3553,46 +3698,82 @@ async function exportQuarantineImage() {
   context.fillRect(0, 0, logicalWidth, logicalHeight);
   context.fillStyle = palette.header;
   context.fillRect(0, 0, logicalWidth, headerHeight);
-  canvasText(context, "Pendientes de programación", 32, 48, 850, { font: "30px Arial", color: palette.headerText, bold: true });
-  canvasText(context, appDocument.calendarMeta.coordinator || "Sin coordinador registrado", 32, 82, 850, { font: "18px Arial", color: palette.headerText });
-  canvasText(context, `${pending.length} tarjeta${pending.length === 1 ? "" : "s"}`, 1050, 52, 230, { font: "24px Arial", color: palette.headerText, bold: true });
+  canvasText(context, title, 32, 48, 850, { font: "30px Arial", color: palette.headerText, bold: true });
+  canvasText(context, subtitle, 32, 82, 980, { font: "18px Arial", color: palette.headerText });
+  canvasText(context, `${activities.length} actividad${activities.length === 1 ? "" : "es"}`, 1050, 52, 230, { font: "24px Arial", color: palette.headerText, bold: true });
   canvasText(context, `Generado ${timestampLabel(new Date().toISOString())}`, 32, 132, 1220, { font: "15px Arial", color: palette.headerText });
-  if (!pending.length) {
-    canvasText(context, "No hay pendientes visibles con los filtros actuales.", 36, headerHeight + 48, logicalWidth - 72, { font: "20px Arial", color: palette.text });
+  if (!rows.length) {
+    canvasText(context, emptyMessage, 36, headerHeight + 48, logicalWidth - 72, { font: "20px Arial", color: palette.text });
   }
-  pending.forEach((activity, index) => {
-    const y = headerHeight + index * rowHeight;
-    const client = maps.clients.get(activity.clientId);
-    const site = maps.sites.get(activity.siteId);
-    const assigned = activity.responsibleIds
-      .map((id) => maps.responsibles.get(id))
-      .filter(Boolean)
-      .map((item) => item.initials || displayInitialsFor(item.name))
-      .join(" · ");
-    const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
+  let y = headerHeight;
+  rows.forEach((row) => {
+    const { height: rowHeight } = row;
     context.fillStyle = palette.row;
     context.fillRect(0, y, logicalWidth, rowHeight);
     context.strokeStyle = palette.grid;
     context.strokeRect(0, y, logicalWidth, rowHeight);
-    context.fillStyle = darkExport ? "#f0a16d" : "#b85f2d";
+    context.fillStyle = row.accent;
     context.fillRect(0, y, 8, rowHeight);
-    canvasText(context, `${serviceCode} · ${client?.name || SERVICE_TYPES[activity.serviceType] || "Actividad"}`, 28, y + 25, 760, { font: "17px Arial", color: palette.text, bold: true });
-    canvasText(context, [site?.name || activity.city || "Sin sede", assigned || "Sin responsable"].filter(Boolean).join(" · "), 28, y + 48, 760, { font: "14px Arial", color: palette.secondary });
-    canvasText(context, `${STATUS_ICONS[activity.status] ?? "•"} ${ACTIVITY_STATUSES[activity.status]}${activity.observations ? ` · ${activity.observations}` : ""}`, 28, y + 70, logicalWidth - 56, { font: "12px Arial", color: palette.secondary });
+    let baseline = y + 25;
+    drawExportLines(context, row.lines.title, 28, baseline, { font: "17px Arial", color: palette.text, bold: true, lineHeight: 21 });
+    baseline += row.lines.title.length * 21;
+    drawExportLines(context, row.lines.location, 28, baseline, { font: "14px Arial", color: palette.secondary, lineHeight: 19 });
+    baseline += row.lines.location.length * 19;
+    drawExportLines(context, row.lines.responsible, 28, baseline, { font: "14px Arial", color: palette.secondary, lineHeight: 19 });
+    baseline += row.lines.responsible.length * 19;
+    drawExportLines(context, row.lines.status, 28, baseline, { font: "12px Arial", color: palette.secondary, lineHeight: 17 });
+    y += rowHeight;
   });
-  const legendY = headerHeight + Math.max(1, pending.length) * rowHeight;
+  const legendY = headerHeight + rowsHeight;
   context.fillStyle = darkExport ? "#1b281e" : "#e8eee5";
   context.fillRect(0, legendY, logicalWidth, legendHeight);
-  canvasText(context, "Convención: las tarjetas están sin fecha; el CSV conserva el detalle estructurado para edición o revisión.", 28, legendY + 29, logicalWidth - 56, { font: "14px Arial", color: palette.text });
+  canvasText(context, pending
+    ? "Convención: las tarjetas están sin fecha; los técnicos se muestran con nombre completo."
+    : "Los técnicos se muestran con nombre completo y las actividades respetan los filtros activos.", 28, legendY + 29, logicalWidth - 56, { font: "14px Arial", color: palette.text });
   canvasText(context, "Servicios: MP · MC · EM · DG · GA · AD   |   Estados: ○ Programada · ● Confirmada · ✓ Terminada · × Cancelada", 28, legendY + 54, logicalWidth - 56, { font: "13px Arial", color: palette.secondary });
   const blob = await new Promise((resolve, reject) =>
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
   );
-  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
-  downloadBlob(blob, "image/png", `pendientes_${identity}.png`);
-  appendAudit("quarantine_png_exported", `${pending.length} pendiente(s) exportado(s)`);
+  downloadBlob(blob, "image/png", fileName);
+  appendAudit(auditAction, auditDetail);
   scheduleSave();
-  showToast("Imagen de pendientes descargada.");
+  showToast(successMessage);
+}
+
+async function exportQuarantineImage() {
+  const maps = lookupMaps();
+  const pending = appDocument.activities
+    .filter((activity) => isQuarantineActivity(activity) && matchesActivityFilters(activity, maps))
+    .sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id));
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  await exportActivityListImage({
+    title: "Pendientes de programación",
+    subtitle: appDocument.calendarMeta.coordinator || "Sin coordinador registrado",
+    activities: pending,
+    fileName: `pendientes_${identity}.png`,
+    emptyMessage: "No hay pendientes visibles con los filtros actuales.",
+    auditAction: "quarantine_png_exported",
+    auditDetail: `${pending.length} pendiente(s) exportado(s)`,
+    successMessage: "Imagen de pendientes descargada.",
+    pending: true
+  });
+}
+
+async function exportDayImage(date) {
+  const maps = lookupMaps();
+  const activities = calendarActivitiesForDate(date, maps)
+    .filter((activity) => matchesActivityFilters(activity, maps));
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  await exportActivityListImage({
+    title: "Actividades del día",
+    subtitle: `${formatDisplayDate(date, { weekday: "long" })} · ${appDocument.calendarMeta.coordinator || "Sin coordinador registrado"}`,
+    activities,
+    fileName: `${date}_actividades_${identity}.png`,
+    emptyMessage: "No hay actividades visibles con los filtros actuales.",
+    auditAction: "day_png_exported",
+    auditDetail: `${activities.length} actividad(es) exportada(s) del ${date}`,
+    successMessage: "Imagen del día descargada."
+  });
 }
 
 function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
@@ -3636,6 +3817,14 @@ async function exportCurrentMonthImage() {
     list.push(activity);
     byDate.set(activity.date, list);
   }
+  const exportRows = new Map(filtered.map((activity) => [
+    activity.id,
+    buildExportActivityRow(activity, {
+      client: maps.clients.get(activity.clientId),
+      site: maps.sites.get(activity.siteId),
+      responsibles: maps.responsibles
+    })
+  ]));
   const weekHeights = Array.from({ length: 6 }, (_, week) => {
     const maxCards = Math.max(...dates.slice(week * 7, week * 7 + 7).map((date) => byDate.get(date)?.length ?? 0));
     return Math.max(160, 68 + maxCards * 66);
@@ -3687,15 +3876,8 @@ async function exportCurrentMonthImage() {
       if (holiday) canvasText(context, holiday.name, x + 48, y + 27, columnWidth - 60, { font: "13px Arial", color: palette.holiday });
       let cardY = y + 42;
       for (const activity of byDate.get(date) ?? []) {
-        const client = maps.clients.get(activity.clientId);
-        const site = maps.sites.get(activity.siteId);
-        const assigned = activity.responsibleIds
-          .map((id) => maps.responsibles.get(id))
-          .filter(Boolean)
-          .map((item) => item.initials || displayInitialsFor(item.name))
-          .join(" · ");
-        const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
-        const visual = responsibleVisualClass(activity, maps);
+        const row = exportRows.get(activity.id);
+        const visual = row.responsibleVariant;
         const colors = visual === "contractor"
           ? [darkExport ? "#4a3022" : "#fff0e4", "#ed7d31"]
           : visual === "mixed"
@@ -3708,9 +3890,9 @@ async function exportCurrentMonthImage() {
         context.fillRect(x + 8, cardY, columnWidth - 16, 56);
         context.fillStyle = colors[1];
         context.fillRect(x + 8, cardY, 5, 56);
-        canvasText(context, `${serviceCode} · ${client?.name || SERVICE_TYPES[activity.serviceType]}`, x + 20, cardY + 17, columnWidth - 36, { font: "13px Arial", color: palette.text, bold: true });
-        canvasText(context, [site?.name || activity.city || "Sin sede", assigned || "Sin responsable"].filter(Boolean).join(" · "), x + 20, cardY + 35, columnWidth - 36, { font: "11px Arial", color: palette.secondary });
-        canvasText(context, `${STATUS_ICONS[activity.status] ?? "•"} ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 51, columnWidth - 36, { font: "10px Arial", color: palette.secondary });
+        canvasText(context, row.title, x + 20, cardY + 17, columnWidth - 36, { font: "13px Arial", color: palette.text, bold: true });
+        canvasText(context, [row.location, row.responsibleNames.join(" · ") || "Sin responsable"].filter(Boolean).join(" · "), x + 20, cardY + 35, columnWidth - 36, { font: "11px Arial", color: palette.secondary });
+        canvasText(context, `${row.statusPresentation.icon} ${row.statusPresentation.label}`, x + 20, cardY + 51, columnWidth - 36, { font: "10px Arial", color: palette.secondary });
         context.globalAlpha = 1;
         cardY += 66;
       }
@@ -4204,6 +4386,10 @@ function bindPrimaryActionEvents() {
   dom.mobileAgendaAddButton.addEventListener("click", () => openActivityDialog({
     date: mobileAgendaDate || appDocument.settings.currentDate || todayInBogota()
   }));
+  dom.mobileAgendaExportButton.addEventListener("click", () => {
+    exportDayImage(mobileAgendaDate || appDocument.settings.currentDate || todayInBogota())
+      .catch((error) => showToast(error.message, { type: "error" }));
+  });
   dom.emptyImportButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.backupButton.addEventListener("click", createBackup);
   dom.backupBannerButton.addEventListener("click", createBackup);
@@ -4214,6 +4400,7 @@ function bindPrimaryActionEvents() {
   dom.exportQuarantineImageButton.addEventListener("click", () => {
     exportQuarantineImage().catch((error) => showToast(error.message, { type: "error" }));
   });
+  dom.exportDayImageButton.addEventListener("click", openDayExportDialog);
   dom.exportImageButton.addEventListener("click", () => {
     exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
   });
@@ -4230,6 +4417,7 @@ function bindPrimaryActionEvents() {
   dom.themeButton.addEventListener("click", cycleThemePreference);
   dom.motionButton.addEventListener("click", toggleMotionPreference);
   dom.themeForm.addEventListener("submit", handleThemeSubmit);
+  dom.dayExportForm.addEventListener("submit", handleDayExportSubmit);
   dom.normalizeTextForm.addEventListener("submit", handleNormalizeTextSubmit);
   for (const input of [dom.normalizeActivities, dom.normalizeCatalog, dom.normalizeMeta]) {
     input.addEventListener("change", updateNormalizationPreview);

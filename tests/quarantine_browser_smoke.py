@@ -100,6 +100,14 @@ def main() -> None:
             page.locator("#exportQuarantineCsvButton").click()
         assert download_info.value.suggested_filename.startswith("pendientes_")
 
+        with page.expect_download() as image_download_info:
+            menu = page.locator(".action-menu", has_text="Compartir")
+            if menu.get_attribute("open") is None:
+                menu.locator("summary").click()
+            page.locator("#exportQuarantineImageButton").click()
+        assert image_download_info.value.suggested_filename.startswith("pendientes_")
+        assert image_download_info.value.path().read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
         assert not page_errors, page_errors
         print({"status": "ok", "activities": len(state["activities"]), "quarantine": len(quarantined)})
         context.close()

@@ -128,6 +128,10 @@ def run_phone_flow(browser, uri: str, artifacts: Path) -> dict:
     expect(page.locator("#detailDrawer")).to_have_class("detail-drawer open")
     expect(page.get_by_role("button", name="Mover · Duplicar · Ampliar")).to_be_visible()
     expect(page.locator("#drawerStatusSelect")).to_be_visible()
+    page.locator("#drawerStatusSelect").select_option("in_progress")
+    page.get_by_role("button", name="Aplicar estado").click()
+    wait_saved(page)
+    expect(page.locator(f'#mobileAgendaList [data-activity-id="{original_id}"] .status-icon-in_progress')).to_be_visible()
 
     page.get_by_role("button", name="Mover · Duplicar · Ampliar").click()
     page.fill("#activityDateActionDate", "2026-07-30")
@@ -186,6 +190,20 @@ def run_phone_flow(browser, uri: str, artifacts: Path) -> dict:
     png_path = artifacts / "phone-export.png"
     image_download.value.save_as(str(png_path))
     assert png_path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    with page.expect_download() as day_image_download:
+        page.locator("#mobileAgendaExportButton").click()
+    day_png_path = artifacts / "phone-day-export.png"
+    day_image_download.value.save_as(str(day_png_path))
+    assert day_png_path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    click_menu_action(page, "exportDayImageButton")
+    expect(page.locator("#dayExportDialog")).to_be_visible()
+    page.fill("#dayExportDate", "2026-08-02")
+    with page.expect_download() as shared_day_image_download:
+        page.locator("#dayExportForm button[type=submit]").click()
+    assert shared_day_image_download.value.suggested_filename.startswith("2026-08-02_actividades_")
+    shared_day_png_path = artifacts / "phone-shared-day-export.png"
+    shared_day_image_download.value.save_as(str(shared_day_png_path))
+    assert shared_day_png_path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
     assert_no_document_overflow(page)
     page.screenshot(path=str(artifacts / "phone-390x844.png"), full_page=True)
     assert not page_errors, page_errors
