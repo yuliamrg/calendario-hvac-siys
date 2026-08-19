@@ -5,10 +5,14 @@ entre la interfaz web y una CLI que opere sobre el contrato del calendario.
 La operación es local y portable: el JSON es el artefacto de intercambio, no
 una base de datos compartida.
 
+Este runbook se complementa con el [mapa del sistema](SISTEMA.md), el [modelo
+de datos y estados](MODELO_ESTADOS.md) y la [guía de build, distribución y
+releases](BUILD_RELEASE.md).
+
 ## Estado y alcance
 
-La línea publicada incluye `bin/calendary.js`, el contrato compartido y las
-pruebas de la CLI. La CLI opera únicamente sobre copias JSON y no accede
+La línea actual del repositorio incluye `bin/calendary.js`, el contrato
+compartido y las pruebas de la CLI. La CLI opera únicamente sobre copias JSON y no accede
 directamente a IndexedDB ni a Supabase. La interfaz y la CLI usan la misma
 frontera de escritura.
 
@@ -51,27 +55,40 @@ Ejemplo:
 
 ## Canales, perfiles y versiones
 
-El archivo local usa IndexedDB separado. Stable y beta usan Supabase, pero cada
-canal conserva un calendario lógico distinto. El archivo sólo debe volver al
+El archivo local usa IndexedDB separado. Stable y beta pueden usar Supabase
+cuando el HTML recibe la configuración pública, pero cada canal conserva un
+calendario lógico distinto. El archivo sólo debe volver al
 mismo canal y perfil del que salió, salvo que se haya autorizado un traslado
 explícito.
 
+En el corte local comprobado el 2026-08-19, `package.json` y
+`src/core.js > APP_VERSION` declaran `0.16.0-beta.2`, `package-lock.json`
+coincide y `stable-version.txt` contiene `v0.15.0`. `schemaVersion` vigente es
+4 y `formatVersion` de la envoltura de respaldo es 1. Estos datos locales no
+prueban qué versión o contenido están sirviendo las URLs públicas.
+
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
-| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `v0.14.1` | Uso operativo aprobado; Supabase/Auth |
-| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | Leer el encabezado y el JSON | Supabase/Auth; calendario beta separado |
+| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `stable-version.txt` → `v0.15.0` en el corte local | Supabase/Auth si el despliegue recibe configuración |
+| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → `0.16.0-beta.2` en el corte local; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
 | Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | IndexedDB y sin autenticación |
+
+Las URLs de la tabla son referencias configuradas, no evidencia de un
+despliegue vigente. Antes de una operación real se comprueban la URL, el
+distintivo, la versión visible y el smoke autorizado.
 
 Antes de modificar un archivo se registran: URL, canal, perfil de Chrome,
 versión visible, `appVersion` del JSON, `schemaVersion`, revisión, fecha de
 exportación y hash SHA-256.
 
-Durante el ensayo del 3 de agosto de 2026 se observó una discrepancia: el
+Registro histórico del ensayo del 3 de agosto de 2026: se observó una
+discrepancia: el
 respaldo declaraba `channel: "beta"` y `appVersion: "0.10.0"`, mientras el
 código local de la CLI beta declaraba `0.11.0-beta.1`. Esto debe tratarse como
-una alerta de despliegue, no como una coincidencia de versiones. Si la versión
-visible, la versión del respaldo y la versión esperada no coinciden, se detiene
-la operación hasta identificar cuál publicación es la correcta.
+una alerta de despliegue, no como una coincidencia de versiones ni como el
+estado actual. Si la versión visible, la versión del respaldo y la versión
+esperada no coinciden, se detiene la operación hasta identificar cuál
+publicación es la correcta.
 
 ## Flujo obligatorio
 
@@ -237,6 +254,9 @@ archivo, logs o payloads de prueba.
 ## Checklist de aceptación
 
 - [ ] Canal, URL, perfil y versión fueron confirmados.
+- [ ] `package.json`, `APP_VERSION`, `package-lock.json` y
+      `stable-version.txt` fueron contrastados según el canal; `dist/` no se
+      usó como fuente de versión.
 - [ ] Se descargó un respaldo nuevo en `$backupRoot`.
 - [ ] El archivo `.json` es válido, completo y tiene hash registrado.
 - [ ] `channel`, `appVersion`, `schemaVersion` y revisión fueron inspeccionados.

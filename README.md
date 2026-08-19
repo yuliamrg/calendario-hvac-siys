@@ -80,8 +80,9 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
 - Al arrastrar una tarjeta a otro día puede **Mover**, **Duplicar** o
   **Ampliar**. Ampliar conserva tarjetas diarias independientes, pero enlaza
   sus datos comunes. Soltar en otra tarjeta del mismo día permite reordenarla.
-- **Compartir** permite descargar el CSV de pendientes, una imagen de pendientes
-  y una imagen del calendario con la información de las tarjetas y su leyenda.
+- **Compartir** permite descargar el CSV de pendientes, imágenes de pendientes,
+  de un día específico y del calendario con la información de las tarjetas y su
+  leyenda. **Descargar imagen del día** pregunta la fecha antes de generar el PNG.
 - En teléfono y tablet vertical, la agenda diaria es la vista principal.
   **Ver mes** abre un selector superpuesto y **Más** agrupa Banco, Gestionar,
   Compartir y Configuración. El detalle ofrece alternativas táctiles para Mover, Duplicar,
@@ -97,6 +98,8 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
   separadas para personal de nómina y contratistas.
 - **Compartir > Descargar listado de pendientes** genera un CSV independiente
   compatible con Excel; las actividades sin fecha no entran en el listado mensual.
+- **Compartir > Descargar imagen del día** pide una fecha y genera sólo las
+  actividades visibles de ese día, respetando la búsqueda y los filtros activos.
 - **Filtros** combina varias ciudades, clientes, sedes, responsables, servicios
   y estados; **PNG** descarga exactamente esa vista.
 - **Plantilla** e **Importar programación** permiten una carga masiva Excel con

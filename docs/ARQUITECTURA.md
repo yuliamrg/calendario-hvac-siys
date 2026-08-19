@@ -13,6 +13,9 @@ de operaciones, los identificadores del DOM y el formato de distribución. Las
 fachadas públicas `src/core.js`, `src/calendar-contract.js` y `src/importer.js`
 se mantienen estables para la interfaz, la CLI y consumidores externos.
 
+Para orientarse en el sistema completo, empezar por [mapa del sistema](SISTEMA.md),
+[modelo de datos y estados](MODELO_ESTADOS.md) y [build, distribución y releases](BUILD_RELEASE.md).
+
 ## Capas y dependencias
 
 Las dependencias avanzan de arriba hacia abajo; una capa de dominio no debe
@@ -33,9 +36,9 @@ importar código de interfaz, persistencia ni CLI.
 7. **CLI (`src/cli/`)**: adaptación entre argumentos, fuentes `FileCalendarSource`/
    `CloudCalendarSource` y contrato. La fuente cloud es solo lectura; autenticación
    y lectura PostgREST están separadas del dominio.
-8. **Distribución (`scripts/build.mjs`)**: concatena los módulos en orden de
-   dependencia, valida la sintaxis resultante e inserta código, estilos, icono
-   y SheetJS en el HTML final.
+8. **Distribución (`scripts/build.mjs`)**: valida el manifiesto y la sintaxis,
+   concatena los módulos en orden de dependencia e inserta código, estilos,
+   icono, SheetJS, Three.js y sus avisos de licencia en el HTML final.
 
 ```text
 CLI --------------------> contrato ----> núcleo ----> dominio
@@ -60,7 +63,8 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 - Stable y beta comparten autenticación de Supabase, pero usan calendarios
   lógicos separados.
 - El build debe seguir sin dependencias de red y producir dos HTML idénticos:
-  `dist/calendario-hvac-siys.html` y `dist/index.html`.
+  `dist/calendario-hvac-siys.html` y `dist/index.html`. Son salidas generadas,
+  no fuentes de comportamiento ni autoridad de versión.
 - Los nombres e identificadores del DOM y las claves de IndexedDB/localStorage
   son contratos de compatibilidad, aunque no sean una API publicada.
 
@@ -81,6 +85,22 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
   de cierre es que sus funciones internas tengan una responsabilidad legible,
   no imponer un límite artificial de líneas al archivo coordinador.
 
+## Corte local actual
+
+El siguiente inventario fue comprobado en el worktree local el 2026-08-19; no
+es una certificación de despliegue ni de una release limpia:
+
+- `npm test` terminó con 149 pruebas aprobadas.
+- El conteo de líneas es: `src/app.js` 4.784, `src/core.js` 1.315 y
+  `src/importer.js` 11. Son métricas descriptivas del corte, no límites de
+  diseño.
+- El manifiesto de la aplicación contiene 27 módulos JavaScript del navegador;
+  `src/` también contiene módulos de CLI que no se incluyen en ese HTML.
+- En esta actualización documental no se ejecutó `npm run build`; por tanto,
+  no se afirma que los archivos existentes de `dist/` estén sincronizados con
+  el código actual. La validación posterior está en
+  [build, distribución y releases](BUILD_RELEASE.md).
+
 ## Fases medibles de refactorización
 
 ### Fase 0 — Línea base y mapa
@@ -89,9 +109,10 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 - [x] Medir tamaño de módulos y localizar concentraciones de responsabilidad.
 - [x] Documentar capas, dependencias y contratos que no deben cambiar.
 
-Evidencia inicial: 81 pruebas aprobadas y `npm run verify` correcto. Los módulos
-con mayor concentración eran `app.js` (4.330 líneas), `core.js` (1.880) e
-`importer.js` (1.223).
+Registro histórico de la línea base de la refactorización: 81 pruebas aprobadas
+y `npm run verify` correcto. En ese corte, los módulos con mayor concentración
+eran `app.js` (4.330 líneas), `core.js` (1.880) e `importer.js` (1.223). Estas
+cifras no describen el inventario actual.
 
 ### Fase 1 — Fundamentos compartidos y build
 
@@ -131,18 +152,24 @@ con mayor concentración eran `app.js` (4.330 líneas), `core.js` (1.880) e
 - [x] Separar estilos base, responsive y contrato visual preservando la cascada.
 - [x] Mantener intactos DOM, accesibilidad, densidad y comportamiento responsive.
 
-### Fase 5 — Cierre verificable
+### Fase 5 — Cierre verificable (registro histórico)
+
+Las casillas y la evidencia de esta fase pertenecen al cierre histórico de la
+refactorización documentada; no sustituyen el corte local actual de la sección
+anterior.
 
 - [x] Sincronizar esta guía, README y documentación afectada.
 - [x] Ejecutar `npm run goal:check`.
 - [x] Ejecutar smokes de navegador y responsive de forma serial y aislada.
 - [x] Comparar métricas finales y auditar cada requisito de refactorización.
 
-Evidencia final: 91 pruebas aprobadas. `core.js` quedó en 1.153 líneas,
-`importer.js` en 11, `src/cli/main.js` en 54 y los estilos se distribuyeron en
-tres archivos ordenados. Se añadieron 20 módulos enfocados en dominio,
-importación, persistencia, UI y CLI. Los smokes aprobaron Chrome y Edge, seis
-viewports sin desbordamiento del documento y el flujo de Pendientes.
+Evidencia histórica final: 91 pruebas aprobadas. En ese corte, `core.js` quedó
+en 1.153 líneas, `importer.js` en 11, `src/cli/main.js` en 54 y los estilos se
+distribuyeron en tres archivos ordenados. Se añadieron 20 módulos enfocados en
+dominio, importación, persistencia, UI y CLI. Los smokes registrados aprobaron
+Chrome y Edge, seis viewports sin desbordamiento del documento y el flujo de
+Pendientes. No debe leerse como el resultado de las 149 pruebas actuales ni
+como una verificación remota vigente.
 
 ## Puertas de verificación
 
