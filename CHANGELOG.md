@@ -10,6 +10,8 @@
   3D mientras hay un modal abierto o la pestaña está oculta.
 - Se actualizan las pruebas responsive para confirmar el flujo unificado de ampliación
   por rango.
+- Se corrige el workflow de CI para instalar las dependencias antes de construir el
+  artefacto autocontenido.
 
 ### Compatibilidad
 
