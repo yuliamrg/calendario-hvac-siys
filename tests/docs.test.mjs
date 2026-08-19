@@ -110,6 +110,32 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
   assert.match(css, /\.day-overflow-card/);
 });
 
+test("la actividad conserva un solo buscador de responsables y unifica la ampliacion", () => {
+  const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
+  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  assert.equal((template.match(/id="responsibleSearch"/g) ?? []).length, 1);
+  assert.doesNotMatch(template, /activityResponsibleText|activityResponsibleType|responsibleSuggestions/);
+  assert.doesNotMatch(template, /Ampliar a rango/);
+  assert.match(template, /id="seriesRangeFrom" type="date" required/);
+  assert.match(template, /id="seriesRangeTo" type="date"\s*>/);
+  assert.match(app, /openSeriesRangeDialog\(payload\.activityIds\[0\], \{ fromDate: payload\.date \}\)/);
+  assert.match(app, /const operation = toDate \? "activity\.extend-range"/);
+});
+
+test("los formularios tienen un solo dueño de scroll y suspenden la animación pesada", () => {
+  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const motion = readFileSync(resolve(root, "src", "ui", "three-motion.js"), "utf8");
+  const css = readStyles();
+  assert.match(css, /dialog:has\(> form\)\[open\]\s*\{[\s\S]*?overflow:\s*hidden/);
+  assert.match(css, /dialog > form\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(css, /dialog > form\s*\{[\s\S]*?overscroll-behavior-y:\s*contain/);
+  assert.match(css, /\.modal-footer\s*\{[\s\S]*?position:\s*sticky/);
+  assert.doesNotMatch(css, /backdrop-filter/);
+  assert.match(app, /function updateMotionSuspension\(\)/);
+  assert.match(app, /calendaryThreeMotion\?\.setSuspended/);
+  assert.match(motion, /function setSuspended\(value\)/);
+});
+
 test("la lista cloud de cronogramas tiene refresco y la provisión es idempotente", () => {
   const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
   const app = readFileSync(resolve(root, "src", "app.js"), "utf8");

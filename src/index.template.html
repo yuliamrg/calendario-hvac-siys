@@ -326,18 +326,6 @@
           <span>Buscar responsable</span>
           <input id="responsibleSearch" type="search" placeholder="Nombre, ciudad o grupo…" autocomplete="off">
         </label>
-        <label class="responsible-search">
-          <span>Escribir responsables</span>
-          <input id="activityResponsibleText" type="text" list="responsibleSuggestions" maxlength="1000" autocomplete="off" placeholder="Nombres separados por coma o punto y coma">
-          <datalist id="responsibleSuggestions"></datalist>
-        </label>
-        <label class="field-note-row">
-          <span>Tipo para nombres nuevos</span>
-          <select id="activityResponsibleType">
-            <option value="contractor">Contratista</option>
-            <option value="payroll">Personal de nómina</option>
-          </select>
-        </label>
         <div class="responsible-picker" id="responsiblePicker" data-testid="responsible-picker"></div>
       </div>
 
@@ -386,7 +374,6 @@
         <button class="button primary" id="dropMoveButton" type="button">Mover</button>
         <button class="button" id="dropDuplicateButton" type="button">Duplicar</button>
         <button class="button" id="dropExtendButton" type="button">Ampliar</button>
-        <button class="button" id="dropExtendRangeButton" type="button">Ampliar a rango</button>
       </div>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="dropActionDialog">Cancelar</button>
@@ -407,7 +394,6 @@
         <button class="button primary" id="touchMoveButton" type="button">Mover</button>
         <button class="button" id="touchDuplicateButton" type="button">Duplicar</button>
         <button class="button" id="touchExtendButton" type="button">Ampliar</button>
-        <button class="button" id="touchExtendRangeButton" type="button">Ampliar a rango</button>
       </div>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="activityDateActionDialog">Cancelar</button>
@@ -418,16 +404,16 @@
   <dialog class="modal compact-modal" id="seriesRangeDialog" aria-labelledby="seriesRangeDialogTitle">
     <form id="seriesRangeForm">
       <header class="modal-header">
-        <div><p class="eyebrow">Programación ampliada</p><h2 id="seriesRangeDialogTitle">Trabajar un rango de fechas</h2></div>
+        <div><p class="eyebrow">Programación ampliada</p><h2 id="seriesRangeDialogTitle">Ampliar actividad</h2></div>
         <button class="icon-button" type="button" data-close-dialog="seriesRangeDialog" aria-label="Cerrar">×</button>
       </header>
-      <p class="field-note" id="seriesRangeSummary">Las fechas ya existentes se conservarán y no se duplicarán dentro de la misma actividad.</p>
+      <p class="field-note" id="seriesRangeSummary">Completa sólo la fecha inicial para ampliar un día. La fecha final es opcional y convierte la operación en un rango.</p>
       <div class="form-errors" id="seriesRangeErrors" role="alert" hidden></div>
       <div class="form-grid two-columns">
-        <label><span>Desde</span><input id="seriesRangeFrom" type="date" required></label>
-        <label><span>Hasta</span><input id="seriesRangeTo" type="date" required></label>
+        <label><span>Fecha de ampliación</span><input id="seriesRangeFrom" type="date" required></label>
+        <label><span>Fecha final (opcional)</span><input id="seriesRangeTo" type="date"></label>
       </div>
-      <label class="check-row"><input id="seriesRangeIncludeNonWorking" type="checkbox"><span>Incluir domingos y festivos del rango</span></label>
+      <label class="check-row" id="seriesRangeNonWorkingLabel"><input id="seriesRangeIncludeNonWorking" type="checkbox"><span>Incluir domingos y festivos del rango</span></label>
       <div class="range-preview" id="seriesRangePreview" hidden></div>
       <footer class="modal-footer">
         <button class="button ghost" type="button" data-close-dialog="seriesRangeDialog">Cancelar</button>
