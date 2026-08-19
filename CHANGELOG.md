@@ -1,5 +1,21 @@
 # Historial de cambios
 
+## [0.16.0-beta.2] - 2026-08-19
+
+### Correcciones de experiencia
+
+- Se corrige el scroll lento de los formularios al dejar un único contenedor de
+  desplazamiento, limitar el encadenamiento y mantener visibles las acciones.
+- Se elimina el desenfoque costoso del fondo de los modales y se pausa la animación
+  3D mientras hay un modal abierto o la pestaña está oculta.
+- Se actualizan las pruebas responsive para confirmar el flujo unificado de ampliación
+  por rango.
+
+### Compatibilidad
+
+- Stable permanece apuntando a `v0.15.0`; esta publicación sólo actualiza la línea
+  beta `0.16.0`.
+
 ## [0.16.0-beta.1] - 2026-08-15
 
 ### Nuevas implementaciones en beta

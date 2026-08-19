@@ -75,7 +75,7 @@ export { buildMonthlyCsv, buildQuarantineCsv } from "./domain/csv-export.js";
 export { activityMatchesFilters, normalizeFilterArray } from "./domain/activity-filters.js";
 export { importDiff, mergeImportedItems } from "./domain/import-merge.js";
 
-export const APP_VERSION = "0.16.0-beta.1";
+export const APP_VERSION = "0.16.0-beta.2";
 export const SCHEMA_VERSION = 4;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
