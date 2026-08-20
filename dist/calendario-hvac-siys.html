@@ -85957,6 +85957,64 @@ export function createCalendarCommands({
 }
 
 
+export function createImportCommands({
+  getDocument,
+  setDocument,
+  cloneDocument = structuredClone,
+  adapter
+}) {
+  if (typeof getDocument !== "function") {
+    throw new TypeError("createImportCommands requiere getDocument.");
+  }
+  if (typeof setDocument !== "function") {
+    throw new TypeError("createImportCommands requiere setDocument.");
+  }
+  if (typeof cloneDocument !== "function") {
+    throw new TypeError("createImportCommands requiere cloneDocument.");
+  }
+  if (typeof adapter !== "function") {
+    throw new TypeError("createImportCommands requiere adapter.");
+  }
+
+  function normalizeOutcome(adapterResult) {
+    if (adapterResult === undefined || adapterResult === null) {
+      return { document: null, result: {} };
+    }
+    if (typeof adapterResult === "object" && !Array.isArray(adapterResult)) {
+      if ("document" in adapterResult) {
+        const { document: nextDocument, ...rest } = adapterResult;
+        return { document: nextDocument, result: rest };
+      }
+      return { document: adapterResult, result: {} };
+    }
+    throw new TypeError("El adapter debe devolver un documento o un objeto con propiedad document.");
+  }
+
+  function dispatch(payload = {}, options = {}) {
+    const before = cloneDocument(getDocument());
+    try {
+      const workingDocument = cloneDocument(before);
+      const adapterResult = adapter(workingDocument, payload, options);
+      const { document: normalizedDocument, result } = normalizeOutcome(adapterResult);
+      if (normalizedDocument === null || normalizedDocument === undefined) {
+        throw new TypeError("El adapter no produjo un documento válido.");
+      }
+      const nextDocument = cloneDocument(normalizedDocument);
+      setDocument(nextDocument);
+      return { changed: true, document: nextDocument, result };
+    } catch (error) {
+      setDocument(before);
+      throw error;
+    }
+  }
+
+  return Object.freeze({
+    dispatch,
+    run: dispatch
+  });
+}
+
+
 export const MAX_VISIBLE_CARDS = 3;
 export const DAY_NAMES = Object.freeze([
   "domingo",
@@ -86411,13 +86469,20 @@ export function createMutationController({
   render,
   scheduleSave,
   notify,
-  afterUndo
+  afterUndo,
+  importAdapter
 }) {
   const commands = createCalendarCommands({
     getDocument,
     setDocument,
     executeOperation,
     cloneDocument
+  });
+  const importCommands = createImportCommands({
+    getDocument,
+    setDocument,
+    cloneDocument,
+    adapter: importAdapter
   });
   let undoSnapshot = null;
 
@@ -86462,6 +86527,37 @@ export function createMutationController({
     return outcome;
   }
 
+  function mutateWithImport(
+    kind,
+    payload = {},
+    detail,
+    { undo = true, toast = detail, auditAction = `import.${kind}`, ...adapterOptions } = {}
+  ) {
+    assertEditable();
+    const before = cloneDocument(getDocument());
+    try {
+      const enrichedPayload = { ...payload, kind };
+      const outcome = importCommands.dispatch(enrichedPayload, adapterOptions);
+      if (!outcome.changed) {
+        setDocument(before);
+        return outcome;
+      }
+      const document = getDocument();
+      document.appVersion = appVersion;
+      document.schemaVersion = schemaVersion;
+      document.calendarMeta.revision += 1;
+      document.calendarMeta.updatedAt = new Date().toISOString();
+      document.settings.holidayRuleSetVersion = holidayRuleSetVersion;
+      appendAudit(auditAction, detail);
+      if (undo) undoSnapshot = { document: before, label: detail };
+      finishChange(detail, toast, undo);
+      return { ...outcome, document };
+    } catch (error) {
+      setDocument(before);
+      throw error;
+    }
+  }
+
   function undo() {
     if (!undoSnapshot) return;
     const previous = undoSnapshot;
@@ -86476,6 +86572,7 @@ export function createMutationController({
   return Object.freeze({
     mutate,
     mutateWithContract,
+    mutateWithImport,
     undo,
     clearUndo: () => { undoSnapshot = null; },
     hasUndo: () => undoSnapshot !== null
@@ -91174,12 +91271,12 @@ function appendAudit(action, detail) {
   }
 }
 
-function mutate(action, detail, callback, { undo = true, toast = detail } = {}) {
-  return mutationController.mutate(action, detail, callback, { undo, toast });
-}
-
 function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
   return mutationController.mutateWithContract(operation, payload, detail, { undo, toast });
+}
+
+function mutateWithImport(kind, payload, detail, options = {}) {
+  return mutationController.mutateWithImport(kind, payload, detail, options);
 }
 
 function undoLastMutation() {
@@ -91203,6 +91300,26 @@ function showToast(message, { type = "normal", undo = false, duration = 5000 } =
   window.setTimeout(() => toast.remove(), duration);
 }
 
+function importAdapter(workingDocument, payload, options = {}) {
+  const kind = payload?.kind;
+  if (kind === "base-operativa") {
+    if (!payload.parsed) throw new TypeError("Falta la importación analizada de Base Operativa.");
+    return applyParsedImport(
+      workingDocument,
+      payload.parsed,
+      options.now ?? new Date().toISOString()
+    );
+  }
+  if (kind === "programacion") {
+    if (!payload.preview) throw new TypeError("Falta la vista previa de programación.");
+    return applyProgrammingImport(workingDocument, payload.preview, {
+      includeDuplicates: options.includeDuplicates === true,
+      now: options.now ?? new Date().toISOString()
+    });
+  }
+  throw new TypeError(`Kind de importación desconocido: ${kind}`);
+}
+
 mutationController = createMutationController({
   getDocument: () => appDocument,
   setDocument: (documentSnapshot) => { appDocument = documentSnapshot; },
@@ -91220,7 +91337,8 @@ mutationController = createMutationController({
     selectedActivityIds.clear();
     activeDrawer = null;
     closeDrawer();
-  }
+  },
+  importAdapter
 });
 
 function showFormErrors(container, errors) {
@@ -94454,9 +94572,12 @@ function handleProgrammingImportSubmit(event) {
     const count = pendingProgrammingImport.rows.filter((row) =>
       !row.errors.length && (includeDuplicates || !row.duplicate)
     ).length;
-    mutate("programming_imported", `${count} filas de programación importadas`, () => {
-      appDocument = applyProgrammingImport(appDocument, pendingProgrammingImport, { includeDuplicates }).document;
-    });
+    mutateWithImport(
+      "programacion",
+      { preview: pendingProgrammingImport },
+      `${count} filas de programación importadas`,
+      { includeDuplicates, auditAction: "programming_imported" }
+    );
     pendingProgrammingImport = null;
     closeDialog("programmingImportDialog");
   } catch (error) {
@@ -94694,9 +94815,12 @@ function handleImportSubmit(event) {
   event.preventDefault();
   if (!pendingImport) return;
   try {
-    mutate("base_imported", "Base Operativa importada", () => {
-      appDocument = applyParsedImport(appDocument, pendingImport.parsed, new Date().toISOString());
-    });
+    mutateWithImport(
+      "base-operativa",
+      { parsed: pendingImport.parsed },
+      "Base Operativa importada",
+      { auditAction: "base_imported" }
+    );
     pendingImport = null;
     closeDialog("importDialog");
   } catch (error) {
