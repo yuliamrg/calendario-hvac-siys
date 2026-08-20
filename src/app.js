@@ -91,6 +91,13 @@ import {
   layoutExportActivityRow
 } from "./ui/export-layout.js";
 import { createMutationController } from "./ui/mutation-controller.js";
+import {
+  VIEW_CLASSES,
+  deriveViewClasses,
+  applyViewClasses,
+  computeCatalogAriaExpanded,
+  computeCatalogTitle
+} from "./ui/view-state.js";
 import { createIndexedDocumentStore } from "./persistence/indexed-document-store.js";
 import { createJsonPreferences } from "./persistence/json-preferences.js";
 import {
@@ -253,14 +260,22 @@ function motionPreference() {
 }
 
 function applyMotionPreference() {
-  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
-  const enabled = motionPreference() && !reduced;
-  document.body.classList.toggle("motion-enhanced", enabled);
-  globalThis.calendaryThreeMotion?.setEnabled(enabled);
-  if (dom.motionEnabled) dom.motionEnabled.checked = motionPreference();
+  const prefs = uiPreferences.read();
+  const state = {
+    catalogCollapsed: prefs.catalogCollapsed === true,
+    isMobileLayout: compactLayoutQuery?.matches ?? false,
+    catalogMobileOpen: document.body.classList.contains("catalog-mobile-open"),
+    motionEnabled: prefs.motion === true,
+    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true,
+    hasEditControl
+  };
+  const classes = deriveViewClasses(state);
+  document.body.classList.toggle("motion-enhanced", classes["motion-enhanced"]);
+  globalThis.calendaryThreeMotion?.setEnabled(classes["motion-enhanced"]);
+  if (dom.motionEnabled) dom.motionEnabled.checked = prefs.motion === true;
   if (dom.motionButton) {
-    dom.motionButton.setAttribute("aria-pressed", String(motionPreference()));
-    dom.motionButton.querySelector("strong").textContent = `Animaciones visuales: ${motionPreference() ? "activas" : "inactivas"}`;
+    dom.motionButton.setAttribute("aria-pressed", String(prefs.motion === true));
+    dom.motionButton.querySelector("strong").textContent = `Animaciones visuales: ${prefs.motion === true ? "activas" : "inactivas"}`;
   }
 }
 
@@ -489,7 +504,17 @@ async function releaseEditLock() {
 }
 
 function renderAccessMode() {
-  document.body.classList.toggle("read-only", !hasEditControl);
+  const prefs = uiPreferences.read();
+  const state = {
+    catalogCollapsed: prefs.catalogCollapsed === true,
+    isMobileLayout: compactLayoutQuery?.matches ?? false,
+    catalogMobileOpen: document.body.classList.contains("catalog-mobile-open"),
+    motionEnabled: prefs.motion === true,
+    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true,
+    hasEditControl
+  };
+  const classes = deriveViewClasses(state);
+  document.body.classList.toggle("read-only", classes["read-only"]);
   dom.accessBanner.hidden = hasEditControl || (!storageAvailable && !CLOUD_MODE);
   dom.takeControlButton.hidden = CLOUD_MODE || hasEditControl || !storageAvailable;
   const guardedIds = [
