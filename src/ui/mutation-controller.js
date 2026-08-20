@@ -1,3 +1,5 @@
+import { createCalendarCommands } from "../application/calendar-commands.js";
+
 export function createMutationController({
   getDocument,
   setDocument,
@@ -13,6 +15,12 @@ export function createMutationController({
   notify,
   afterUndo
 }) {
+  const commands = createCalendarCommands({
+    getDocument,
+    setDocument,
+    executeOperation,
+    cloneDocument
+  });
   let undoSnapshot = null;
 
   function assertEditable() {
@@ -49,9 +57,8 @@ export function createMutationController({
   function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
     assertEditable();
     const before = cloneDocument(getDocument());
-    const outcome = executeOperation(getDocument(), { operation, payload });
+    const outcome = commands.dispatch(operation, payload);
     if (!outcome.changed) return outcome;
-    setDocument(outcome.document);
     if (undo) undoSnapshot = { document: before, label: detail };
     finishChange(detail, toast, undo);
     return outcome;
