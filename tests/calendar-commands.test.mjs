@@ -104,7 +104,8 @@ test("el controlador conserva undo, metadatos y restauración al usar la fachada
     render: () => events.push("render"),
     scheduleSave: () => events.push("save"),
     notify: (message, options) => events.push([message, options]),
-    afterUndo: () => events.push("afterUndo")
+    afterUndo: () => events.push("afterUndo"),
+    importAdapter: (source) => structuredClone(source)
   });
 
   const outcome = controller.mutateWithContract("activity.edit", {}, "Edición");

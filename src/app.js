@@ -787,12 +787,12 @@ function appendAudit(action, detail) {
   }
 }
 
-function mutate(action, detail, callback, { undo = true, toast = detail } = {}) {
-  return mutationController.mutate(action, detail, callback, { undo, toast });
-}
-
 function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
   return mutationController.mutateWithContract(operation, payload, detail, { undo, toast });
+}
+
+function mutateWithImport(kind, payload, detail, options = {}) {
+  return mutationController.mutateWithImport(kind, payload, detail, options);
 }
 
 function undoLastMutation() {
@@ -816,6 +816,26 @@ function showToast(message, { type = "normal", undo = false, duration = 5000 } =
   window.setTimeout(() => toast.remove(), duration);
 }
 
+function importAdapter(workingDocument, payload, options = {}) {
+  const kind = payload?.kind;
+  if (kind === "base-operativa") {
+    if (!payload.parsed) throw new TypeError("Falta la importación analizada de Base Operativa.");
+    return applyParsedImport(
+      workingDocument,
+      payload.parsed,
+      options.now ?? new Date().toISOString()
+    );
+  }
+  if (kind === "programacion") {
+    if (!payload.preview) throw new TypeError("Falta la vista previa de programación.");
+    return applyProgrammingImport(workingDocument, payload.preview, {
+      includeDuplicates: options.includeDuplicates === true,
+      now: options.now ?? new Date().toISOString()
+    });
+  }
+  throw new TypeError(`Kind de importación desconocido: ${kind}`);
+}
+
 mutationController = createMutationController({
   getDocument: () => appDocument,
   setDocument: (documentSnapshot) => { appDocument = documentSnapshot; },
@@ -833,7 +853,8 @@ mutationController = createMutationController({
     selectedActivityIds.clear();
     activeDrawer = null;
     closeDrawer();
-  }
+  },
+  importAdapter
 });
 
 function showFormErrors(container, errors) {
@@ -4067,9 +4088,12 @@ function handleProgrammingImportSubmit(event) {
     const count = pendingProgrammingImport.rows.filter((row) =>
       !row.errors.length && (includeDuplicates || !row.duplicate)
     ).length;
-    mutate("programming_imported", `${count} filas de programación importadas`, () => {
-      appDocument = applyProgrammingImport(appDocument, pendingProgrammingImport, { includeDuplicates }).document;
-    });
+    mutateWithImport(
+      "programacion",
+      { preview: pendingProgrammingImport },
+      `${count} filas de programación importadas`,
+      { includeDuplicates, auditAction: "programming_imported" }
+    );
     pendingProgrammingImport = null;
     closeDialog("programmingImportDialog");
   } catch (error) {
@@ -4307,9 +4331,12 @@ function handleImportSubmit(event) {
   event.preventDefault();
   if (!pendingImport) return;
   try {
-    mutate("base_imported", "Base Operativa importada", () => {
-      appDocument = applyParsedImport(appDocument, pendingImport.parsed, new Date().toISOString());
-    });
+    mutateWithImport(
+      "base-operativa",
+      { parsed: pendingImport.parsed },
+      "Base Operativa importada",
+      { auditAction: "base_imported" }
+    );
     pendingImport = null;
     closeDialog("importDialog");
   } catch (error) {

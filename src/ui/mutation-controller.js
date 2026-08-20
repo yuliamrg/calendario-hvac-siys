@@ -1,4 +1,5 @@
 import { createCalendarCommands } from "../application/calendar-commands.js";
+import { createImportCommands } from "../application/import-commands.js";
 
 export function createMutationController({
   getDocument,
@@ -13,13 +14,20 @@ export function createMutationController({
   render,
   scheduleSave,
   notify,
-  afterUndo
+  afterUndo,
+  importAdapter
 }) {
   const commands = createCalendarCommands({
     getDocument,
     setDocument,
     executeOperation,
     cloneDocument
+  });
+  const importCommands = createImportCommands({
+    getDocument,
+    setDocument,
+    cloneDocument,
+    adapter: importAdapter
   });
   let undoSnapshot = null;
 
@@ -64,6 +72,37 @@ export function createMutationController({
     return outcome;
   }
 
+  function mutateWithImport(
+    kind,
+    payload = {},
+    detail,
+    { undo = true, toast = detail, auditAction = `import.${kind}`, ...adapterOptions } = {}
+  ) {
+    assertEditable();
+    const before = cloneDocument(getDocument());
+    try {
+      const enrichedPayload = { ...payload, kind };
+      const outcome = importCommands.dispatch(enrichedPayload, adapterOptions);
+      if (!outcome.changed) {
+        setDocument(before);
+        return outcome;
+      }
+      const document = getDocument();
+      document.appVersion = appVersion;
+      document.schemaVersion = schemaVersion;
+      document.calendarMeta.revision += 1;
+      document.calendarMeta.updatedAt = new Date().toISOString();
+      document.settings.holidayRuleSetVersion = holidayRuleSetVersion;
+      appendAudit(auditAction, detail);
+      if (undo) undoSnapshot = { document: before, label: detail };
+      finishChange(detail, toast, undo);
+      return { ...outcome, document };
+    } catch (error) {
+      setDocument(before);
+      throw error;
+    }
+  }
+
   function undo() {
     if (!undoSnapshot) return;
     const previous = undoSnapshot;
@@ -78,6 +117,7 @@ export function createMutationController({
   return Object.freeze({
     mutate,
     mutateWithContract,
+    mutateWithImport,
     undo,
     clearUndo: () => { undoSnapshot = null; },
     hasUndo: () => undoSnapshot !== null

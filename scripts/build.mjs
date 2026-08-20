@@ -22,6 +22,7 @@ export const applicationModuleRelativePaths = Object.freeze([
   "persistence/indexed-document-store.js",
   "persistence/json-preferences.js",
   "application/calendar-commands.js",
+  "application/import-commands.js",
   "ui/calendar-constants.js",
   "ui/presentation.js",
   "ui/activity-presentation.js",

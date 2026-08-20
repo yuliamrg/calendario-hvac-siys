@@ -18,7 +18,8 @@ test("el manifiesto cubre el grafo local de app.js y conserva el orden", async (
   for (const required of [
     "importer.js",
     "ui/activity-presentation.js",
-    "ui/export-layout.js"
+    "ui/export-layout.js",
+    "application/import-commands.js"
   ]) {
     assert.equal(applicationModuleRelativePaths.includes(required), true, `Falta ${required}`);
   }

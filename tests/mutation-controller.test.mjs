@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { createMutationController } from "../src/ui/mutation-controller.js";
 
-function fixture() {
+function fixture({ importAdapter = (source, payload) => ({ ...structuredClone(source), value: payload.value ?? 4 }) } = {}) {
   let document = {
     appVersion: "old",
     schemaVersion: 1,
@@ -28,7 +28,8 @@ function fixture() {
     render: () => events.push("render"),
     scheduleSave: () => events.push("save"),
     notify: (message, options) => events.push([message, options]),
-    afterUndo: () => events.push("afterUndo")
+    afterUndo: () => events.push("afterUndo"),
+    importAdapter
   });
   return { controller, events, getDocument: () => document };
 }
@@ -61,4 +62,48 @@ test("las operaciones del contrato comparten render, guardado y undo", () => {
   assert.equal(outcome.changed, true);
   assert.equal(getDocument().value, 9);
   assert.equal(controller.hasUndo(), true);
+});
+
+test("las importaciones usan la fachada, conservan metadatos y permiten undo", () => {
+  let receivedKind = null;
+  const { controller, getDocument, events } = fixture({
+    importAdapter: (source, payload) => {
+      receivedKind = payload.kind;
+      return { ...structuredClone(source), value: payload.value ?? 4 };
+    }
+  });
+  const outcome = controller.mutateWithImport(
+    "base-operativa",
+    { value: 7 },
+    "Base importada",
+    { auditAction: "base_imported" }
+  );
+
+  assert.equal(outcome.changed, true);
+  assert.equal(receivedKind, "base-operativa");
+  assert.equal(getDocument().value, 7);
+  assert.equal(getDocument().appVersion, "current");
+  assert.equal(getDocument().schemaVersion, 4);
+  assert.equal(getDocument().calendarMeta.revision, 3);
+  assert.equal(getDocument().audit.at(-1).action, "base_imported");
+  assert.deepEqual(events.slice(-2), ["save", ["Base importada", { undo: true }]]);
+  controller.undo();
+  assert.equal(getDocument().value, 1);
+});
+
+test("una importación fallida revierte y no renderiza ni guarda", () => {
+  const { controller, getDocument, events } = fixture({
+    importAdapter: (source) => {
+      source.value = 99;
+      throw new Error("importación inválida");
+    }
+  });
+
+  assert.throws(
+    () => controller.mutateWithImport("programacion", {}, "Importación", {}),
+    /importación inválida/
+  );
+  assert.equal(getDocument().value, 1);
+  assert.deepEqual(events, []);
+  assert.equal(controller.hasUndo(), false);
 });
