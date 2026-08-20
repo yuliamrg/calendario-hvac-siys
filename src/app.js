@@ -1308,10 +1308,7 @@ function handleCalendarSettingsSubmit(event) {
     return;
   }
   try {
-    mutate("calendar_identified", "Identificación del cronograma actualizada", () => {
-      appDocument.calendarMeta.name = name;
-      appDocument.calendarMeta.coordinator = coordinator;
-    });
+    mutateWithContract("calendar.identify", { name, coordinator }, "Identificación del cronograma actualizada");
     closeDialog("calendarSettingsDialog");
   } catch (error) {
     showFormErrors(dom.calendarSettingsErrors, [error.message]);

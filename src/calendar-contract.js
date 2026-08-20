@@ -47,6 +47,7 @@ export const CONTRACT_VERSION = 1;
 
 export const CALENDAR_OPERATIONS = Object.freeze({
   "calendar.inspect": Object.freeze({ readOnly: true, destructive: false }),
+  "calendar.identify": Object.freeze({ readOnly: false, destructive: false }),
   "calendar.export-csv": Object.freeze({ readOnly: true, destructive: false }),
   "activity.list": Object.freeze({ readOnly: true, destructive: false }),
   "activity.get": Object.freeze({ readOnly: true, destructive: false }),
@@ -771,6 +772,17 @@ function listHolidays(document, payload) {
 
 function executeCalendarHandler(operation, document, payload) {
   if (operation === "calendar.inspect") return { result: inspectCalendar(document) };
+  if (operation === "calendar.identify") {
+    allowOnly(payload, ["name", "coordinator"]);
+    const name = requireText(payload.name, "name", 160);
+    const coordinator = safeText(payload.coordinator, 160);
+    document.calendarMeta.name = name;
+    document.calendarMeta.coordinator = coordinator;
+    return {
+      result: { name, coordinator },
+      audit: { action: "calendar_identified", detail: "Identificación del cronograma actualizada" }
+    };
+  }
   if (operation === "calendar.export-csv") {
     allowOnly(payload, ["year", "month"]);
     const year = Number(payload.year);
