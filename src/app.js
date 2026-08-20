@@ -92,11 +92,8 @@ import {
 } from "./ui/export-layout.js";
 import { createMutationController } from "./ui/mutation-controller.js";
 import {
-  VIEW_CLASSES,
   deriveViewClasses,
-  applyViewClasses,
-  computeCatalogAriaExpanded,
-  computeCatalogTitle
+  applyViewClasses
 } from "./ui/view-state.js";
 import { createIndexedDocumentStore } from "./persistence/indexed-document-store.js";
 import { createJsonPreferences } from "./persistence/json-preferences.js";
@@ -183,17 +180,34 @@ function clone(value) {
   return structuredClone(value);
 }
 
+function readViewState() {
+  const prefs = uiPreferences.read();
+  return {
+    catalogCollapsed: prefs.catalogCollapsed === true,
+    isMobileLayout: compactLayoutQuery?.matches ?? false,
+    catalogMobileOpen: document.body.classList.contains("catalog-mobile-open"),
+    motionEnabled: prefs.motion === true,
+    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true,
+    hasEditControl
+  };
+}
+
+function applyViewState() {
+  const classes = applyViewClasses(document.body, deriveViewClasses(readViewState()));
+  globalThis.calendaryThreeMotion?.setEnabled(classes["motion-enhanced"]);
+  return classes;
+}
+
 function applyCatalogPreference() {
+  const classes = applyViewState();
   if (compactLayoutQuery?.matches) {
-    const open = document.body.classList.contains("catalog-mobile-open");
+    const open = classes["catalog-mobile-open"];
     dom.toggleCatalogButton.setAttribute("aria-expanded", String(open));
     dom.toggleCatalogButton.title = open ? "Cerrar banco de tarjetas" : "Abrir banco de tarjetas";
     dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
     return;
   }
-  const collapsed = uiPreferences.read().catalogCollapsed === true;
-  document.body.classList.remove("catalog-mobile-open");
-  document.body.classList.toggle("catalog-collapsed", collapsed);
+  const collapsed = classes["catalog-collapsed"];
   dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
   dom.toggleCatalogButton.title = collapsed ? "Mostrar banco de tarjetas" : "Ocultar banco de tarjetas";
   dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
@@ -261,17 +275,7 @@ function motionPreference() {
 
 function applyMotionPreference() {
   const prefs = uiPreferences.read();
-  const state = {
-    catalogCollapsed: prefs.catalogCollapsed === true,
-    isMobileLayout: compactLayoutQuery?.matches ?? false,
-    catalogMobileOpen: document.body.classList.contains("catalog-mobile-open"),
-    motionEnabled: prefs.motion === true,
-    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true,
-    hasEditControl
-  };
-  const classes = deriveViewClasses(state);
-  document.body.classList.toggle("motion-enhanced", classes["motion-enhanced"]);
-  globalThis.calendaryThreeMotion?.setEnabled(classes["motion-enhanced"]);
+  applyViewState();
   if (dom.motionEnabled) dom.motionEnabled.checked = prefs.motion === true;
   if (dom.motionButton) {
     dom.motionButton.setAttribute("aria-pressed", String(prefs.motion === true));
@@ -504,17 +508,7 @@ async function releaseEditLock() {
 }
 
 function renderAccessMode() {
-  const prefs = uiPreferences.read();
-  const state = {
-    catalogCollapsed: prefs.catalogCollapsed === true,
-    isMobileLayout: compactLayoutQuery?.matches ?? false,
-    catalogMobileOpen: document.body.classList.contains("catalog-mobile-open"),
-    motionEnabled: prefs.motion === true,
-    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true,
-    hasEditControl
-  };
-  const classes = deriveViewClasses(state);
-  document.body.classList.toggle("read-only", classes["read-only"]);
+  applyViewState();
   dom.accessBanner.hidden = hasEditControl || (!storageAvailable && !CLOUD_MODE);
   dom.takeControlButton.hidden = CLOUD_MODE || hasEditControl || !storageAvailable;
   const guardedIds = [

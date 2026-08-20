@@ -1,11 +1,11 @@
-export const VIEW_CLASSES = {
+export const VIEW_CLASSES = Object.freeze({
   catalogCollapsed: "catalog-collapsed",
   catalogMobileOpen: "catalog-mobile-open",
   motionEnhanced: "motion-enhanced",
   readOnly: "read-only"
-};
+});
 
-export function deriveViewClasses(state) {
+export function deriveViewClasses(state = {}) {
   const {
     catalogCollapsed = false,
     isMobileLayout = false,
@@ -29,22 +29,5 @@ export function applyViewClasses(body, classes) {
   for (const [className, shouldApply] of Object.entries(classes)) {
     body.classList.toggle(className, shouldApply);
   }
-}
-
-export function createViewStateApplier(body) {
-  return (state) => applyViewClasses(body, deriveViewClasses(state));
-}
-
-export function computeCatalogAriaExpanded(state) {
-  const { catalogCollapsed = false, isMobileLayout = false, catalogMobileOpen = false } = state;
-  if (isMobileLayout) return String(catalogMobileOpen);
-  return String(!catalogCollapsed);
-}
-
-export function computeCatalogTitle(state) {
-  const { catalogCollapsed = false, isMobileLayout = false, catalogMobileOpen = false } = state;
-  if (isMobileLayout) {
-    return catalogMobileOpen ? "Cerrar banco de tarjetas" : "Abrir banco de tarjetas";
-  }
-  return catalogCollapsed ? "Mostrar banco de tarjetas" : "Ocultar banco de tarjetas";
+  return classes;
 }
