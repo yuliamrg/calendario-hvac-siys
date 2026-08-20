@@ -19,7 +19,8 @@ export const ARCHITECTURE_RULES = Object.freeze({
   cloud: Object.freeze(["ui", "cli", "composition"]),
   ui: Object.freeze(["persistence", "cli", "cloud", "composition"]),
   cli: Object.freeze(["ui", "persistence", "cloud", "composition"]),
-  composition: Object.freeze([])
+  composition: Object.freeze([]),
+  application: Object.freeze(["ui", "persistence", "cli", "cloud", "composition"]),
 });
 
 export function normalizeModulePath(modulePath) {
@@ -39,6 +40,7 @@ export function classifyModule(modulePath) {
   if (normalizedPath.startsWith("persistence/")) return "persistence";
   if (normalizedPath.startsWith("ui/")) return "ui";
   if (normalizedPath.startsWith("cli/")) return "cli";
+  if (normalizedPath.startsWith("application/")) return "application";
   return null;
 }
 
