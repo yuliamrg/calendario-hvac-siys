@@ -46,11 +46,11 @@ Los cambios se basan en tres pilares:
 | Capa | Puede importar | No puede importar |
 |------|----------------|-------------------|
 | `application` | `core`, `contract`, `domain` | `ui`, `persistence`, `cli`, `cloud`, `composition` |
-| `core` | `ui`, `persistence`, `cli`, `cloud`, `composition` (misma que antes) | — |
-| `domain` | — (funciones puras) | `ui`, `persistence`, `cli`, `cloud`, `composition` |
-| `ui` | `persistence`, `cli`, `cloud`, `composition` | — |
-| `cli` | `ui`, `persistence`, `cloud`, `composition` | — |
-| `composition` (app.js) | — | — |
+| `core` | `domain` | `ui`, `persistence`, `cli`, `cloud`, `composition` |
+| `domain` | funciones puras y librerías permitidas | `ui`, `persistence`, `cli`, `cloud`, `composition` |
+| `ui` | `application`, `domain` y módulos UI | `persistence`, `cli`, `cloud`, `composition` |
+| `cli` | `core`, `contract`, `domain`, `import` | `ui`, `persistence`, `cloud`, `composition` |
+| `composition` (`app.js`) | todas las fachadas/adaptadores necesarios | — |
 
 **Estrategia de integración incremental:**
 1. Ejecutar `npm run architecture:check` sobre el código actual: debe pasar (grafo existente no tiene módulos `application/`).
@@ -75,13 +75,13 @@ Los cambios se basan en tres pilares:
 
 **Estrategia de integración:**
 1. `npm run architecture:check` se ejecuta en cada PR como gate automático.
-2. `npm test` debe seguir pasando (149 pruebas).
-3. `npm run verify` ( = `npm run test && npm run architecture:check && npm run build && npm run version:check && npm run audit`) debe completarse sin errores.
+2. `npm test` debe seguir pasando todas las pruebas del repositorio; el número puede crecer y no es un criterio fijo.
+3. `npm run verify` (`test`, `architecture:check`, `build`, `version:check` y `audit`) debe completarse sin errores.
 4. El diff de cualquier PR que añada código bajo `src/application/` debe ser revisado para confirmar que no hay imports prohibidos.
 
 **Criterios de aceptación:**
 - `npm run architecture:check` → `Guardia de arquitectura OK`.
-- `npm test` → 149 pruebas aprobadas.
+- `npm test` → todas las pruebas aprobadas, sin fijar un número histórico.
 - `npm run verify` → éxito total.
 - No se ha reescrito `src/app.js`, `src/core.js`, `src/calendar-contract.js`, `src/cloud.js`, `src/ui/`, `src/persistence/`, `src/import/` ni `package.json`.
 
@@ -92,7 +92,7 @@ Los cambios se basan en tres pilares:
 
 ## Compromisos y límites
 
-- **No se realizará reescritura del código fuente existente:** El plan añade guarda y documentación sobre el código actual. Módulos como `src/app.js`, `src/core.js`, `src/calendar-contract.js`, `src/cloud.js`, `src/ui/`, `src/persistence/`, `src/import/` y `package.json` no serán tocados.
+- **No se realizará una reescritura amplia del código fuente:** El plan permite refactors incrementales y acotados en `src/app.js` y `src/ui/` cuando reduzcan responsabilidades y mantengan compatibilidad. No se cambiarán contratos de datos ni se harán migraciones por este plan.
 - **No se cambiará la base de datos:** El plan respeta el contrato de persistencia y cloud existente. No hay migraciones ni cambios de esquema.
 - **Guards basadas en rutas de importación:** La detección usa el parser de imports locales del grafo (`staticImportPattern`/`dynamicImportPattern`), no strings ni comentarios. Esto lo hace robusto y no frágil.
 - **Una nueva capa, no un nuevo validador:** Se reutiliza la función `classifyModule` y la tabla `ARCHITECTURE_RULES` existentes; no se duplica el parser del grafo.

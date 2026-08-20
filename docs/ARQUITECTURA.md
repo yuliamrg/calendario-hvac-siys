@@ -27,22 +27,27 @@ importar código de interfaz, persistencia ni CLI.
    validación, migraciones, respaldos y operaciones puras.
 3. **Contrato (`src/calendar-contract.js`)**: comandos atómicos consumidos por
    la interfaz y la CLI; traduce entradas a operaciones del núcleo.
-4. **Importación (`src/import/`, con fachada `src/importer.js`)**: lectura
+4. **Aplicación (`src/application/`)**: comandos de caso de uso que reciben
+   dependencias explícitas, delegan en el contrato y conservan invariantes de
+   documento, rollback y undo sin conocer DOM ni infraestructura.
+5. **Importación (`src/import/`, con fachada `src/importer.js`)**: lectura
    tabular, Base Operativa y programación separadas de la conciliación.
-5. **Persistencia (`src/persistence/` y `src/cloud.js`)**: preferencias,
+6. **Persistencia (`src/persistence/` y `src/cloud.js`)**: preferencias,
    IndexedDB, bloqueo de edición y adaptador REST de Supabase.
-6. **Presentación (`src/ui/` y `src/app.js`)**: formato visible, DOM, eventos,
+7. **Presentación (`src/ui/` y `src/app.js`)**: formato visible, DOM, eventos,
    diálogos y coordinación del estado de la página.
-7. **CLI (`src/cli/`)**: adaptación entre argumentos, fuentes `FileCalendarSource`/
+8. **CLI (`src/cli/`)**: adaptación entre argumentos, fuentes `FileCalendarSource`/
    `CloudCalendarSource` y contrato. La fuente cloud es solo lectura; autenticación
    y lectura PostgREST están separadas del dominio.
-8. **Distribución (`scripts/build.mjs`)**: valida el manifiesto y la sintaxis,
+9. **Distribución (`scripts/build.mjs`)**: valida el manifiesto y la sintaxis,
    concatena los módulos en orden de dependencia e inserta código, estilos,
    icono, SheetJS, Three.js y sus avisos de licencia en el HTML final.
 
 ```text
 CLI --------------------> contrato ----> núcleo ----> dominio
-interfaz ----> importador ---^   |           ^
+interfaz ----> aplicación --------^           ^
+    |             |
+    +----> importador
     |                         |           |
     +----> persistencia       +-----------+
     +----> presentación -----> dominio
@@ -58,6 +63,9 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 - `core.js` reexporta las utilidades de dominio que ya formaban parte de su API.
 - El contrato de `executeCalendarOperation()` es la única ruta compartida de
   mutaciones entre la CLI y la interfaz.
+- `src/application/` puede depender del contrato, núcleo y dominio; no puede
+  depender de UI, persistencia, cloud, CLI ni composición. La UI puede usar
+  sus comandos sin conocer cómo se persiste el documento.
 - `APP_VERSION`, `SCHEMA_VERSION` y `CONTRACT_VERSION` tienen significados
   distintos y no se actualizan por una refactorización interna.
 - Stable y beta comparten autenticación de Supabase, pero usan calendarios
@@ -80,6 +88,9 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
   exactamente la cascada del archivo original.
 - Una extracción debe conservar las pruebas existentes y, si crea una API pura
   nueva, añadir pruebas directas cuando aporten cobertura distinta.
+- Los módulos de aplicación deben recibir sus dependencias por argumentos y
+  evitar estado global; los adaptadores de almacenamiento permanecen fuera de
+  esa capa.
 - `app.js` conserva la coordinación del DOM y su estado efímero; el contrato y
   los importadores conservan las secuencias que deben ser atómicas. El criterio
   de cierre es que sus funciones internas tengan una responsabilidad legible,
@@ -90,7 +101,8 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 El siguiente inventario fue comprobado en el worktree local el 2026-08-19; no
 es una certificación de despliegue ni de una release limpia:
 
-- `npm test` terminó con 149 pruebas aprobadas.
+- `npm test` terminó con todas las pruebas aprobadas en el corte documentado;
+  el número de pruebas no es un límite de diseño.
 - El conteo de líneas es: `src/app.js` 4.784, `src/core.js` 1.315 y
   `src/importer.js` 11. Son métricas descriptivas del corte, no límites de
   diseño.
@@ -148,6 +160,8 @@ cifras no describen el inventario actual.
 - [x] Dividir el calendario en construcción de día, navegación y drag/drop.
 - [x] Dividir renderizadores de catálogo, cajones y formularios en ayudantes enfocados.
 - [x] Agrupar el registro de eventos por área de la interfaz.
+- [x] Extraer el mapeo puro de clases visuales a `src/ui/view-state.js`.
+- [x] Centralizar las mutaciones de contrato en `src/application/calendar-commands.js`.
 - [x] Eliminar código muerto demostrado mediante búsqueda de referencias.
 - [x] Separar estilos base, responsive y contrato visual preservando la cascada.
 - [x] Mantener intactos DOM, accesibilidad, densidad y comportamiento responsive.
