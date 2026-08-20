@@ -20,8 +20,28 @@ export const ARCHITECTURE_RULES = Object.freeze({
   ui: Object.freeze(["persistence", "cli", "cloud", "composition"]),
   cli: Object.freeze(["ui", "persistence", "cloud", "composition"]),
   composition: Object.freeze([]),
-  application: Object.freeze(["ui", "persistence", "cli", "cloud", "composition"]),
+  application: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "import"]),
 });
+
+export const APPLICATION_FORBIDDEN_TOKENS = Object.freeze([
+  "document",
+  "window",
+  "globalThis",
+  "localStorage",
+  "sessionStorage",
+  "indexedDB",
+  "fetch",
+  "BroadcastChannel",
+  "Supabase",
+  "XLSX"
+]);
+
+export const APPLICATION_FORBIDDEN_PACKAGES = Object.freeze([
+  "xlsx",
+  "exceljs",
+  "supabase",
+  "@supabase/supabase-js"
+]);
 
 export function normalizeModulePath(modulePath) {
   return String(modulePath)
@@ -46,6 +66,74 @@ export function classifyModule(modulePath) {
 
 function collectMatches(source, pattern) {
   return [...source.matchAll(pattern)].map((match) => match[1]);
+}
+
+function stripCommentsAndStringLiterals(source) {
+  let code = "";
+  let index = 0;
+  while (index < source.length) {
+    const char = source[index];
+    const next = source[index + 1];
+    if (char === "/" && next === "/") {
+      index += 2;
+      while (index < source.length && source[index] !== "\n") index += 1;
+      code += "\n";
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      index += 2;
+      while (index < source.length && !(source[index] === "*" && source[index + 1] === "/")) index += 1;
+      index = Math.min(index + 2, source.length);
+      code += " ";
+      continue;
+    }
+    if (char === "'" || char === "\"" || char === "`") {
+      const quote = char;
+      index += 1;
+      while (index < source.length) {
+        if (source[index] === "\\") {
+          index += 2;
+          continue;
+        }
+        if (source[index] === quote) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      code += " ";
+      continue;
+    }
+    code += char;
+    index += 1;
+  }
+  return code;
+}
+
+export function findForbiddenSemanticReferences(source) {
+  const code = stripCommentsAndStringLiterals(source);
+  const pattern = new RegExp(`(?<![.\\w$])(?:${APPLICATION_FORBIDDEN_TOKENS.join("|")})\\b`, "g");
+  const found = new Set();
+  for (const match of code.matchAll(pattern)) {
+    const token = match[0];
+    const after = code.slice(match.index + token.length);
+    if (/^\s*:/.test(after)) continue;
+    found.add(token);
+  }
+  return [...found];
+}
+
+export function isForbiddenApplicationPackage(specifier) {
+  return APPLICATION_FORBIDDEN_PACKAGES.includes(specifier)
+    || specifier.startsWith("@supabase/");
+}
+
+export function findForbiddenPackageReferences(source) {
+  const specifiers = [
+    ...collectMatches(source, staticImportPattern),
+    ...collectMatches(source, dynamicImportPattern)
+  ];
+  return [...new Set(specifiers.filter(isForbiddenApplicationPackage))];
 }
 
 export function extractLocalImportSpecifiers(source) {
@@ -83,9 +171,11 @@ export async function discoverSourceModules({ root = sourceRoot } = {}) {
 export async function readSourceImportGraph({ root = sourceRoot } = {}) {
   const modules = await discoverSourceModules({ root });
   const graph = new Map();
+  const sources = new Map();
 
   for (const importer of modules) {
     const source = await readFile(resolve(root, importer), "utf8");
+    sources.set(importer, source);
     const imports = extractLocalImportSpecifiers(source).map((specifier) => ({
       specifier,
       relativePath: resolveLocalModulePath(importer, specifier, root)
@@ -93,14 +183,14 @@ export async function readSourceImportGraph({ root = sourceRoot } = {}) {
     graph.set(importer, imports);
   }
 
-  return { root, modules, graph };
+  return { root, modules, graph, sources };
 }
 
 function violation(type, details) {
   return { type, ...details };
 }
 
-export function validateArchitectureGraph({ modules, graph }) {
+export function validateArchitectureGraph({ modules, graph, sources }) {
   const normalizedModules = [...new Set(modules.map(normalizeModulePath))].sort();
   const moduleSet = new Set(normalizedModules);
   const violations = [];
@@ -151,6 +241,20 @@ export function validateArchitectureGraph({ modules, graph }) {
     }
   }
 
+  if (sources) {
+    for (const modulePath of normalizedModules) {
+      if (classifyModule(modulePath) !== "application") continue;
+      const source = sources.get(modulePath);
+      if (typeof source !== "string") continue;
+      for (const token of findForbiddenSemanticReferences(source)) {
+        violations.push(violation("forbidden-semantic-reference", { module: modulePath, token }));
+      }
+      for (const specifier of findForbiddenPackageReferences(source)) {
+        violations.push(violation("forbidden-application-package", { module: modulePath, specifier }));
+      }
+    }
+  }
+
   return {
     ok: violations.length === 0,
     modules: normalizedModules,
@@ -179,6 +283,10 @@ function formatViolation(item) {
       return `import local no resuelto: ${item.importer} -> ${item.specifier} (${item.dependency})`;
     case "forbidden-import":
       return `${item.importer} [${item.importerLayer}] no puede importar ${item.dependency} [${item.dependencyLayer}]`;
+    case "forbidden-semantic-reference":
+      return `módulo application ${item.module} referencia el token prohibido '${item.token}'`;
+    case "forbidden-application-package":
+      return `módulo application ${item.module} importa el paquete prohibido '${item.specifier}'`;
     default:
       return `violación desconocida: ${JSON.stringify(item)}`;
   }
