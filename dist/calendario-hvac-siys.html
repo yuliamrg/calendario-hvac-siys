@@ -85922,6 +85922,41 @@ export function createJsonPreferences(storage, key) {
 }
 
 
+export function createCalendarCommands({
+  getDocument,
+  setDocument,
+  executeOperation,
+  cloneDocument = structuredClone
+}) {
+  if (typeof getDocument !== "function") {
+    throw new TypeError("createCalendarCommands requiere getDocument.");
+  }
+  if (typeof setDocument !== "function") {
+    throw new TypeError("createCalendarCommands requiere setDocument.");
+  }
+  if (typeof executeOperation !== "function") {
+    throw new TypeError("createCalendarCommands requiere executeOperation.");
+  }
+
+  function dispatch(operation, payload = {}, options = {}) {
+    const before = cloneDocument(getDocument());
+    try {
+      const outcome = executeOperation(getDocument(), { operation, payload }, options);
+      if (outcome && outcome.changed) setDocument(outcome.document);
+      return outcome;
+    } catch (error) {
+      setDocument(before);
+      throw error;
+    }
+  }
+
+  return Object.freeze({
+    dispatch,
+    run: dispatch
+  });
+}
+
+
 export const MAX_VISIBLE_CARDS = 3;
 export const DAY_NAMES = Object.freeze([
   "domingo",
@@ -86378,6 +86413,12 @@ export function createMutationController({
   notify,
   afterUndo
 }) {
+  const commands = createCalendarCommands({
+    getDocument,
+    setDocument,
+    executeOperation,
+    cloneDocument
+  });
   let undoSnapshot = null;
 
   function assertEditable() {
@@ -86414,9 +86455,8 @@ export function createMutationController({
   function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
     assertEditable();
     const before = cloneDocument(getDocument());
-    const outcome = executeOperation(getDocument(), { operation, payload });
+    const outcome = commands.dispatch(operation, payload);
     if (!outcome.changed) return outcome;
-    setDocument(outcome.document);
     if (undo) undoSnapshot = { document: before, label: detail };
     finishChange(detail, toast, undo);
     return outcome;
@@ -86440,6 +86480,41 @@ export function createMutationController({
     clearUndo: () => { undoSnapshot = null; },
     hasUndo: () => undoSnapshot !== null
   });
+}
+
+
+export const VIEW_CLASSES = Object.freeze({
+  catalogCollapsed: "catalog-collapsed",
+  catalogMobileOpen: "catalog-mobile-open",
+  motionEnhanced: "motion-enhanced",
+  readOnly: "read-only"
+});
+
+export function deriveViewClasses(state = {}) {
+  const {
+    catalogCollapsed = false,
+    isMobileLayout = false,
+    catalogMobileOpen = false,
+    motionEnabled = false,
+    prefersReducedMotion = false,
+    hasEditControl = true
+  } = state;
+
+  const classes = {};
+
+  classes[VIEW_CLASSES.catalogCollapsed] = !isMobileLayout && catalogCollapsed;
+  classes[VIEW_CLASSES.catalogMobileOpen] = isMobileLayout && catalogMobileOpen;
+  classes[VIEW_CLASSES.motionEnhanced] = motionEnabled && !prefersReducedMotion;
+  classes[VIEW_CLASSES.readOnly] = !hasEditControl;
+
+  return classes;
+}
+
+export function applyViewClasses(body, classes) {
+  for (const [className, shouldApply] of Object.entries(classes)) {
+    body.classList.toggle(className, shouldApply);
+  }
+  return classes;
 }
 
 
@@ -90480,17 +90555,34 @@ function clone(value) {
   return structuredClone(value);
 }
 
+function readViewState() {
+  const prefs = uiPreferences.read();
+  return {
+    catalogCollapsed: prefs.catalogCollapsed === true,
+    isMobileLayout: compactLayoutQuery?.matches ?? false,
+    catalogMobileOpen: document.body.classList.contains("catalog-mobile-open"),
+    motionEnabled: prefs.motion === true,
+    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true,
+    hasEditControl
+  };
+}
+
+function applyViewState() {
+  const classes = applyViewClasses(document.body, deriveViewClasses(readViewState()));
+  globalThis.calendaryThreeMotion?.setEnabled(classes["motion-enhanced"]);
+  return classes;
+}
+
 function applyCatalogPreference() {
+  const classes = applyViewState();
   if (compactLayoutQuery?.matches) {
-    const open = document.body.classList.contains("catalog-mobile-open");
+    const open = classes["catalog-mobile-open"];
     dom.toggleCatalogButton.setAttribute("aria-expanded", String(open));
     dom.toggleCatalogButton.title = open ? "Cerrar banco de tarjetas" : "Abrir banco de tarjetas";
     dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
     return;
   }
-  const collapsed = uiPreferences.read().catalogCollapsed === true;
-  document.body.classList.remove("catalog-mobile-open");
-  document.body.classList.toggle("catalog-collapsed", collapsed);
+  const collapsed = classes["catalog-collapsed"];
   dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
   dom.toggleCatalogButton.title = collapsed ? "Mostrar banco de tarjetas" : "Ocultar banco de tarjetas";
   dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
@@ -90557,14 +90649,12 @@ function motionPreference() {
 }
 
 function applyMotionPreference() {
-  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
-  const enabled = motionPreference() && !reduced;
-  document.body.classList.toggle("motion-enhanced", enabled);
-  globalThis.calendaryThreeMotion?.setEnabled(enabled);
-  if (dom.motionEnabled) dom.motionEnabled.checked = motionPreference();
+  const prefs = uiPreferences.read();
+  applyViewState();
+  if (dom.motionEnabled) dom.motionEnabled.checked = prefs.motion === true;
   if (dom.motionButton) {
-    dom.motionButton.setAttribute("aria-pressed", String(motionPreference()));
-    dom.motionButton.querySelector("strong").textContent = `Animaciones visuales: ${motionPreference() ? "activas" : "inactivas"}`;
+    dom.motionButton.setAttribute("aria-pressed", String(prefs.motion === true));
+    dom.motionButton.querySelector("strong").textContent = `Animaciones visuales: ${prefs.motion === true ? "activas" : "inactivas"}`;
   }
 }
 
@@ -90793,7 +90883,7 @@ async function releaseEditLock() {
 }
 
 function renderAccessMode() {
-  document.body.classList.toggle("read-only", !hasEditControl);
+  applyViewState();
   dom.accessBanner.hidden = hasEditControl || (!storageAvailable && !CLOUD_MODE);
   dom.takeControlButton.hidden = CLOUD_MODE || hasEditControl || !storageAvailable;
   const guardedIds = [
