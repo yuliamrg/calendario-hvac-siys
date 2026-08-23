@@ -1,5 +1,9 @@
 # Plan de Refuerzo Arquitectónico
 
+> Estado: implementado localmente en el `main` pendiente de merge. Este
+> documento conserva el razonamiento y los criterios de aceptación; no es una
+> instrucción para crear nuevamente la capa `application`.
+
 ## Resumen
 
 Este plan refuerza las fronteras de importación entre las capas del sistema Calendary,
@@ -53,7 +57,8 @@ Los cambios se basan en tres pilares:
 | `composition` (`app.js`) | todas las fachadas/adaptadores necesarios | — |
 
 **Estrategia de integración incremental:**
-1. Ejecutar `npm run architecture:check` sobre el código actual: debe pasar (grafo existente no tiene módulos `application/`).
+1. Ejecutar `npm run architecture:check` sobre el código actual: debe pasar; el
+   grafo ya contiene los módulos `src/application/` implementados.
 2. Si se crea un módulo nuevo bajo `src/application/`, asegurar que sus imports sean solo a `core`, `contract` o `domain`.
 3. Después de cada módulo añadido, ejecutar `npm run architecture:check` como gate de CI.
 4. Documentar en `docs/ARQUITECTURA.md` la nueva capa si es necesario, enlazando desde el mapa de capas.
@@ -101,12 +106,15 @@ Los cambios se basan en tres pilares:
 
 ## Integración con la documentación existente
 
-El archivo `docs/ARQUITECTURA.md` permanece inalterado salvo la posible adición de un apunte que enlace a este plan desde la sección de capas o fronteras. Cualquier actualización al `ARQUITECTURA.md` será mínima y orientada a enlaces, no a reescribir el mapa de dependencias.
+El archivo `docs/ARQUITECTURA.md` ya incorpora la capa `application`, el
+manifiesto actual y sus métricas verificadas. Si cambia el grafo, debe
+actualizarse el mapa y ejecutar la guardia; no se debe dejar este plan como
+fuente de cifras actuales.
 
 ## Comandos de verificación
 
 ```bash
 npm run architecture:check    # guarda de fronteras
-npm test                      # 149 tests
+npm test                      # todas las pruebas del corte actual
 npm run verify                # tests + architecture + build + version + audit
 ```

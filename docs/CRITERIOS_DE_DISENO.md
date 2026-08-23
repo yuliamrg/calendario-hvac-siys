@@ -10,14 +10,15 @@ La versión beta es el espacio para probar cambios de diseño. La versión
 estable conserva el comportamiento y la apariencia aprobados hasta que una
 propuesta beta cumpla las puertas de promoción descritas al final.
 
-La iteración `0.10.0-beta.2`, promovida a estable como `0.10.0`, valida una interacción de tema sin diálogo,
+La iteración histórica `0.10.0-beta.2`, promovida a estable como `0.10.0`, valida una interacción de tema sin diálogo,
 densidad de detalle en dos columnas, búsqueda de responsables y controles de
 selección legibles en ambos temas. Estas reglas son ahora el contrato visual
 compartido por estable y beta; los datos operativos siguen aislados por canal.
 
 ## Producto, audiencia y tarea principal
 
-- Producto: calendario local autocontenido para programar servicios HVAC SI&S.
+- Producto: calendario local autocontenido y, en los canales publicados,
+  conectado a cloud para programar servicios HVAC SI&S.
 - Público principal: coordinación de servicios y personas que consultan o
   actualizan la programación operativa.
 - Tarea primaria: comprender qué actividad ocurre, cuándo, dónde, con quién y
@@ -162,7 +163,9 @@ mínimo:
 
 ## Rendimiento, privacidad y distribución
 
-- Mantener el HTML autocontenido y sin solicitudes de red en ejecución normal.
+- Mantener el HTML autocontenido. El modo local debe funcionar sin solicitudes
+  de red; stable/beta pueden usar Auth y PostgREST cuando reciben configuración
+  cloud autorizada.
 - No incorporar fuentes, iconos, imágenes ni dependencias remotas sin revisar
   licencia, peso y disponibilidad offline.
 - No introducir datos operativos en capturas, fixtures, documentación pública o
@@ -174,8 +177,8 @@ mínimo:
 
 Una mejora visual beta sólo se promueve si:
 
-- alcanza al menos 85/100 en la rúbrica visual web y no tiene defectos
-  críticos;
+- alcanza al menos 85/100 en la rúbrica visual web aprobada para la entrega,
+  con la matriz de evaluación adjunta al cambio, y no tiene defectos críticos;
 - conserva contenido, privacidad, persistencia, exportaciones y flujo operativo;
 - pasa `npm run verify` y las pruebas de navegador en Chrome y Edge;
 - pasa los seis viewports responsive sin overflow ni superposición;

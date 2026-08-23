@@ -64,9 +64,10 @@ la lectura ni presentar el documento como corrupto. `observedAt` es el momento d
 `documentUpdatedAt` el timestamp de la fila actual. `as-of` histórico no está
 soportado y falla con `HISTORICAL_QUERY_UNSUPPORTED`.
 
-La CLI solo realiza GET sobre `calendars`, `calendar_documents` y, cuando está
-disponible, `profiles`. Los errores de autenticación, RLS o red no hacen
-fallback silencioso al JSON local. Las operaciones de mutación con
+Las operaciones de lectura cloud sólo realizan GET sobre `calendars`,
+`calendar_documents` y, cuando está disponible, `profiles`. El inicio y cierre
+de sesión usan las operaciones de autenticación correspondientes. Los errores
+de autenticación, RLS o red no hacen fallback silencioso al JSON local. Las operaciones de mutación con
 `--source cloud` fallan antes de realizar una petición con
 `CLOUD_WRITE_NOT_ALLOWED`.
 

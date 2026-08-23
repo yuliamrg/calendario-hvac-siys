@@ -44,7 +44,7 @@ La validación automatizada está disponible con:
 npm run version:check
 ~~~
 
-En el corte local comprobado el 2026-08-19, `package.json` y `src/core.js`
+En el corte local comprobado el 2026-08-23, `package.json` y `src/core.js`
 declaran `0.16.0-beta.2`, los dos valores de versión de `package-lock.json`
 coinciden y `stable-version.txt` contiene `v0.15.0`. Es un estado del
 repositorio local: no certifica qué HTML está sirviendo actualmente GitHub
@@ -147,6 +147,20 @@ rama propia. No se trabaja directamente sobre `main`:
 6. Después de integrar el PR, publicar la beta o promover a estable según las
    secciones siguientes. Cuando el trabajo termine, eliminar la rama y el
    worktree asociado si existe; conservar los commits integrados y los tags.
+
+### Commits que no cambian la versión
+
+Los commits de documentación, pruebas, build, CI y refactorización interna
+mantienen la versión mientras no cambien el alcance público de la release. Se
+identifican con mensajes Conventional Commits, por ejemplo `docs:`, `test:`,
+`build:`, `ci:`, `refactor:` o `fix:`. No se incrementa `APP_VERSION` por el
+mero hecho de crear un commit ni se edita `dist/` manualmente.
+
+Un commit de release es distinto: actualiza de forma coordinada
+`package.json`, `package-lock.json`, `src/core.js`, `CHANGELOG.md` y los
+artefactos requeridos, ejecuta los gates y recibe el tag `v<version>` después
+de integrar el PR. Un cambio documental que acompaña una versión pendiente se
+queda en la misma línea y se integra como commit revisable separado.
 
 ## 5. Prereleases y promoción
 
@@ -266,7 +280,7 @@ Para promover a estable, además:
 
 ## 11. Corte local actual e historial
 
-En el corte local comprobado el 2026-08-19:
+En el corte local comprobado el 2026-08-23:
 
 - `main` contiene la línea `0.16.0-beta.2` en `package.json` y `APP_VERSION`.
 - `package-lock.json` conserva esa misma versión en su raíz y en

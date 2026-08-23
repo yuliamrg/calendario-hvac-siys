@@ -1,9 +1,14 @@
 # Plan maestro de implementaciones frontend de Calendary
 
-Estado: PREPARACIÓN LOCAL  
-Responsable: agente maestro Codex  
-Canales incluidos: local únicamente  
+Estado: REGISTRO HISTÓRICO DE IMPLEMENTACIÓN; PENDIENTE DE MERGE Y RELEASE
+Responsable: agente maestro Codex
+Canales incluidos: local únicamente
 Canales excluidos hasta autorización posterior: beta, stable, GitHub, publicación y tags.
+
+La ola documentada aquí quedó incorporada al `main` local mediante commits
+separados de feature, test, refactor y build. Las tareas que permanecen sin
+marcar no forman parte de esta integración y requieren un plan nuevo antes de
+retomarse; no deben interpretarse como un estado actual de release.
 
 ## Propósito
 
@@ -33,7 +38,7 @@ calendar-contract.js, debe detenerse y reportarlo antes de editar.
 
 - [x] Auditoría estática de HTML, CSS, JavaScript y build realizada.
 - [x] No hay IDs duplicados en la plantilla actual: 326 IDs y 326 únicos.
-- [x] npm test: 144 pruebas aprobadas en la última verificación local.
+- [x] npm test: 189 pruebas aprobadas en la verificación del corte actual.
 - [x] Se conserva el alcance local y no se modifican datos persistentes.
 - [x] Registrar git status --short y git diff --check antes de integrar.
 - [ ] Ejecutar smoke local de navegador antes de la primera integración visual.
@@ -264,7 +269,7 @@ Checks:
 6. Si hay conflicto, detener la integración y no forzar merges.
 7. Ejecutar regresión antes de iniciar la siguiente ola.
 
-## Estado actual
+## Estado de la ola documentada
 
 - [x] Plan creado por el agente maestro.
 - [x] Ola 1 ejecutada con agentes en paralelo y superficies separadas.
@@ -294,8 +299,9 @@ Checks:
 - [x] F-04 añadió src/ui/export-layout.js y tests/export-layout.test.mjs.
 - [x] F-01/F-04 se integraron en src/app.js; no se regeneró dist/.
 - [x] F-09 añadió src/domain/responsible-ranking.js y tests/responsible-ranking.test.mjs.
-- [x] npm test del maestro: 147 pruebas aprobadas.
+- [x] npm test del maestro: 189 pruebas aprobadas en el corte actual.
 - [x] git diff --check aprobado.
 - [x] La integración modificó únicamente src/app.js dentro de la superficie
   autorizada; no se modificaron HTML, core.js, calendar-contract.js ni dist/.
-- [ ] El build y la verificación visual final siguen pendientes para el maestro.
+- [ ] La verificación final de release, incluidos smokes de navegador y
+  promoción de canales, sigue pendiente de merge y autorización.

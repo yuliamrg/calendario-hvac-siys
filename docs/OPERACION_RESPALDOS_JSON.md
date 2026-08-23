@@ -9,6 +9,11 @@ Este runbook se complementa con el [mapa del sistema](SISTEMA.md), el [modelo
 de datos y estados](MODELO_ESTADOS.md) y la [guía de build, distribución y
 releases](BUILD_RELEASE.md).
 
+Está dirigido al equipo coordinador que opera respaldos en este equipo. La
+carpeta canónica indicada abajo es una convención local de SI&S; en otro equipo
+debe sustituirse por una ruta protegida y sincronizada, sin asumir que la ruta
+de OneDrive exista.
+
 ## Estado y alcance
 
 La línea actual del repositorio incluye `bin/calendary.js`, el contrato
@@ -61,7 +66,7 @@ calendario lógico distinto. El archivo sólo debe volver al
 mismo canal y perfil del que salió, salvo que se haya autorizado un traslado
 explícito.
 
-En el corte local comprobado el 2026-08-19, `package.json` y
+En el corte local comprobado el 2026-08-23, `package.json` y
 `src/core.js > APP_VERSION` declaran `0.16.0-beta.2`, `package-lock.json`
 coincide y `stable-version.txt` contiene `v0.15.0`. `schemaVersion` vigente es
 4 y `formatVersion` de la envoltura de respaldo es 1. Estos datos locales no

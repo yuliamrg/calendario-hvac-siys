@@ -90,7 +90,8 @@ del calendario; en teléfono la agenda diaria muestra todas las tarjetas.
 
 Con edición habilitada puede arrastrar una tarjeta sobre otra para insertarla antes
 o después, tanto en el calendario como dentro de la agenda completa del día. El
-orden queda guardado en IndexedDB. En el detalle de la tarjeta también están
+orden queda guardado en el almacenamiento del canal: IndexedDB en modo local o
+Supabase en stable/beta cloud. En el detalle de la tarjeta también están
 disponibles **Primera**, **Anterior**, **Siguiente** y **Última** para teclado o
 táctil. Si hay filtros activos, quítelos antes de reordenar para no ocultar parte
 del grupo.
@@ -218,14 +219,35 @@ Supabase:
 - stable usa `calendario-hvac-siys` y beta usa `calendario-hvac-siys-beta` dentro
   del mismo proyecto Supabase.
 
+### Primer acceso cloud
+
+En stable o beta, cuando aparezca **Conectar con SIYS Sync**:
+
+1. Para una cuenta existente, escriba correo y contraseña y pulse **Iniciar
+   sesión**.
+2. Para un acceso nuevo, pulse **Crear una cuenta**, registre el nombre visible,
+   correo y una contraseña de al menos seis caracteres. Si la instalación pide
+   confirmar el correo, hágalo y después inicie sesión.
+3. Seleccione el cronograma en **Cronograma**. El botón **Actualizar lista de
+   cronogramas** vuelve a consultar los cronogramas disponibles.
+4. Use **Cerrar sesión** al terminar en un equipo compartido.
+
+La autenticación permite acceder al canal, pero no debe interpretarse como
+confidencialidad por usuario. No cargue información sensible sin confirmar las
+políticas de acceso del proyecto cloud.
+
 **Proteger almacenamiento** solicita persistencia al navegador. La concesión
 reduce la posibilidad de liberación automática, pero no garantiza una copia de
 seguridad. Use **Descargar copia del cronograma** regularmente y guárdela fuera
 de la carpeta temporal.
 
-Sólo una pestaña edita. Las demás quedan en lectura y pueden filtrar, imprimir
-y exportar. **Tomar control** transfiere la edición. Si la pestaña editora se
-cierra o falla, otra recupera el control tras unos 15 segundos.
+En el modo local, sólo una pestaña edita. Las demás quedan en lectura y pueden
+filtrar, imprimir y exportar. **Tomar control** transfiere la edición. Si la
+pestaña editora se cierra o falla, otra recupera el control tras unos 15
+segundos. En stable/beta cloud no hay este bloqueo entre pestañas: dos cambios
+simultáneos se controlan mediante la revisión remota. Si aparece un conflicto,
+recarga el cronograma, revisa la versión más reciente y vuelve a aplicar sólo
+los cambios necesarios.
 
 Al restaurar se muestran cronograma, coordinador, revisión y antigüedad. La
 restauración reemplaza el documento, no mezcla versiones, y conserva una copia

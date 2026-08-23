@@ -118,9 +118,12 @@ npx supabase db push --linked
 
 La aplicación publicada pide una cuenta de Supabase y guarda el documento JSON
 en `public.calendar_documents`, protegido por RLS y asociado a un calendario y
-a su membresía. Sólo se debe incluir en el frontend la URL y la clave
-`publishable`; nunca la `service_role` ni la contraseña de Postgres. El archivo
-local continúa usando IndexedDB y no necesita autenticación.
+a su membresía. La autenticación no convierte el calendario en un archivo
+privado por usuario: antes de cargar información sensible deben revisarse las
+políticas RLS y el alcance de las membresías del proyecto. Sólo se debe incluir
+en el frontend la URL y la clave `publishable`; nunca la `service_role` ni la
+contraseña de Postgres. El archivo local continúa usando IndexedDB y no necesita
+autenticación.
 
 El workflow de Pages necesita las variables de repositorio
 `SIYS_SUPABASE_URL` y `SIYS_SUPABASE_PUBLISHABLE_KEY`. La URL de Auth ya permite
@@ -177,10 +180,13 @@ La sección **Datos locales del navegador** indica si el navegador concedió
 persistencia al origen. Esta protección reduce el riesgo de liberación
 automática por falta de espacio, pero no reemplaza los respaldos JSON.
 
-Sólo una pestaña puede editar a la vez. Las demás abren en modo de lectura y
-pueden consultar, filtrar y exportar. **Tomar control** transfiere la edición a
-la pestaña actual; si la pestaña editora se cierra o deja de responder, otra
-recupera el control después de aproximadamente 15 segundos.
+En el modo local, sólo una pestaña puede editar a la vez. Las demás abren en
+modo de lectura y pueden consultar, filtrar y exportar. **Tomar control**
+transfiere la edición a la pestaña actual; si la pestaña editora se cierra o
+deja de responder, otra recupera el control después de aproximadamente 15
+segundos. En cloud no se usa este bloqueo entre pestañas: la escritura es
+optimista y un cambio concurrente puede producir un conflicto de revisión que
+requiere recargar y revisar antes de continuar.
 
 ## Nombre del cronograma y edición múltiple
 
@@ -210,7 +216,7 @@ automáticamente.
 
 ## Desarrollo y verificación
 
-Requiere Node.js 20 o superior sólo para reconstruir el entregable:
+Requiere Node.js 20 o superior para reconstruir el entregable o usar la CLI:
 
 ```powershell
 npm test
@@ -228,6 +234,7 @@ incluidos dentro del HTML generado.
 
 Documentación:
 
+- [Mapa de documentación por audiencia](docs/README.md)
 - [Arquitectura y fases de refactorización](docs/ARQUITECTURA.md)
 - [Manual completo](docs/MANUAL_DE_USO.md)
 - [Guía de Base Operativa](docs/BASE_OPERATIVA.md)

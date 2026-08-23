@@ -33,9 +33,11 @@ respaldo nuevo. La secuencia representa el uso operativo esperado:
 | `tests/cli.test.mjs` | ayuda, JSON, escritura nueva y confirmación no interactiva |
 | `tests/cli-e2e.test.mjs` | ruta completa de CLI con proceso real y archivos temporales |
 
-La prueba e2e exige que todas las operaciones públicas del contrato estén
-presentes en la cobertura, incluyendo calendario, actividades, catálogo,
-festivos, respaldos y normalización documental.
+La cobertura combinada exige que todas las operaciones públicas del contrato
+estén presentes en la suite. La ruta e2e ejercita calendario, actividades,
+catálogo, festivos, respaldos y normalización documental; `calendar.identify`
+se cubre además en `tests/contract.test.mjs` junto con sus invariantes de
+escritura.
 
 ## Ejecución
 

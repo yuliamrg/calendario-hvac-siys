@@ -1,11 +1,12 @@
 # Plan maestro de reforzamiento del sistema
 
-Estado: EN EJECUCIÓN LOCAL  
-Orquestador: Codex maestro  
-Máximo de tareas paralelas: 3  
-Alcance actual: documentación, consistencia arquitectónica y mantenibilidad
-local. No publicar, no promover canales y no crear PR hasta cerrar las puertas
-de verificación.
+Estado: IMPLEMENTADO LOCALMENTE; PENDIENTE DE MERGE Y RELEASE
+Orquestador: Codex maestro
+Máximo de tareas paralelas: 3
+Alcance: documentación, consistencia arquitectónica y mantenibilidad local.
+Este archivo queda como registro de la ola implementada; no es una checklist
+activa ni autoriza publicar, promover canales o crear un PR sin cerrar las
+puertas de verificación.
 
 ## Objetivo
 
@@ -117,7 +118,7 @@ Esta ola también quedó implementada localmente, con tres superficies separadas
 
 - **Guardia de arquitectura:** `scripts/architecture-check.mjs`,
   `tests/architecture.test.mjs` y el comando `npm run architecture:check`.
-  Recorre los 37 módulos de `src/`, valida 74 imports locales, detecta la CLI
+  Recorre los 40 módulos de `src/`, valida 77 imports locales, detecta la CLI
   completa y rechaza cruces de capas; `app.js` es el único composition root.
 - **Sincronización documental:** `docs/ARQUITECTURA.md`,
   `docs/VERSIONAMIENTO.md`, `docs/DISTRIBUCION.md` y
@@ -156,9 +157,10 @@ contenía artefactos modificados antes de esta intervención.
 
 ### Puerta D — Cierre
 
-- [x] `npm test` pasa (157 pruebas).
-- [x] `npm run verify` pasa después de corregir el manifiesto y regenerar
-  `dist/` desde el maestro (157 pruebas, build, versionamiento y auditoría).
+- [x] `npm test` pasa (189 pruebas en el corte actual).
+- [x] `npm run verify` pasa en el corte local y no cambia `dist/`; los smokes de
+  navegador y la verificación remota deben repetirse sobre el conjunto
+  integrado antes de publicar.
 - [x] `git diff --check` pasa.
 - [x] Se han revisado los artefactos locales y no se publicó nada sin autorización.
 

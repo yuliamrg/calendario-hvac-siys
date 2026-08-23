@@ -98,19 +98,19 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 
 ## Corte local actual
 
-El siguiente inventario fue comprobado en el worktree local el 2026-08-19; no
-es una certificación de despliegue ni de una release limpia:
+El siguiente inventario fue comprobado en el worktree local el 2026-08-23; no
+es una certificación de despliegue remoto ni de una release publicada:
 
-- `npm test` terminó con todas las pruebas aprobadas en el corte documentado;
-  el número de pruebas no es un límite de diseño.
-- El conteo de líneas es: `src/app.js` 4.784, `src/core.js` 1.315 y
+- `npm test` terminó con 189 pruebas aprobadas en el corte documentado; el
+  número de pruebas no es un límite de diseño.
+- El conteo de líneas es: `src/app.js` 4.823, `src/core.js` 1.315 y
   `src/importer.js` 11. Son métricas descriptivas del corte, no límites de
   diseño.
-- El manifiesto de la aplicación contiene 27 módulos JavaScript del navegador;
+- El manifiesto de la aplicación contiene 30 módulos JavaScript del navegador;
   `src/` también contiene módulos de CLI que no se incluyen en ese HTML.
-- En esta actualización documental no se ejecutó `npm run build`; por tanto,
-  no se afirma que los archivos existentes de `dist/` estén sincronizados con
-  el código actual. La validación posterior está en
+- El `HEAD` local contiene `d27383a`, que regeneró `dist/` después de la última
+  frontera de imports. La presencia de esos artefactos no certifica el
+  despliegue remoto; la validación de integración está en
   [build, distribución y releases](BUILD_RELEASE.md).
 
 ## Fases medibles de refactorización
@@ -182,7 +182,7 @@ en 1.153 líneas, `importer.js` en 11, `src/cli/main.js` en 54 y los estilos se
 distribuyeron en tres archivos ordenados. Se añadieron 20 módulos enfocados en
 dominio, importación, persistencia, UI y CLI. Los smokes registrados aprobaron
 Chrome y Edge, seis viewports sin desbordamiento del documento y el flujo de
-Pendientes. No debe leerse como el resultado de las 149 pruebas actuales ni
+Pendientes. No debe leerse como el resultado de las 189 pruebas actuales ni
 como una verificación remota vigente.
 
 ## Puertas de verificación

@@ -1,9 +1,9 @@
 # Sistema actual: Calendary / SIYS Sync
 
-Estado de esta página: entregable S-01, descripción del worktree local
-observado el 2026-08-19. Describe el sistema que está en el código y la
-configuración actuales; no certifica que dist/ sea publicable ni que el
-Supabase remoto tenga exactamente las migraciones del repositorio.
+Estado de esta página: descripción del `main` local auditado el 2026-08-23.
+Describe el sistema que está en el código y la configuración actuales; no
+certifica que `dist/` sea publicable ni que el Supabase remoto tenga exactamente
+las migraciones del repositorio.
 
 ## Cómo leer este documento
 
@@ -397,16 +397,16 @@ Estas reglas describen las fronteras existentes; no proponen componentes nuevos.
 
 | Estado | Evidencia actual | Impacto y siguiente dueño |
 | --- | --- | --- |
-| **Hecho verificado** | S-03 añadió a [scripts/build.mjs](../scripts/build.mjs) `activity-presentation.js`, `export-layout.js`, `importer.js` y validación automática del manifiesto. | El manifiesto fuente representa esos imports, pero `dist/` aún no se regeneró y sus salidas todavía no contienen los símbolos nuevos. El maestro debe ejecutar el build antes del cierre. |
+| **Hecho verificado** | S-03 y los commits posteriores añadieron `application/calendar-commands.js`, `application/import-commands.js`, `ui/view-state.js`, `activity-presentation.js`, `export-layout.js`, `importer.js` y validación automática del manifiesto. | El manifiesto fuente contiene 30 módulos y el `HEAD` local incluye `d27383a`, que regeneró `dist/`. La integración debe repetir el gate antes de publicar. |
 | **Hecho verificado** | El worktree inicial tenía cambios en README, dist/, docs, src/, estilos y tests, además de nuevos módulos y planes. | La evidencia de esta página es local y mezclada; no debe presentarse como una release limpia. El maestro debe clasificar antes de integrar. |
 | **Hecho verificado** | package.json, package-lock.json, src/core.js y el APP_VERSION embebido en dist/ declaran 0.16.0-beta.2; stable-version.txt contiene v0.15.0. | La separación main-beta/stable-puntero es coherente con el workflow, pero sólo se comprobó el repositorio local, no el despliegue vivo. |
 | **Hecho verificado** | [docs/DISTRIBUCION.md](DISTRIBUCION.md), [docs/OPERACION_RESPALDOS_JSON.md](OPERACION_RESPALDOS_JSON.md) y [docs/VERSIONAMIENTO.md](VERSIONAMIENTO.md) fueron sincronizados: las versiones antiguas quedaron marcadas como historia y el estado actual remite a las fuentes autoritativas. | Sigue pendiente validar el contenido remoto de GitHub Pages y Supabase; la documentación local ya no presenta esos ejemplos históricos como estado actual. |
-| **Hecho verificado** | [docs/ARQUITECTURA.md](ARQUITECTURA.md) ahora registra el corte local: `app.js` 4.784 líneas, `core.js` 1.315, `importer.js` 11 y 149 pruebas antes de la segunda ola. | Las métricas son descriptivas del corte, no límites de diseño; el total actual de regresión es 157 tras añadir guardas y persistencia. |
+| **Hecho verificado** | [docs/ARQUITECTURA.md](ARQUITECTURA.md) registra el corte local actual: `app.js` 4.823 líneas, `core.js` 1.315, `importer.js` 11 y 189 pruebas. | Las métricas son descriptivas del corte, no límites de diseño; deben actualizarse sólo cuando cambie el corte verificable. |
 | **Hecho verificado** | calendar_documents.document y calendarMeta duplican el nombre/coordinador de calendars; cloud.js actualiza primero el documento y después la tabla de calendario mediante otra petición. | Puede existir una divergencia parcial si la segunda petición falla. No hay transacción REST visible que la evite. |
 | **Hecho verificado** | La lista cloud se refresca cada 30 s, al foco, al volver a la pestaña y manualmente; no existe Realtime ni lectura periódica del documento abierto. | La interfaz no ofrece sincronización inmediata de cambios externos; sólo el conflicto de revisión fuerza una recarga del documento. |
-| **Hecho verificado** | README identifica el proyecto remoto como calendario-hvac-siys-dev, mientras supabase/config.toml usa project_id = calendario-hvac-siys. | Puede ser nombre local frente a referencia remota, pero debe verificarse antes de aplicar migraciones para evitar enlazar el proyecto equivocado. |
+| **Hecho verificado / pendiente** | README identifica el proyecto lógico remoto como `calendario-hvac-siys-dev` con referencia `toxeasjfwxbniuuwfimz`; `supabase/config.toml` usa el `project_id` local `calendario-hvac-siys` y `.temp/project-ref` conserva la referencia remota. | La diferencia de nombre puede ser local frente a remoto; no se debe aplicar una migración hasta comprobar el proyecto enlazado y sus políticas. |
 | **Pendiente** | En esta tarea no se ejecutó migration list --linked, db push --linked --dry-run, un smoke autenticado ni una consulta al Supabase remoto. | Falta probar que el esquema/policies desplegados coincidan con supabase/migrations/. |
-| **Hecho verificado / pendiente** | `npm test` pasa con 157 pruebas, `npm run architecture:check` pasa y `git diff --check` no reporta errores. | Todavía falta ejecutar `npm run verify` con regeneración de `dist/`; no se ha certificado el despliegue remoto ni se ha publicado nada. |
+| **Hecho verificado / pendiente** | `npm test` pasa con 189 pruebas, `npm run architecture:check`, `npm run verify` y `git diff --check` pasan en el corte local. | Los smokes de navegador y la verificación remota de Pages/Supabase deben repetirse antes de publicar; este commit no publica nada. |
 
 ## 12. Evidencia y documentos relacionados
 

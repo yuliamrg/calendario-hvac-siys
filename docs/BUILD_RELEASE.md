@@ -2,9 +2,11 @@
 
 ## Alcance y corte verificado
 
-Este documento describe el estado comprobable del repositorio en el corte de
-S-03 (2026-08-19). Documenta el flujo que existe hoy; no define arquitectura
-futura ni autoriza regenerar, publicar o promover artefactos.
+Este documento describe el estado comprobable del `main` local después de la
+ola de refactorización y documentación (corte auditado el 2026-08-23). El
+trabajo aún está pendiente de integración en el remoto. Documenta el flujo que
+existe hoy; no autoriza publicar, promover canales ni afirmar que las URLs
+remotas estén actualizadas.
 
 ## Fuentes autoritativas
 
@@ -26,7 +28,7 @@ festivos se identifica por `HOLIDAY_RULESET_VERSION`. No son sustitutos de
 ## Manifiesto de la aplicación
 
 El punto de entrada es `src/app.js`. `scripts/build.mjs` mantiene un orden
-dependencia-primero para los módulos de producción. Las entradas, siempre
+dependencia-primero para los 30 módulos de producción. Las entradas, siempre
 relativas a `src/`, son:
 
 - dominio: `domain/text.js`, `domain/responsible-ranking.js`,
@@ -37,9 +39,11 @@ relativas a `src/`, son:
   `import/programming.js`, `import/base-operativa.js`, `importer.js`;
 - persistencia: `persistence/indexed-document-store.js`,
   `persistence/json-preferences.js`;
+- aplicación: `application/calendar-commands.js`,
+  `application/import-commands.js`;
 - interfaz: `ui/three-motion.js`, `ui/calendar-constants.js`,
   `ui/presentation.js`, `ui/activity-presentation.js`,
-  `ui/export-layout.js`, `ui/mutation-controller.js`;
+  `ui/export-layout.js`, `ui/mutation-controller.js`, `ui/view-state.js`;
 - fachadas y arranque: `core.js`, `calendar-contract.js`, `cloud.js`,
   `app.js`.
 
@@ -80,9 +84,11 @@ desactivado. El workflow de Pages suministra esas variables para sus builds;
 sólo se admite la clave publishable en el frontend, nunca una `service_role` ni
 una contraseña de Postgres.
 
-Los archivos de `dist/` son salidas generadas y no se editan manualmente. En
-esta tarea no se regeneraron, por lo que el manifiesto corregido y los
-artefactos existentes todavía requieren una verificación posterior.
+Los archivos de `dist/` son salidas generadas y no se editan manualmente. El
+`HEAD` local contiene el commit `d27383a`, que regeneró ambos HTML después de
+la última frontera de imports. `npm run verify` pasó en este corte y no produjo
+cambios en `dist/`; esto no certifica el despliegue remoto, por lo que CI y los
+smokes autorizados deben repetirse después de integrar.
 
 ## Canales y distribución
 
@@ -122,27 +128,29 @@ npm run verify
 npm run release:check -- --require-current-tag
 ```
 
-`npm run verify` combina pruebas, build, comprobación de versión y auditoría.
+`npm run verify` combina pruebas, `architecture:check`, build, comprobación de
+versión y auditoría.
 `.github/workflows/ci.yml` instala dependencias con `npm ci`, ejecuta pruebas,
 build, `version:check`, `audit` y verifica que el build no deje diferencias en
 `dist/`. Para una promoción también aplican los smokes de
 `tests/pages_smoke.py`, los viewports y las comprobaciones descritas en
 `docs/CRITERIOS_DE_DISENO.md`.
 
-## Inconsistencias pendientes
+## Pendientes de integración y release
 
-Estas diferencias se observaron y se dejan explícitas porque están fuera de la
-superficie S-03:
-
-- La sección 11 de `docs/VERSIONAMIENTO.md` todavía declara stable `v0.14.1`
-  y beta `0.15.0-beta.3`; contradice `package.json`, `src/core.js`,
-  `CHANGELOG.md` y `stable-version.txt`.
-- `docs/DISTRIBUCION.md` todavía afirma que `stable-version.txt` apunta a
-  `v0.14.1`; el archivo actual contiene `v0.15.0`.
-- `dist/calendario-hvac-siys.html` y `dist/index.html` ya tenían cambios
-  locales al iniciar esta tarea y no contienen los símbolos nuevos de
-  `ui/activity-presentation.js` y `ui/export-layout.js`. Deben regenerarse y
-  pasar los gates de distribución después de revisar este diff; S-03 no los
-  regenera por mandato del plan.
-- `docs/ARQUITECTURA.md` conserva métricas históricas que el plan ya identifica
-  como desactualizadas. No se corrigen aquí porque pertenecen a otro frente.
+- El commit documental actual queda pendiente junto con los commits locales que
+  todavía no están en `origin/main`; no se debe reescribir ni mezclar ese
+  conjunto con `reset`, `rebase` o `checkout` destructivo.
+- Debe ejecutarse `npm run goal:check` sobre el conjunto integrado antes de abrir
+  el PR o crear un tag. El gate de publicación incluye además los smokes de
+  navegador y la verificación autorizada de Pages, Supabase y migraciones.
+- La documentación local confirma `0.16.0-beta.2` en `main` y `v0.15.0` en
+  `stable-version.txt`; un cambio documental no incrementa la versión de la
+  aplicación.
+- Los módulos de aplicación deben recibir sus dependencias por argumentos y
+  evitar estado global; los adaptadores de almacenamiento permanecen fuera de
+  esa capa.
+- `app.js` conserva la coordinación del DOM y su estado efímero; el contrato y
+  los importadores conservan las secuencias que deben ser atómicas. El criterio
+  de cierre es que sus funciones internas tengan una responsabilidad legible,
+  no imponer un límite artificial de líneas al archivo coordinador.

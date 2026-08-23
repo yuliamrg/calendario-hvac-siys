@@ -22,9 +22,9 @@ PostgREST en los canales estable y beta. La clave publishable puede viajar en
 el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
 `dist/` contiene salidas generadas: una diferencia, una versión embebida o un
-archivo existente allí no cambia la autoridad de las fuentes. En la revisión
-documental del 2026-08-19 no se ejecutó el build y no se certificó que las
-salidas actuales estén sincronizadas.
+archivo existente allí no cambia la autoridad de las fuentes. El `HEAD` local
+incluye `d27383a`, que regeneró las salidas después de la última frontera de
+imports. Eso no certifica que GitHub Pages esté sirviendo esos archivos.
 
 ## Canales
 
@@ -70,7 +70,8 @@ El workflow de GitHub Pages prepara un artefacto dual:
 5. copia la estable a la raíz y main a /beta/.
 
 La ejecución del workflow y la disponibilidad de las URLs deben verificarse por
-separado; este documento no afirma un resultado remoto.
+separado; este documento no afirma un resultado remoto. Los commits locales
+pendientes de integración tampoco equivalen a una publicación.
 
 ## Publicación de una beta
 
