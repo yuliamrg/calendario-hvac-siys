@@ -87,6 +87,7 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
     "Borrar y empezar de cero",
     "Descargar listado del mes",
     "Descargar imagen de pendientes",
+    "Descargar imagen del día",
     "Descargar imagen del cronograma",
     "Ver mes",
     "Más"
@@ -101,13 +102,35 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
   assert.match(app, /_programacion_/);
   assert.match(app, /_cronograma_/);
   assert.match(app, /function buildDayOverflowButton\(date, items, maps\)/);
+  assert.match(app, /function exportDayImage\(date\)/);
+  assert.match(app, /function exportActivityListImage\(/);
+  assert.match(app, /function openDayExportDialog\(\)/);
+  assert.match(app, /function handleDayExportSubmit\(event\)/);
+  assert.match(app, /Descargar imagen del día/);
+  assert.match(template, /id="exportDayImageButton"/);
+  assert.match(template, /id="dayExportDialog"/);
+  assert.match(template, /id="dayExportDate" type="date" required/);
   assert.match(app, /aria-haspopup/, "La pila de tarjetas debe anunciar su apertura de agenda");
-  assert.match(app, /function activityObservationsTooltip\(activity\)/);
+  assert.match(app, /activityObservationsTooltip,/);
+  assert.match(app, /!\["scheduled", "to_schedule", "in_progress"\]\.includes\(status\)/);
+  assert.match(app, /function buildResponsibleSummary\(activity, maps\)/);
   assert.match(app, /card\.title = activityObservationsTooltip\(activity\)/);
+  assert.doesNotMatch(app, /activityCardTooltip/);
+  assert.match(app, /card\.dataset\.responsibleCount/);
+  assert.match(app, /rescheduled-indicator/);
   assert.match(app, /card\.draggable = reorderEnabled/);
   assert.match(app, /day-reorder-hint/);
   assert.match(css, /\.day-cell\.has-overflow/);
   assert.match(css, /\.day-overflow-card/);
+  assert.match(css, /\.status-icon-scheduled/);
+  assert.match(css, /\.responsible-summary/);
+  assert.match(css, /\.activity-select\s*\{[\s\S]*?align-self:\s*center/);
+  assert.match(css, /\.quick-open \.status-icon\s*\{/);
+  assert.match(css, /\.status-icon-in_progress::before/);
+  assert.match(css, /\.status-icon-in_progress::before[\s\S]*?left:\s*50%[\s\S]*?transform:\s*translateX\(-2px\)/);
+  assert.match(css, /height:\s*var\(--activity-card-height\)/);
+  assert.match(css, /text-overflow:\s*ellipsis/);
+  assert.doesNotMatch(css, /overflow-wrap:\s*anywhere/);
 });
 
 test("la actividad conserva un solo buscador de responsables y unifica la ampliacion", () => {
@@ -234,9 +257,9 @@ test("el contrato visual promovido se aplica a beta y estable", () => {
   assert.match(app, /\["beta", "stable", "local"\]\.includes\(RUNTIME_CHANNEL\)/);
   assert.match(app, /aria-controls/, "La beta debe documentar la relación pestaña/panel");
   assert.match(css, /html\[data-channel="beta"\] \.weekday-row,[\s\S]*html\[data-channel="stable"\] \.weekday-row \{[\s\S]*flex: 0 0 auto/);
-  assert.match(css, /--beta-weekday-height: 32px/);
+  assert.match(css, /--channel-weekday-height: 32px/);
   assert.match(css, /html\[data-channel="beta"\] \.month-grid-wrap,[\s\S]*html\[data-channel="stable"\] \.month-grid-wrap \{[\s\S]*overflow: auto/);
-  assert.match(css, /--beta-card-payroll-bg: #23423e/);
+  assert.match(css, /--activity-card-payroll-bg: #23423e/);
   assert.match(css, /\.search-box input \{[\s\S]*background: transparent/);
   assert.match(css, /\.selection-bar \.button:not\(\.ghost\):not\(\.danger\)/);
 });

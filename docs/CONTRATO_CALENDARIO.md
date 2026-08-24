@@ -29,6 +29,7 @@ Los errores exponen `CalendarContractError.code`: `INVALID_REQUEST`,
 | Operación | Payload específico | Resultado principal |
 |---|---|---|
 | `calendar.inspect` | `{}` | metadatos, conteos y rango |
+| `calendar.identify` | `{ name, coordinator }` | nombre y coordinador actualizados |
 | `calendar.export-csv` | `{ year, month }` | contenido, MIME y nombre CSV |
 | `calendar.export-quarantine-csv` | `{}` | CSV independiente de actividades Pendiente |
 | `activity.list` | `from`/`to` o `dateFrom`/`dateTo`, `clientId`, `siteId`, `city`, listas de responsables/servicios/estados/bandejas, `query` | `items` resueltos |

@@ -1,76 +1,53 @@
 /* Visual contract promoted from beta 0.10.0 to both public channels. */
 html[data-channel="beta"],
 html[data-channel="stable"] {
-  --beta-card-title-size: 11px;
-  --beta-card-meta-size: 10px;
-  --beta-card-min-height: 36px;
-  --beta-card-payroll-bg: #9bc1bc;
-  --beta-card-payroll-ink: #17302d;
-  --beta-card-contractor-bg: #f5aa77;
-  --beta-card-contractor-ink: #4b270e;
-  --beta-card-mixed-payroll-bg: #9bc1bc;
-  --beta-card-mixed-contractor-bg: #f3a46e;
-  --beta-card-mixed-ink: #3e2a1d;
-  --beta-card-unassigned-bg: #e4e8e4;
-  --beta-card-unassigned-ink: #3d463e;
-  --beta-control-radius: 9px;
-  --beta-weekday-height: 32px;
-}
-
-html[data-channel="beta"][data-theme="dark"],
-html[data-channel="stable"][data-theme="dark"] {
-  --beta-card-payroll-bg: #23423e;
-  --beta-card-payroll-ink: #f3fbf7;
-  --beta-card-contractor-bg: #51301f;
-  --beta-card-contractor-ink: #fff4e8;
-  --beta-card-mixed-payroll-bg: #23423e;
-  --beta-card-mixed-contractor-bg: #51301f;
-  --beta-card-mixed-ink: #fff4e8;
-  --beta-card-unassigned-bg: #2b342e;
-  --beta-card-unassigned-ink: #eef6ef;
+  --channel-control-radius: 9px;
+  --channel-control-small-size: 32px;
+  --channel-weekday-height: 32px;
+  --activity-card-selection-outline: var(--focus);
+  --activity-card-shadow: 0 1px 3px rgba(28, 48, 34, 0.16);
 }
 
 html[data-channel="beta"] .activity-card,
 html[data-channel="stable"] .activity-card {
-  min-height: var(--beta-card-min-height);
   padding: 5px 6px 5px 5px;
-  color: var(--beta-card-payroll-ink);
-  background: var(--beta-card-payroll-bg);
-  box-shadow: 0 1px 3px rgba(28, 48, 34, 0.16);
+  color: var(--activity-card-payroll-ink);
+  background: var(--activity-card-payroll-bg);
+  box-shadow: var(--activity-card-shadow);
 }
 
 html[data-channel="beta"] .activity-card.contractor,
 html[data-channel="stable"] .activity-card.contractor {
-  color: var(--beta-card-contractor-ink);
-  background: var(--beta-card-contractor-bg);
+  color: var(--activity-card-contractor-ink);
+  background: var(--activity-card-contractor-bg);
 }
 
 html[data-channel="beta"] .activity-card.mixed,
 html[data-channel="stable"] .activity-card.mixed {
-  color: var(--beta-card-mixed-ink);
-  background: linear-gradient(100deg, var(--beta-card-mixed-payroll-bg) 0 50%, var(--beta-card-mixed-contractor-bg) 50% 100%);
+  color: var(--activity-card-mixed-ink);
+  background: linear-gradient(100deg, var(--activity-card-mixed-payroll-bg) 0 50%, var(--activity-card-mixed-contractor-bg) 50% 100%);
 }
 
 html[data-channel="beta"] .activity-card.unassigned,
 html[data-channel="stable"] .activity-card.unassigned {
-  color: var(--beta-card-unassigned-ink);
-  background: var(--beta-card-unassigned-bg);
+  color: var(--activity-card-unassigned-ink);
+  background: var(--activity-card-unassigned-bg);
 }
 
 html[data-channel="beta"] .activity-card.selected,
 html[data-channel="stable"] .activity-card.selected {
-  outline-color: var(--focus);
+  outline-color: var(--activity-card-selection-outline);
 }
 
 html[data-channel="beta"] .activity-copy strong,
 html[data-channel="stable"] .activity-copy strong {
-  font-size: var(--beta-card-title-size);
+  font-size: var(--activity-card-title-size);
   line-height: 1.25;
 }
 
 html[data-channel="beta"] .activity-copy small,
 html[data-channel="stable"] .activity-copy small {
-  font-size: var(--beta-card-meta-size);
+  font-size: var(--activity-card-meta-size);
   line-height: 1.2;
 }
 
@@ -78,26 +55,26 @@ html[data-channel="beta"] .button,
 html[data-channel="stable"] .button,
 html[data-channel="beta"] .icon-button,
 html[data-channel="stable"] .icon-button {
-  border-radius: var(--beta-control-radius);
+  border-radius: var(--control-radius);
 }
 
 html[data-channel="beta"] .button.small,
 html[data-channel="stable"] .button.small,
 html[data-channel="beta"] .icon-button.small,
 html[data-channel="stable"] .icon-button.small {
-  min-height: 32px;
+  min-height: var(--control-small-height);
 }
 
 html[data-channel="beta"] .icon-button.small,
 html[data-channel="stable"] .icon-button.small {
-  width: 32px;
-  height: 32px;
+  width: var(--channel-control-small-size);
+  height: var(--channel-control-small-size);
 }
 
 html[data-channel="beta"] .menu-action,
 html[data-channel="stable"] .menu-action {
-  min-height: 38px;
-  border-radius: var(--beta-control-radius);
+  min-height: var(--menu-action-height);
+  border-radius: var(--channel-control-radius);
 }
 
 html[data-channel="beta"] .detail-item,
@@ -140,15 +117,15 @@ html[data-channel="stable"] .day-cell {
 html[data-channel="beta"] .weekday-row,
 html[data-channel="stable"] .weekday-row {
   flex: 0 0 auto;
-  min-height: var(--beta-weekday-height);
-  height: var(--beta-weekday-height);
+  min-height: var(--channel-weekday-height);
+  height: var(--channel-weekday-height);
   isolation: isolate;
 }
 
 html[data-channel="beta"] .weekday-row div,
 html[data-channel="stable"] .weekday-row div {
-  min-height: var(--beta-weekday-height);
-  height: var(--beta-weekday-height);
+  min-height: var(--channel-weekday-height);
+  height: var(--channel-weekday-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -262,7 +239,7 @@ html[data-channel="stable"] .storage-banner.compact-status {
 @media (max-width: 899px) {
   html[data-channel="beta"],
   html[data-channel="stable"] {
-    --beta-weekday-height: 30px;
+    --channel-weekday-height: 30px;
   }
 
   html[data-channel="beta"] .activity-detail-grid,

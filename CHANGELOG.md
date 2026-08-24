@@ -1,5 +1,34 @@
 # Historial de cambios
 
+## [0.17.0-beta.1] - 2026-08-23
+
+### Nuevas capacidades públicas
+
+- Se incorpora una presentación de actividades reutilizable para tarjetas, agenda
+  diaria y exportaciones, con layout de exportación y tokens visuales compartidos.
+- Se centralizan las mutaciones de calendario y las importaciones en la capa de
+  aplicación; el contrato de calendario añade identificación explícita sin cambiar
+  `SCHEMA_VERSION = 4` ni `CONTRACT_VERSION = 1`.
+- Se refuerza la persistencia local ante `versionchange`, heartbeats inválidos y
+  liberación atómica del lock.
+
+### Calidad y distribución
+
+- Se valida automáticamente el manifiesto de módulos, el orden de imports y las
+  fronteras de arquitectura; `architecture:check` queda incluido en `verify`.
+- Se regeneran los artefactos autocontenidos de `dist/` y se sincroniza la
+  documentación del sistema, estados, distribución y operación.
+- La versión se inicia como `0.17.0-beta.1` porque el conjunto posterior a
+  `0.16.0-beta.2` incorpora capacidades públicas nuevas; no es otra iteración
+  del alcance ya anunciado de `0.16.0`.
+
+### Compatibilidad
+
+- Stable permanece apuntando a `v0.15.0`; esta publicación sólo actualiza la
+  nueva línea beta `0.17.0`.
+- Se conservan el esquema 4, el contrato de operaciones 1, los respaldos y la
+  separación de calendarios stable/beta.
+
 ## [0.16.0-beta.2] - 2026-08-19
 
 ### Correcciones de experiencia

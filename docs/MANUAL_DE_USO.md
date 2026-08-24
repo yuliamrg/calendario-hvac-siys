@@ -33,21 +33,23 @@ Arrastre un cliente o sede a una fecha, haga clic en el fondo del día o pulse
 **Nueva actividad**. La tarjeta contiene fecha, cliente, sede, ciudad, uno o
 varios responsables, tipo de servicio, estado y observaciones.
 
-En **Cliente**, **Sede** y **Escribir responsables** se puede escribir el valor
+En **Cliente**, **Sede** y **Buscar responsable** se puede escribir el valor
 completo o elegir una sugerencia. Si un nombre no existe, la aplicación crea el
 registro manual necesario junto con la actividad en una sola operación; para
 responsables nuevos se debe indicar si son de nómina o contratistas.
 
 Los servicios disponibles son mantenimiento preventivo, mantenimiento
 correctivo, llamada de emergencia, diagnóstico, garantía y administrativo. En la
-vista previa, la segunda línea de cada tarjeta inicia con un código corto: `MP`
-(mantenimiento preventivo), `MC` (mantenimiento correctivo), `EM` (emergencia),
-`DG` (diagnóstico), `GA` (garantía) o `AD` (administrativo). El nombre completo
-se conserva en el detalle y en la información accesible de la tarjeta. Los estados son:
-Programada, Confirmada, En ejecución, Terminada, No ejecutada,
-Cancelada y Por programar. Una actividad confirmada exige al menos un
-responsable. Al pasar el cursor sobre una tarjeta, el tooltip muestra sus
-observaciones; si no tiene, indica que no hay observaciones registradas.
+vista mensual, la tarjeta conserva una altura fija: la primera línea reúne el
+código corto (`MP`, `MC`, `EM`, `DG`, `GA` o `AD`), el cliente y un resumen de
+responsables; la segunda muestra la sede o ciudad. Cuando hay varios técnicos se
+muestran iniciales y un contador (`+N`) para mantener la lectura compacta. El
+nombre completo del cliente, sede y técnicos se conserva en el detalle y la
+información accesible de la tarjeta. La tooltip de la tarjeta muestra únicamente
+las observaciones. Los estados son: Programada,
+Confirmada, En ejecución, Terminada, No ejecutada, Cancelada y Por programar.
+Una actividad confirmada exige al menos un responsable. El indicador `↪` junto
+al código de servicio identifica una tarjeta reprogramada.
 
 ### Bandeja Pendiente
 
@@ -88,7 +90,8 @@ del calendario; en teléfono la agenda diaria muestra todas las tarjetas.
 
 Con edición habilitada puede arrastrar una tarjeta sobre otra para insertarla antes
 o después, tanto en el calendario como dentro de la agenda completa del día. El
-orden queda guardado en IndexedDB. En el detalle de la tarjeta también están
+orden queda guardado en el almacenamiento del canal: IndexedDB en modo local o
+Supabase en stable/beta cloud. En el detalle de la tarjeta también están
 disponibles **Primera**, **Anterior**, **Siguiente** y **Última** para teclado o
 táctil. Si hay filtros activos, quítelos antes de reordenar para no ocultar parte
 del grupo.
@@ -146,7 +149,13 @@ Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
 - **CSV de pendientes:** descarga por separado las actividades sin fecha para
   revisarlas en Excel; el listado mensual nunca incluye estas tarjetas.
 - **Imagen de pendientes:** crea un resumen visual de las tarjetas pendientes
-  visibles, con contador, responsables, estado y convención de códigos.
+  visibles, con contador, nombres completos de técnicos, estado y convención de
+  códigos.
+- **Imagen del día:** desde la agenda diaria o el detalle completo de un día,
+  descarga sólo las actividades visibles de esa fecha y muestra los nombres
+  completos de los técnicos. También está disponible en **Compartir > Descargar
+  imagen del día**, donde se elige la fecha antes de descargar. Respeta los
+  filtros activos.
 - **PNG:** crea una imagen horizontal a escala 2 con nombre, coordinador, mes,
   filtros, festivos, la información operativa de las tarjetas y una leyenda de
   servicios, estados y convenciones, incluso en días densos.
@@ -210,14 +219,35 @@ Supabase:
 - stable usa `calendario-hvac-siys` y beta usa `calendario-hvac-siys-beta` dentro
   del mismo proyecto Supabase.
 
+### Primer acceso cloud
+
+En stable o beta, cuando aparezca **Conectar con SIYS Sync**:
+
+1. Para una cuenta existente, escriba correo y contraseña y pulse **Iniciar
+   sesión**.
+2. Para un acceso nuevo, pulse **Crear una cuenta**, registre el nombre visible,
+   correo y una contraseña de al menos seis caracteres. Si la instalación pide
+   confirmar el correo, hágalo y después inicie sesión.
+3. Seleccione el cronograma en **Cronograma**. El botón **Actualizar lista de
+   cronogramas** vuelve a consultar los cronogramas disponibles.
+4. Use **Cerrar sesión** al terminar en un equipo compartido.
+
+La autenticación permite acceder al canal, pero no debe interpretarse como
+confidencialidad por usuario. No cargue información sensible sin confirmar las
+políticas de acceso del proyecto cloud.
+
 **Proteger almacenamiento** solicita persistencia al navegador. La concesión
 reduce la posibilidad de liberación automática, pero no garantiza una copia de
 seguridad. Use **Descargar copia del cronograma** regularmente y guárdela fuera
 de la carpeta temporal.
 
-Sólo una pestaña edita. Las demás quedan en lectura y pueden filtrar, imprimir
-y exportar. **Tomar control** transfiere la edición. Si la pestaña editora se
-cierra o falla, otra recupera el control tras unos 15 segundos.
+En el modo local, sólo una pestaña edita. Las demás quedan en lectura y pueden
+filtrar, imprimir y exportar. **Tomar control** transfiere la edición. Si la
+pestaña editora se cierra o falla, otra recupera el control tras unos 15
+segundos. En stable/beta cloud no hay este bloqueo entre pestañas: dos cambios
+simultáneos se controlan mediante la revisión remota. Si aparece un conflicto,
+recarga el cronograma, revisa la versión más reciente y vuelve a aplicar sólo
+los cambios necesarios.
 
 Al restaurar se muestran cronograma, coordinador, revisión y antigüedad. La
 restauración reemplaza el documento, no mezcla versiones, y conserva una copia
@@ -286,7 +316,9 @@ Configuración.
 El Banco abre el catálogo como panel lateral. Como alternativas táctiles, las
 tarjetas de la agenda abren el detalle, donde están **Editar tarjeta**,
 **Mover · Duplicar · Ampliar**,
-**Actualizar estado** y **Eliminar**. Al organizar una actividad se elige la
+**Actualizar estado**, **Descargar imagen** y **Eliminar**. El botón de descarga
+genera la imagen del día seleccionado con los nombres completos de los técnicos.
+Al organizar una actividad se elige la
 fecha y luego una acción independiente: no es necesario arrastrar. Mover y
 Ampliar se deshabilitan si se elige el mismo día; Duplicar sigue disponible.
 
@@ -302,6 +334,7 @@ Los nombres descargados permiten reconocer el contenido sin conocer su formato:
 - `YYYY-MM-DD_HH-mm-ss_respaldo-cronograma_<nombre>.json`;
 - `YYYY-MM_programacion_<nombre>.csv`;
 - `YYYY-MM_cronograma_<nombre>.png`;
+- `YYYY-MM-DD_actividades_<nombre>.png`;
 - `plantilla_programacion_SIYS-Sync.xlsx`.
 
 - **No guarda:** descargue JSON inmediatamente, compruebe que IndexedDB esté

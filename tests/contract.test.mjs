@@ -87,6 +87,20 @@ test("inspect, list y get producen vistas resueltas sin mutar", () => {
   assert.equal(item.result.siteName, "Sede Uno");
 });
 
+test("calendar.identify centraliza la actualización de nombre y coordinador", () => {
+  const document = documentFixture();
+  const result = executeCalendarOperation(document, {
+    operation: "calendar.identify",
+    payload: { name: "Cronograma Eje Cafetero", coordinator: "Ana Coordinadora" }
+  }, { now: NOW });
+
+  assert.equal(result.changed, true);
+  assert.equal(result.document.calendarMeta.name, "Cronograma Eje Cafetero");
+  assert.equal(result.document.calendarMeta.coordinator, "Ana Coordinadora");
+  assert.equal(result.document.audit.at(-1).action, "calendar_identified");
+  assert.equal(document.calendarMeta.name, "Cronograma HVAC");
+});
+
 test("la edición respeta el alcance de datos, estado y fecha", () => {
   const ranged = createOne(documentFixture(), {
     date: "2026-08-03",

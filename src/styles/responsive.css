@@ -1,3 +1,44 @@
+/*
+ * Scroll ownership: the shell clips each region and its content list owns
+ * the scroll. Dialog forms and the drawer follow the same rule so their
+ * sticky footers and headers stay inside one scroll context.
+ */
+.calendar-panel,
+.catalog-panel {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.catalog-panel:has(.catalog-list[hidden]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.month-grid-wrap {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.catalog-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.detail-drawer[open] {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.drawer-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 12px;
+}
+
 @media (min-width: 900px) and (max-width: 1199px) {
   html,
   body {
@@ -277,8 +318,7 @@
   .calendar-panel {
     height: 100%;
     padding: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     overscroll-behavior: contain;
   }
 
@@ -397,6 +437,13 @@
     display: none;
   }
 
+  .mobile-agenda-header #mobileAgendaExportButton {
+    display: inline-flex;
+    max-width: 132px;
+    white-space: normal;
+    text-align: center;
+  }
+
   .mobile-agenda-header h2,
   .mobile-agenda-header p {
     margin: 0;
@@ -414,17 +461,22 @@
   }
 
   .mobile-agenda-list {
+    flex: 1 1 auto;
     min-height: 0;
     display: grid;
     align-content: start;
     gap: 7px;
+    overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 2px 1px 18px;
   }
 
   .mobile-agenda-list .activity-card {
-    min-height: 52px;
-    padding: 7px;
+    height: 60px;
+    min-height: 60px;
+    max-height: 60px;
+    padding: 6px 7px;
   }
 
   .mobile-agenda-list .activity-copy strong {
@@ -433,6 +485,11 @@
 
   .mobile-agenda-list .activity-copy small {
     font-size: 11px;
+  }
+
+  .mobile-agenda-list .card-flags {
+    flex-direction: row;
+    gap: 4px;
   }
 
   .mobile-agenda-list .quick-open,
@@ -480,11 +537,15 @@
   dialog > form {
     max-height: calc(100dvh - 14px);
     overflow-y: auto;
+    scroll-padding-block: 12px 96px;
   }
 
   .mobile-month-modal {
     width: calc(100vw - 14px) !important;
     padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .mobile-month-shell {
@@ -504,6 +565,12 @@
 
   .mobile-month-grid-host {
     padding: 0 8px 10px;
+  }
+
+  /* The month dialog owns overflow after the grid is moved out of the app shell. */
+  dialog.mobile-month-modal .mobile-month-grid-host .month-grid-wrap {
+    overflow: visible;
+    overscroll-behavior: auto;
   }
 
   .form-grid.two-columns,
@@ -588,15 +655,17 @@
 
 @media (max-height: 820px) and (min-width: 900px) {
   .calendar-grid {
-    grid-template-rows: repeat(6, minmax(96px, 1fr));
+    grid-template-rows: repeat(6, minmax(124px, auto));
   }
 
   .day-cell {
-    min-height: 96px;
+    min-height: 124px;
   }
 
   .activity-card {
-    min-height: 31px;
+    height: var(--activity-card-height);
+    min-height: var(--activity-card-height);
+    max-height: var(--activity-card-height);
   }
 }
 

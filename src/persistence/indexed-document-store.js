@@ -17,7 +17,11 @@ export function createIndexedDocumentStore({
           database.createObjectStore(storeName, { keyPath: "key" });
         }
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => database.close();
+        resolve(database);
+      };
       request.onerror = () => reject(request.error ?? new Error("No fue posible abrir IndexedDB."));
       request.onblocked = () => reject(new Error("La base local está bloqueada por otra pestaña."));
     });
@@ -96,10 +100,12 @@ export function createIndexedDocumentStore({
       let claimed = false;
       request.onsuccess = () => {
         const current = request.result;
-        const age = current?.heartbeatAt
-          ? Date.now() - new Date(current.heartbeatAt).getTime()
-          : Infinity;
-        if (force || !current || current.ownerId === ownerId || age > staleAfterMs) {
+        const heartbeatTime = current?.heartbeatAt == null
+          ? Number.NaN
+          : new Date(current.heartbeatAt).getTime();
+        const heartbeatIsStale = !Number.isFinite(heartbeatTime)
+          || Date.now() - heartbeatTime > staleAfterMs;
+        if (force || !current || current.ownerId === ownerId || heartbeatIsStale) {
           store.put({ key, ownerId, heartbeatAt: new Date().toISOString() });
           claimed = true;
         }
@@ -111,17 +117,22 @@ export function createIndexedDocumentStore({
     });
   }
 
-  async function releaseLock(database, { key, ownerId }) {
-    const current = await readRecord(database, key);
-    if (current?.ownerId !== ownerId) return false;
-    await new Promise((resolve) => {
+  function releaseLock(database, { key, ownerId }) {
+    return new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, "readwrite");
-      transaction.objectStore(storeName).delete(key);
-      transaction.oncomplete = resolve;
-      transaction.onerror = resolve;
-      transaction.onabort = resolve;
+      const store = transaction.objectStore(storeName);
+      const request = store.get(key);
+      let released = false;
+      request.onsuccess = () => {
+        if (request.result?.ownerId !== ownerId) return;
+        store.delete(key);
+        released = true;
+      };
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve(released);
+      transaction.onerror = () => resolve(released);
+      transaction.onabort = () => resolve(released);
     });
-    return true;
   }
 
   return Object.freeze({

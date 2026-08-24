@@ -10,14 +10,15 @@ La versión beta es el espacio para probar cambios de diseño. La versión
 estable conserva el comportamiento y la apariencia aprobados hasta que una
 propuesta beta cumpla las puertas de promoción descritas al final.
 
-La iteración `0.10.0-beta.2`, promovida a estable como `0.10.0`, valida una interacción de tema sin diálogo,
+La iteración histórica `0.10.0-beta.2`, promovida a estable como `0.10.0`, valida una interacción de tema sin diálogo,
 densidad de detalle en dos columnas, búsqueda de responsables y controles de
 selección legibles en ambos temas. Estas reglas son ahora el contrato visual
 compartido por estable y beta; los datos operativos siguen aislados por canal.
 
 ## Producto, audiencia y tarea principal
 
-- Producto: calendario local autocontenido para programar servicios HVAC SI&S.
+- Producto: calendario local autocontenido y, en los canales publicados,
+  conectado a cloud para programar servicios HVAC SI&S.
 - Público principal: coordinación de servicios y personas que consultan o
   actualizan la programación operativa.
 - Tarea primaria: comprender qué actividad ocurre, cuándo, dónde, con quién y
@@ -162,7 +163,9 @@ mínimo:
 
 ## Rendimiento, privacidad y distribución
 
-- Mantener el HTML autocontenido y sin solicitudes de red en ejecución normal.
+- Mantener el HTML autocontenido. El modo local debe funcionar sin solicitudes
+  de red; stable/beta pueden usar Auth y PostgREST cuando reciben configuración
+  cloud autorizada.
 - No incorporar fuentes, iconos, imágenes ni dependencias remotas sin revisar
   licencia, peso y disponibilidad offline.
 - No introducir datos operativos en capturas, fixtures, documentación pública o
@@ -174,8 +177,8 @@ mínimo:
 
 Una mejora visual beta sólo se promueve si:
 
-- alcanza al menos 85/100 en la rúbrica visual web y no tiene defectos
-  críticos;
+- alcanza al menos 85/100 en la rúbrica visual web aprobada para la entrega,
+  con la matriz de evaluación adjunta al cambio, y no tiene defectos críticos;
 - conserva contenido, privacidad, persistencia, exportaciones y flujo operativo;
 - pasa `npm run verify` y las pruebas de navegador en Chrome y Edge;
 - pasa los seis viewports responsive sin overflow ni superposición;
@@ -228,3 +231,67 @@ Cada cambio relevante debe registrar:
 
 La beta es un canal de aprendizaje, no una excepción para saltarse accesibilidad,
 privacidad o pruebas de regresión.
+
+### 2026-08-19 — Legibilidad de tarjetas y exportación diaria local
+
+- Problema observado: el icono de Programada tenía poco peso visual, las tarjetas
+  reducían su contenido en días densos y las imágenes de pendientes mostraban
+  iniciales en lugar de nombres completos.
+- Criterio aplicado: mantener una métrica tipográfica estable, permitir el reflujo
+  del contenido sin recortes y reutilizar un único renderizador para exportaciones
+  de pendientes y de día.
+- Alcance: implementación local; no promovida a beta ni estable.
+- Componentes afectados: `activity-card`, marcador de estado Programada, agenda
+  diaria, detalle del día y exportación PNG de lista.
+- Pruebas ejecutadas: `npm run build`, smoke responsive en seis viewports y
+  descarga local de PNG de día y Pendiente con nombres completos.
+- Resultado esperado: reconocer el estado rápidamente, leer el contenido sin
+  depender de un zoom concreto y compartir una fecha operativa sin rehacer filtros.
+
+### 2026-08-19 — Tarjeta-resumen fija para contenido largo
+
+- Problema observado: permitir que cliente, sede y responsables envolvieran el
+  texto hizo que una tarjeta pasara de 128 a 140 px en una misma celda y que un
+  día alcanzara 450 px de alto con datos largos.
+- Criterio aplicado: separar resumen de detalle; mantener dos filas fijas,
+  truncar sólo la representación visual con elipsis y conservar el contenido
+  completo en el detalle y `aria-label`; la tooltip visual queda reservada a las
+  observaciones.
+- Alcance: implementación local; no promovida a beta ni estable.
+- Componentes afectados: `buildActivityCard`, resumen compacto de responsables,
+  `activity-card`, agenda móvil y tarjetas del detalle diario.
+- Pruebas ejecutadas: 129 pruebas de contrato, build autocontenido, viewport
+  desktop de 1440 px y viewport móvil de 390 px con cliente/sede largos y
+  hasta cuatro responsables; no hubo overflow ni crecimiento variable.
+- Resultado esperado: todas las tarjetas conservan la misma altura; el cliente
+  y los responsables se reconocen arriba, la sede abajo y el detalle completo
+  se consulta al abrir la tarjeta.
+
+### 2026-08-19 — Alineación de indicadores de tarjeta
+
+- Problema observado: la flecha de reprogramación ocupaba una tercera línea en
+  la columna de acciones, el checkbox se alineaba arriba y el icono de En
+  ejecución no conservaba la composición visual anterior.
+- Criterio aplicado: reservar cajas de tamaño constante, centrar controles
+  reemplazados y mantener la flecha junto al código de servicio, fuera de la
+  columna de acciones.
+- Alcance: implementación local; no promovida a beta ni estable.
+- Componentes afectados: `rescheduled-indicator`, `activity-select`,
+  `status-icon-in_progress` y `card-flags`.
+- Pruebas ejecutadas: tarjetas Programada, Confirmada y En ejecución, con y sin
+  reprogramación; todas conservaron 48 px, sin overflow ni superposición.
+- Resultado esperado: reconocer estado, reprogramación y selección sin que un
+  indicador altere la jerarquía ni desdibuje el contenido.
+
+### 2026-08-19 — Acceso directo a la imagen de un día
+
+- Problema observado: la agenda completa sólo era accesible desde el apilado de
+  días con más de tres tarjetas, por lo que la descarga diaria no era descubrible
+  para cualquier otra fecha.
+- Criterio aplicado: integrar la acción en **Compartir** y pedir únicamente la
+  fecha; conservar la acción contextual de la agenda como atajo adicional.
+- Ajuste visual: representar En ejecución con un triángulo CSS de caja constante
+  para evitar las variaciones de alineación del glifo de reproducción.
+- Alcance: implementación local; no promovida a beta ni estable.
+- Resultado esperado: descargar cualquier día desde un recorrido único y reconocer
+  el estado En ejecución sin que el icono cambie de tamaño o línea base.

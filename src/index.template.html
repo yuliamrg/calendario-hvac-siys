@@ -55,6 +55,7 @@
               <button class="menu-action" id="exportCsvButton" type="button"><strong>Descargar listado del mes</strong><small>Archivo para revisar en Excel</small></button>
               <button class="menu-action" id="exportQuarantineCsvButton" type="button"><strong>Descargar listado de pendientes</strong><small>Actividades sin fecha para revisar en Excel</small></button>
               <button class="menu-action" id="exportQuarantineImageButton" type="button"><strong>Descargar imagen de pendientes</strong><small>Resumen visual de las tarjetas visibles</small></button>
+              <button class="menu-action" id="exportDayImageButton" type="button"><strong>Descargar imagen del día</strong><small>Elige la fecha que quieres compartir</small></button>
               <button class="menu-action" id="exportImageButton" type="button"><strong>Descargar imagen del cronograma</strong><small>Respeta la búsqueda y los filtros activos</small></button>
             </div>
           </details>
@@ -204,6 +205,7 @@
               <h2 id="mobileAgendaTitle">Día</h2>
               <p id="mobileAgendaMeta"></p>
             </div>
+            <button class="button ghost small" id="mobileAgendaExportButton" type="button">Descargar imagen</button>
             <button class="button primary" id="mobileAgendaAddButton" type="button">＋ Agregar</button>
           </header>
           <div class="mobile-agenda-list" id="mobileAgendaList"></div>
@@ -245,6 +247,22 @@
       </div>
       <div class="mobile-month-grid-host" id="mobileMonthGridHost"></div>
     </div>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="dayExportDialog" aria-labelledby="dayExportDialogTitle">
+    <form id="dayExportForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Compartir</p><h2 id="dayExportDialogTitle">Descargar imagen del día</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="dayExportDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="field-note">Elige la fecha que quieres compartir. Se respetarán los filtros activos.</p>
+      <label><span>Día</span><input id="dayExportDate" type="date" required></label>
+      <div class="form-errors" id="dayExportErrors" role="alert" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="dayExportDialog">Cancelar</button>
+        <button class="button primary" type="submit">Descargar imagen</button>
+      </footer>
+    </form>
   </dialog>
 
   <dialog class="modal activity-modal" id="activityDialog" data-testid="activity-dialog" aria-labelledby="activityDialogTitle">

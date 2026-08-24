@@ -38,17 +38,19 @@ const parseVersion = (value, label) => {
   return { major: Number(major), minor: Number(minor), patch: Number(patch), prerelease };
 };
 
-const localTagExists = (tag) => {
+const gitRevision = (ref) => {
   try {
-    execFileSync("git", ["rev-parse", "--verify", "refs/tags/" + tag], {
+    return execFileSync("git", ["rev-parse", "--verify", ref], {
       cwd: root,
-      stdio: "ignore"
-    });
-    return true;
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"]
+    }).trim();
   } catch {
-    return false;
+    return null;
   }
 };
+
+const localTagExists = (tag) => Boolean(gitRevision("refs/tags/" + tag));
 
 const [packageSource, lockSource, coreSource, stableSource, namedDist, pagesDist] =
   await Promise.all([
@@ -126,8 +128,19 @@ if (args.has("--require-stable-tag") && !stableTagPresent) {
 
 const currentTag = packageVersion ? "v" + packageVersion : null;
 const currentTagPresent = currentTag ? localTagExists(currentTag) : false;
+const headCommit = gitRevision("HEAD");
+const stableTagCommit = stableTag ? gitRevision("refs/tags/" + stableTag + "^{commit}") : null;
+const currentTagCommit = currentTag ? gitRevision("refs/tags/" + currentTag + "^{commit}") : null;
+const currentTagMatchesHead = Boolean(currentTagCommit && headCommit && currentTagCommit === headCommit);
 if (args.has("--require-current-tag") && !currentTagPresent) {
   failures.push("El tag de la versión actual " + currentTag + " no existe en el repositorio local.");
+} else if (args.has("--require-current-tag") && !currentTagMatchesHead) {
+  failures.push(
+    "El tag de la versión actual " + currentTag +
+    " debe apuntar al commit exacto de HEAD. Tag: " +
+    (currentTagCommit || "(no resoluble)") + "; HEAD: " +
+    (headCommit || "(no resoluble)") + "."
+  );
 }
 
 const result = {
@@ -136,8 +149,12 @@ const result = {
   channel: parsedPackage?.prerelease ? "beta" : "stable",
   stableTag,
   stableTagPresent,
+  stableTagCommit,
   currentTag,
   currentTagPresent,
+  currentTagCommit,
+  headCommit,
+  currentTagMatchesHead,
   distEqual,
   distSha256,
   failures

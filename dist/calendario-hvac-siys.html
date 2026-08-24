@@ -47,6 +47,42 @@
   --error-ink: #8d2b2b;
   --payroll-bg: #d6e8e5;
   --contractor-bg: #fde0cb;
+  --control-radius: 9px;
+  --control-small-height: 32px;
+  --control-small-size: 30px;
+  --menu-action-height: 38px;
+  --menu-action-radius: 7px;
+  --activity-card-height: 48px;
+  --activity-card-radius: 8px;
+  --activity-card-title-size: 11px;
+  --activity-card-meta-size: 10px;
+  --activity-card-payroll-bg: #9bc1bc;
+  --activity-card-payroll-ink: #17302d;
+  --activity-card-payroll-accent: #477d77;
+  --activity-card-contractor-bg: #f5aa77;
+  --activity-card-contractor-ink: #4b270e;
+  --activity-card-contractor-accent: #a4480c;
+  --activity-card-mixed-payroll-bg: #9bc1bc;
+  --activity-card-mixed-contractor-bg: #f3a46e;
+  --activity-card-mixed-ink: #3e2a1d;
+  --activity-card-mixed-accent: var(--green-800);
+  --activity-card-unassigned-bg: #e4e8e4;
+  --activity-card-unassigned-ink: #3d463e;
+  --activity-card-unassigned-accent: #8c968d;
+  --activity-card-shadow: 0 1px 3px rgba(40, 60, 45, 0.14);
+  --activity-card-overflow-shadow: 0 1px 2px rgba(40, 60, 45, 0.18);
+  --activity-card-status-ring: rgba(196, 61, 61, 0.55);
+  --activity-card-selection-outline: #365b2c;
+  --activity-card-action-size: 17px;
+  --activity-card-action-bg: rgba(255, 255, 255, 0.54);
+  --activity-card-reschedule-border: rgba(23, 48, 45, 0.2);
+  --activity-card-reschedule-bg: rgba(255, 255, 255, 0.42);
+  --activity-responsible-avatar-size: 17px;
+  --activity-responsible-avatar-border: rgba(23, 48, 45, 0.24);
+  --activity-responsible-avatar-ink: #17302d;
+  --activity-responsible-avatar-bg: rgba(255, 255, 255, 0.68);
+  --activity-responsible-contractor-ink: #4b270e;
+  --activity-responsible-contractor-bg: rgba(255, 242, 224, 0.76);
   --shadow: 0 14px 40px rgba(43, 66, 45, 0.16);
   --radius: 12px;
   --font: Arial, "Segoe UI", sans-serif;
@@ -91,6 +127,19 @@ html[data-theme="dark"] {
   --error-ink: #ffc1c1;
   --payroll-bg: #24423f;
   --contractor-bg: #50311e;
+  --activity-card-payroll-bg: #23423e;
+  --activity-card-payroll-ink: #f3fbf7;
+  --activity-card-payroll-accent: #8fc5bf;
+  --activity-card-contractor-bg: #51301f;
+  --activity-card-contractor-ink: #fff4e8;
+  --activity-card-contractor-accent: #f0a16d;
+  --activity-card-mixed-payroll-bg: #23423e;
+  --activity-card-mixed-contractor-bg: #51301f;
+  --activity-card-mixed-ink: #fff4e8;
+  --activity-card-unassigned-bg: #2b342e;
+  --activity-card-unassigned-ink: #eef6ef;
+  --activity-card-unassigned-accent: #8c968d;
+  --activity-card-selection-outline: #b7e79a;
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.42);
 }
 
@@ -281,10 +330,10 @@ textarea:focus-visible,
 }
 
 .menu-action {
-  min-height: 38px;
+  min-height: var(--menu-action-height);
   padding: 7px 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--menu-action-radius);
   text-align: left;
   color: var(--ink);
   background: transparent;
@@ -324,10 +373,10 @@ textarea:focus-visible,
 }
 
 .button {
-  min-height: 38px;
+  min-height: var(--menu-action-height);
   padding: 0 14px;
   border: 1px solid var(--control-border);
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   font-weight: 700;
   white-space: nowrap;
@@ -373,7 +422,7 @@ button:disabled {
 }
 
 .button.small {
-  min-height: 32px;
+  min-height: var(--control-small-height);
   padding-inline: 11px;
   font-size: 12px;
 }
@@ -384,7 +433,7 @@ button:disabled {
   display: inline-grid;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   font-weight: 800;
 }
@@ -396,8 +445,8 @@ button:disabled {
 }
 
 .icon-button.small {
-  width: 30px;
-  height: 30px;
+  width: var(--control-small-size);
+  height: var(--control-small-size);
 }
 
 .save-indicator {
@@ -965,7 +1014,7 @@ body.catalog-collapsed .catalog-panel {
 
 .calendar-grid {
   flex: 1;
-  grid-template-rows: repeat(6, minmax(112px, 1fr));
+  grid-template-rows: repeat(6, minmax(132px, auto));
   border-left: 1px solid #cfd7cf;
   border-bottom: 1px solid #cfd7cf;
   background: var(--day-bg);
@@ -973,12 +1022,12 @@ body.catalog-collapsed .catalog-panel {
 
 .day-cell {
   position: relative;
-  min-height: 112px;
+  min-height: 132px;
   padding: 5px;
   border-top: 1px solid #cfd7cf;
   border-right: 1px solid #cfd7cf;
   background: var(--day-bg);
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
 }
 
@@ -1069,59 +1118,43 @@ body.catalog-collapsed .catalog-panel {
   gap: 2px;
 }
 
-.day-cell.has-overflow .activity-card {
-  min-height: 31px;
-  padding: 3px 5px 3px 4px;
-}
-
-.day-cell.has-overflow .activity-copy strong {
-  font-size: 10px;
-  line-height: 1.1;
-}
-
-.day-cell.has-overflow .activity-copy small {
-  font-size: 8px;
-  line-height: 1.05;
-}
-
-.day-cell.has-overflow .card-flags {
-  font-size: 9px;
-}
-
 .activity-card {
   position: relative;
   display: grid;
-  grid-template-columns: 16px 1fr auto;
-  align-items: center;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: stretch;
   gap: 4px;
-  min-height: 34px;
-  padding: 4px 5px 4px 4px;
+  height: var(--activity-card-height);
+  min-height: var(--activity-card-height);
+  max-height: var(--activity-card-height);
+  padding: 5px 6px 5px 5px;
+  overflow: hidden;
   border: 0;
-  border-left: 5px solid var(--payroll-dark);
-  border-radius: 8px;
-  color: #17302d;
-  background: var(--payroll);
-  box-shadow: 0 1px 3px rgba(40, 60, 45, 0.14);
+  border-left: 5px solid var(--activity-card-payroll-accent);
+  border-radius: var(--activity-card-radius);
+  color: var(--activity-card-payroll-ink);
+  background: var(--activity-card-payroll-bg);
+  box-shadow: var(--activity-card-shadow);
   cursor: grab;
   text-align: left;
 }
 
 .activity-card.contractor {
-  color: #4b270e;
-  border-left-color: var(--contractor-dark);
-  background: #f5aa77;
+  color: var(--activity-card-contractor-ink);
+  border-left-color: var(--activity-card-contractor-accent);
+  background: var(--activity-card-contractor-bg);
 }
 
 .activity-card.mixed {
-  color: #3e2a1d;
-  border-left-color: var(--green-800);
-  background: linear-gradient(100deg, var(--payroll) 0 50%, #f3a46e 50% 100%);
+  color: var(--activity-card-mixed-ink);
+  border-left-color: var(--activity-card-mixed-accent);
+  background: linear-gradient(100deg, var(--activity-card-mixed-payroll-bg) 0 50%, var(--activity-card-mixed-contractor-bg) 50% 100%);
 }
 
 .activity-card.unassigned {
-  color: #3d463e;
-  border-left-color: #8c968d;
-  background: #e4e8e4;
+  color: var(--activity-card-unassigned-ink);
+  border-left-color: var(--activity-card-unassigned-accent);
+  background: var(--activity-card-unassigned-bg);
 }
 
 .activity-card.completed {
@@ -1135,20 +1168,20 @@ body.catalog-collapsed .catalog-panel {
 }
 
 .activity-card.not-executed {
-  box-shadow: inset 0 0 0 2px rgba(196, 61, 61, 0.55);
+  box-shadow: inset 0 0 0 2px var(--activity-card-status-ring);
 }
 
 .activity-card.selected {
-  outline: 3px solid #365b2c;
+  outline: 3px solid var(--activity-card-selection-outline);
   outline-offset: 1px;
 }
 
 .activity-card.reorder-before {
-  box-shadow: inset 0 3px 0 var(--focus), 0 1px 3px rgba(40, 60, 45, 0.14);
+  box-shadow: inset 0 3px 0 var(--focus), var(--activity-card-shadow);
 }
 
 .activity-card.reorder-after {
-  box-shadow: inset 0 -3px 0 var(--focus), 0 1px 3px rgba(40, 60, 45, 0.14);
+  box-shadow: inset 0 -3px 0 var(--focus), var(--activity-card-shadow);
 }
 
 .day-cards.reorder-first {
@@ -1162,6 +1195,10 @@ body.catalog-collapsed .catalog-panel {
 
 .activity-card.quarantine-card {
   grid-template-columns: minmax(0, 1fr) auto;
+  height: auto;
+  min-height: var(--activity-card-height);
+  max-height: none;
+  overflow: visible;
   border-left-color: var(--warning);
   color: var(--ink);
   background: var(--warning-bg);
@@ -1183,57 +1220,194 @@ body.catalog-collapsed .catalog-panel {
   width: 14px;
   height: 14px;
   margin: 0;
+  align-self: center;
+  justify-self: center;
   cursor: pointer;
 }
 
 .activity-copy {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  align-content: stretch;
   min-width: 0;
+  min-height: 0;
+  padding: 1px 0;
+}
+
+.activity-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
 }
 
 .activity-copy strong,
-.activity-copy small {
+.activity-copy small,
+.activity-title,
+.activity-location {
   display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.activity-copy strong {
-  font-size: 10px;
-  line-height: 1.2;
+.activity-title {
+  flex: 1 1 auto;
+  font-size: var(--activity-card-title-size);
+  line-height: 1.15;
 }
 
-.activity-copy small {
-  margin-top: 1px;
-  font-size: 9px;
-  line-height: 1.1;
+.activity-location {
+  margin: 0;
+  color: currentColor;
+  font-size: var(--activity-card-meta-size);
+  line-height: 1.15;
 }
 
 .service-code {
+  flex: 0 0 auto;
   display: inline-block;
   font-weight: 800;
+  white-space: nowrap;
+}
+
+.rescheduled-indicator {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--activity-card-reschedule-border);
+  border-radius: 4px;
+  color: currentColor;
+  background: var(--activity-card-reschedule-bg);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.responsible-summary {
+  min-width: 0;
+  max-width: 44%;
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-left: auto;
+  overflow: hidden;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.responsible-avatar {
+  width: var(--activity-responsible-avatar-size);
+  height: var(--activity-responsible-avatar-size);
+  flex: 0 0 17px;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--activity-responsible-avatar-border);
+  border-radius: 50%;
+  color: var(--activity-responsible-avatar-ink);
+  background: var(--activity-responsible-avatar-bg);
+  font-size: 7px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.responsible-avatar.contractor {
+  color: var(--activity-responsible-contractor-ink);
+  background: var(--activity-responsible-contractor-bg);
+}
+
+.responsible-more,
+.responsible-summary-empty {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .card-flags {
   display: flex;
   flex-direction: column;
   align-items: center;
+  align-self: center;
   gap: 1px;
   font-size: 10px;
 }
 
+.status-icon {
+  position: relative;
+  width: 1.05em;
+  height: 1.05em;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  line-height: 1;
+  font-size: 1em;
+  font-weight: 900;
+}
+
+.status-icon-scheduled::before,
+.status-icon-to_schedule::before {
+  content: "";
+  width: 0.72em;
+  height: 0.72em;
+  border: max(1.5px, 0.12em) solid currentColor;
+  border-radius: 50%;
+}
+
+.status-icon-scheduled::after,
+.status-icon-to_schedule::after {
+  content: "";
+  position: absolute;
+  width: 0.18em;
+  height: 0.18em;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-icon-in_progress {
+  width: 9px;
+  height: 12px;
+  display: block;
+  font-size: 0;
+  line-height: 0;
+}
+
+.status-icon-in_progress::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-2px);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid currentColor;
+}
+
 .quick-open,
 .quick-complete {
-  width: 17px;
-  height: 17px;
+  width: var(--activity-card-action-size);
+  height: var(--activity-card-action-size);
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
   border-radius: 50%;
   color: var(--green-800);
-  background: rgba(255, 255, 255, 0.54);
+  background: var(--activity-card-action-bg);
   cursor: pointer;
+}
+
+.quick-open .status-icon {
+  font-size: 13px;
 }
 
 .day-overflow {
@@ -1282,9 +1456,9 @@ body.catalog-collapsed .catalog-panel {
   border: 1px solid rgba(40, 60, 45, 0.18);
   border-left: 4px solid var(--payroll-dark);
   border-radius: 6px;
-  color: #17302d;
-  background: var(--payroll);
-  box-shadow: 0 1px 2px rgba(40, 60, 45, 0.18);
+  color: var(--activity-card-payroll-ink);
+  background: var(--activity-card-payroll-bg);
+  box-shadow: var(--activity-card-overflow-shadow);
   font-size: 7px;
   text-align: left;
   transform: translate(calc(var(--stack-index) * 2px), calc(var(--stack-index) * 2px));
@@ -1298,21 +1472,21 @@ body.catalog-collapsed .catalog-panel {
 }
 
 .day-overflow-card.contractor {
-  border-left-color: var(--contractor-dark);
-  color: #4b270e;
-  background: #f5aa77;
+  border-left-color: var(--activity-card-contractor-accent);
+  color: var(--activity-card-contractor-ink);
+  background: var(--activity-card-contractor-bg);
 }
 
 .day-overflow-card.mixed {
-  border-left-color: var(--green-800);
-  color: #3e2a1d;
-  background: linear-gradient(100deg, var(--payroll) 0 50%, #f3a46e 50% 100%);
+  border-left-color: var(--activity-card-mixed-accent);
+  color: var(--activity-card-mixed-ink);
+  background: linear-gradient(100deg, var(--activity-card-mixed-payroll-bg) 0 50%, var(--activity-card-mixed-contractor-bg) 50% 100%);
 }
 
 .day-overflow-card.unassigned {
-  border-left-color: #8c968d;
-  color: #3d463e;
-  background: #e4e8e4;
+  border-left-color: var(--activity-card-unassigned-accent);
+  color: var(--activity-card-unassigned-ink);
+  background: var(--activity-card-unassigned-bg);
 }
 
 .day-overflow-card.completed,
@@ -1321,7 +1495,7 @@ body.catalog-collapsed .catalog-panel {
 }
 
 .day-overflow-card.not-executed {
-  box-shadow: inset 0 0 0 2px rgba(196, 61, 61, 0.55), 0 1px 2px rgba(40, 60, 45, 0.18);
+  box-shadow: inset 0 0 0 2px var(--activity-card-status-ring), var(--activity-card-overflow-shadow);
 }
 
 .day-overflow-service {
@@ -1464,6 +1638,10 @@ body.catalog-collapsed .catalog-panel {
   padding: 14px 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+
+.day-actions {
+  align-items: center;
 }
 
 .responsible-chips,
@@ -1682,7 +1860,7 @@ html[data-theme="dark"] .filter-chip {
 }
 
 html[data-theme="dark"] .activity-card.selected {
-  outline-color: #b7e79a;
+  outline-color: var(--activity-card-selection-outline);
 }
 
 html[data-theme="dark"] dialog::backdrop {
@@ -2135,6 +2313,47 @@ html[data-theme="dark"] dialog::backdrop {
 }
 
 
+/*
+ * Scroll ownership: the shell clips each region and its content list owns
+ * the scroll. Dialog forms and the drawer follow the same rule so their
+ * sticky footers and headers stay inside one scroll context.
+ */
+.calendar-panel,
+.catalog-panel {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.catalog-panel:has(.catalog-list[hidden]) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.month-grid-wrap {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.catalog-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.detail-drawer[open] {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.drawer-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 12px;
+}
+
 @media (min-width: 900px) and (max-width: 1199px) {
   html,
   body {
@@ -2414,8 +2633,7 @@ html[data-theme="dark"] dialog::backdrop {
   .calendar-panel {
     height: 100%;
     padding: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     overscroll-behavior: contain;
   }
 
@@ -2534,6 +2752,13 @@ html[data-theme="dark"] dialog::backdrop {
     display: none;
   }
 
+  .mobile-agenda-header #mobileAgendaExportButton {
+    display: inline-flex;
+    max-width: 132px;
+    white-space: normal;
+    text-align: center;
+  }
+
   .mobile-agenda-header h2,
   .mobile-agenda-header p {
     margin: 0;
@@ -2551,17 +2776,22 @@ html[data-theme="dark"] dialog::backdrop {
   }
 
   .mobile-agenda-list {
+    flex: 1 1 auto;
     min-height: 0;
     display: grid;
     align-content: start;
     gap: 7px;
+    overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 2px 1px 18px;
   }
 
   .mobile-agenda-list .activity-card {
-    min-height: 52px;
-    padding: 7px;
+    height: 60px;
+    min-height: 60px;
+    max-height: 60px;
+    padding: 6px 7px;
   }
 
   .mobile-agenda-list .activity-copy strong {
@@ -2570,6 +2800,11 @@ html[data-theme="dark"] dialog::backdrop {
 
   .mobile-agenda-list .activity-copy small {
     font-size: 11px;
+  }
+
+  .mobile-agenda-list .card-flags {
+    flex-direction: row;
+    gap: 4px;
   }
 
   .mobile-agenda-list .quick-open,
@@ -2617,11 +2852,15 @@ html[data-theme="dark"] dialog::backdrop {
   dialog > form {
     max-height: calc(100dvh - 14px);
     overflow-y: auto;
+    scroll-padding-block: 12px 96px;
   }
 
   .mobile-month-modal {
     width: calc(100vw - 14px) !important;
     padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .mobile-month-shell {
@@ -2641,6 +2880,12 @@ html[data-theme="dark"] dialog::backdrop {
 
   .mobile-month-grid-host {
     padding: 0 8px 10px;
+  }
+
+  /* The month dialog owns overflow after the grid is moved out of the app shell. */
+  dialog.mobile-month-modal .mobile-month-grid-host .month-grid-wrap {
+    overflow: visible;
+    overscroll-behavior: auto;
   }
 
   .form-grid.two-columns,
@@ -2725,15 +2970,17 @@ html[data-theme="dark"] dialog::backdrop {
 
 @media (max-height: 820px) and (min-width: 900px) {
   .calendar-grid {
-    grid-template-rows: repeat(6, minmax(96px, 1fr));
+    grid-template-rows: repeat(6, minmax(124px, auto));
   }
 
   .day-cell {
-    min-height: 96px;
+    min-height: 124px;
   }
 
   .activity-card {
-    min-height: 31px;
+    height: var(--activity-card-height);
+    min-height: var(--activity-card-height);
+    max-height: var(--activity-card-height);
   }
 }
 
@@ -2751,76 +2998,53 @@ html[data-theme="dark"] dialog::backdrop {
 /* Visual contract promoted from beta 0.10.0 to both public channels. */
 html[data-channel="beta"],
 html[data-channel="stable"] {
-  --beta-card-title-size: 11px;
-  --beta-card-meta-size: 10px;
-  --beta-card-min-height: 36px;
-  --beta-card-payroll-bg: #9bc1bc;
-  --beta-card-payroll-ink: #17302d;
-  --beta-card-contractor-bg: #f5aa77;
-  --beta-card-contractor-ink: #4b270e;
-  --beta-card-mixed-payroll-bg: #9bc1bc;
-  --beta-card-mixed-contractor-bg: #f3a46e;
-  --beta-card-mixed-ink: #3e2a1d;
-  --beta-card-unassigned-bg: #e4e8e4;
-  --beta-card-unassigned-ink: #3d463e;
-  --beta-control-radius: 9px;
-  --beta-weekday-height: 32px;
-}
-
-html[data-channel="beta"][data-theme="dark"],
-html[data-channel="stable"][data-theme="dark"] {
-  --beta-card-payroll-bg: #23423e;
-  --beta-card-payroll-ink: #f3fbf7;
-  --beta-card-contractor-bg: #51301f;
-  --beta-card-contractor-ink: #fff4e8;
-  --beta-card-mixed-payroll-bg: #23423e;
-  --beta-card-mixed-contractor-bg: #51301f;
-  --beta-card-mixed-ink: #fff4e8;
-  --beta-card-unassigned-bg: #2b342e;
-  --beta-card-unassigned-ink: #eef6ef;
+  --channel-control-radius: 9px;
+  --channel-control-small-size: 32px;
+  --channel-weekday-height: 32px;
+  --activity-card-selection-outline: var(--focus);
+  --activity-card-shadow: 0 1px 3px rgba(28, 48, 34, 0.16);
 }
 
 html[data-channel="beta"] .activity-card,
 html[data-channel="stable"] .activity-card {
-  min-height: var(--beta-card-min-height);
   padding: 5px 6px 5px 5px;
-  color: var(--beta-card-payroll-ink);
-  background: var(--beta-card-payroll-bg);
-  box-shadow: 0 1px 3px rgba(28, 48, 34, 0.16);
+  color: var(--activity-card-payroll-ink);
+  background: var(--activity-card-payroll-bg);
+  box-shadow: var(--activity-card-shadow);
 }
 
 html[data-channel="beta"] .activity-card.contractor,
 html[data-channel="stable"] .activity-card.contractor {
-  color: var(--beta-card-contractor-ink);
-  background: var(--beta-card-contractor-bg);
+  color: var(--activity-card-contractor-ink);
+  background: var(--activity-card-contractor-bg);
 }
 
 html[data-channel="beta"] .activity-card.mixed,
 html[data-channel="stable"] .activity-card.mixed {
-  color: var(--beta-card-mixed-ink);
-  background: linear-gradient(100deg, var(--beta-card-mixed-payroll-bg) 0 50%, var(--beta-card-mixed-contractor-bg) 50% 100%);
+  color: var(--activity-card-mixed-ink);
+  background: linear-gradient(100deg, var(--activity-card-mixed-payroll-bg) 0 50%, var(--activity-card-mixed-contractor-bg) 50% 100%);
 }
 
 html[data-channel="beta"] .activity-card.unassigned,
 html[data-channel="stable"] .activity-card.unassigned {
-  color: var(--beta-card-unassigned-ink);
-  background: var(--beta-card-unassigned-bg);
+  color: var(--activity-card-unassigned-ink);
+  background: var(--activity-card-unassigned-bg);
 }
 
 html[data-channel="beta"] .activity-card.selected,
 html[data-channel="stable"] .activity-card.selected {
-  outline-color: var(--focus);
+  outline-color: var(--activity-card-selection-outline);
 }
 
 html[data-channel="beta"] .activity-copy strong,
 html[data-channel="stable"] .activity-copy strong {
-  font-size: var(--beta-card-title-size);
+  font-size: var(--activity-card-title-size);
   line-height: 1.25;
 }
 
 html[data-channel="beta"] .activity-copy small,
 html[data-channel="stable"] .activity-copy small {
-  font-size: var(--beta-card-meta-size);
+  font-size: var(--activity-card-meta-size);
   line-height: 1.2;
 }
 
@@ -2828,26 +3052,26 @@ html[data-channel="beta"] .button,
 html[data-channel="stable"] .button,
 html[data-channel="beta"] .icon-button,
 html[data-channel="stable"] .icon-button {
-  border-radius: var(--beta-control-radius);
+  border-radius: var(--control-radius);
 }
 
 html[data-channel="beta"] .button.small,
 html[data-channel="stable"] .button.small,
 html[data-channel="beta"] .icon-button.small,
 html[data-channel="stable"] .icon-button.small {
-  min-height: 32px;
+  min-height: var(--control-small-height);
 }
 
 html[data-channel="beta"] .icon-button.small,
 html[data-channel="stable"] .icon-button.small {
-  width: 32px;
-  height: 32px;
+  width: var(--channel-control-small-size);
+  height: var(--channel-control-small-size);
 }
 
 html[data-channel="beta"] .menu-action,
 html[data-channel="stable"] .menu-action {
-  min-height: 38px;
-  border-radius: var(--beta-control-radius);
+  min-height: var(--menu-action-height);
+  border-radius: var(--channel-control-radius);
 }
 
 html[data-channel="beta"] .detail-item,
@@ -2890,15 +3114,15 @@ html[data-channel="stable"] .day-cell {
 html[data-channel="beta"] .weekday-row,
 html[data-channel="stable"] .weekday-row {
   flex: 0 0 auto;
-  min-height: var(--beta-weekday-height);
-  height: var(--beta-weekday-height);
+  min-height: var(--channel-weekday-height);
+  height: var(--channel-weekday-height);
   isolation: isolate;
 }
 
 html[data-channel="beta"] .weekday-row div,
 html[data-channel="stable"] .weekday-row div {
-  min-height: var(--beta-weekday-height);
-  height: var(--beta-weekday-height);
+  min-height: var(--channel-weekday-height);
+  height: var(--channel-weekday-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3012,7 +3236,7 @@ html[data-channel="stable"] .storage-banner.compact-status {
 @media (max-width: 899px) {
   html[data-channel="beta"],
   html[data-channel="stable"] {
-    --beta-weekday-height: 30px;
+    --channel-weekday-height: 30px;
   }
 
   html[data-channel="beta"] .activity-detail-grid,
@@ -3133,6 +3357,7 @@ html[data-channel="stable"] .storage-banner.compact-status {
               <button class="menu-action" id="exportCsvButton" type="button"><strong>Descargar listado del mes</strong><small>Archivo para revisar en Excel</small></button>
               <button class="menu-action" id="exportQuarantineCsvButton" type="button"><strong>Descargar listado de pendientes</strong><small>Actividades sin fecha para revisar en Excel</small></button>
               <button class="menu-action" id="exportQuarantineImageButton" type="button"><strong>Descargar imagen de pendientes</strong><small>Resumen visual de las tarjetas visibles</small></button>
+              <button class="menu-action" id="exportDayImageButton" type="button"><strong>Descargar imagen del día</strong><small>Elige la fecha que quieres compartir</small></button>
               <button class="menu-action" id="exportImageButton" type="button"><strong>Descargar imagen del cronograma</strong><small>Respeta la búsqueda y los filtros activos</small></button>
             </div>
           </details>
@@ -3282,6 +3507,7 @@ html[data-channel="stable"] .storage-banner.compact-status {
               <h2 id="mobileAgendaTitle">Día</h2>
               <p id="mobileAgendaMeta"></p>
             </div>
+            <button class="button ghost small" id="mobileAgendaExportButton" type="button">Descargar imagen</button>
             <button class="button primary" id="mobileAgendaAddButton" type="button">＋ Agregar</button>
           </header>
           <div class="mobile-agenda-list" id="mobileAgendaList"></div>
@@ -3323,6 +3549,22 @@ html[data-channel="stable"] .storage-banner.compact-status {
       </div>
       <div class="mobile-month-grid-host" id="mobileMonthGridHost"></div>
     </div>
+  </dialog>
+
+  <dialog class="modal compact-modal" id="dayExportDialog" aria-labelledby="dayExportDialogTitle">
+    <form id="dayExportForm">
+      <header class="modal-header">
+        <div><p class="eyebrow">Compartir</p><h2 id="dayExportDialogTitle">Descargar imagen del día</h2></div>
+        <button class="icon-button" type="button" data-close-dialog="dayExportDialog" aria-label="Cerrar">×</button>
+      </header>
+      <p class="field-note">Elige la fecha que quieres compartir. Se respetarán los filtros activos.</p>
+      <label><span>Día</span><input id="dayExportDate" type="date" required></label>
+      <div class="form-errors" id="dayExportErrors" role="alert" hidden></div>
+      <footer class="modal-footer">
+        <button class="button ghost" type="button" data-close-dialog="dayExportDialog">Cancelar</button>
+        <button class="button primary" type="submit">Descargar imagen</button>
+      </footer>
+    </form>
   </dialog>
 
   <dialog class="modal activity-modal" id="activityDialog" data-testid="activity-dialog" aria-labelledby="activityDialogTitle">
@@ -84242,6 +84484,8 @@ export function normalizeDisplayText(value, maxLength = 5000) {
 }
 
 
+const COVERAGE_INDEX = Symbol("responsibleCoverageIndex");
+
 function groupKey(responsible) {
   return normalizeText(responsible?.group);
 }
@@ -84252,37 +84496,99 @@ function coverageValues(responsible) {
     .filter(Boolean);
 }
 
-export function buildGroupCoverage(responsibles = []) {
-  const coverage = new Map();
+function buildCoverageMaps(responsibles) {
+  const coverageByGroup = new Map();
+  const coverageByResponsible = new Map();
+
   for (const responsible of responsibles) {
+    const values = new Set(coverageValues(responsible));
+    coverageByResponsible.set(responsible, values);
+
     const key = groupKey(responsible);
     if (!key) continue;
-    const values = coverage.get(key) ?? new Set();
-    for (const city of coverageValues(responsible)) values.add(city);
-    coverage.set(key, values);
+
+    const groupValues = coverageByGroup.get(key) ?? new Set();
+    for (const city of values) groupValues.add(city);
+    coverageByGroup.set(key, groupValues);
   }
-  return coverage;
+
+  return { coverageByGroup, coverageByResponsible };
 }
 
-export function responsibleCoverageScore(responsible, city, responsibles = []) {
+export function buildGroupCoverage(responsibles = []) {
+  return buildCoverageMaps(Array.from(responsibles ?? [])).coverageByGroup;
+}
+
+function isCoverageIndex(value) {
+  return Boolean(value?.[COVERAGE_INDEX]);
+}
+
+function scoreWithCoverageIndex(responsible, city, index) {
   const target = normalizeText(city);
   if (!target) return 9;
+
   const group = groupKey(responsible);
-  const groupCoverage = buildGroupCoverage(responsibles).get(group);
+  const groupCoverage = index.coverageByGroup.get(group);
   if (group && groupCoverage?.has(target)) return 0;
+
   if (normalizeText(responsible?.baseCity) === target) return 1;
-  if (coverageValues(responsible).includes(target)) return 2;
+
+  const coverage = index[COVERAGE_INDEX].coverageByResponsible.get(responsible)
+    ?? new Set(coverageValues(responsible));
+  if (coverage.has(target)) return 2;
+
   if (
     normalizeText(responsible?.baseCity) === "nacional" ||
     normalizeText(responsible?.group) === "nacional"
   ) return 3;
+
   return 9;
 }
 
-export function sortResponsiblesByCoverage(responsibles = [], city = "") {
-  return [...responsibles].sort((left, right) => {
-    const score = responsibleCoverageScore(left, city, responsibles)
-      - responsibleCoverageScore(right, city, responsibles);
+/**
+ * Creates a reusable snapshot of normalized group/city coverage for a catalog.
+ * The returned `score(responsible, city)` method reuses that snapshot.
+ */
+export function createResponsibleCoverageIndex(responsibles = []) {
+  const list = Array.from(responsibles ?? []);
+  const { coverageByGroup, coverageByResponsible } = buildCoverageMaps(list);
+  const index = {
+    coverageByGroup,
+    score(responsible, city) {
+      return scoreWithCoverageIndex(responsible, city, index);
+    },
+  };
+
+  Object.defineProperty(index, COVERAGE_INDEX, {
+    configurable: false,
+    enumerable: false,
+    value: { coverageByResponsible },
+    writable: false,
+  });
+
+  return Object.freeze(index);
+}
+
+export function responsibleCoverageScore(responsible, city, responsibles = []) {
+  const index = isCoverageIndex(responsibles)
+    ? responsibles
+    : createResponsibleCoverageIndex(responsibles);
+  return scoreWithCoverageIndex(responsible, city, index);
+}
+
+export function sortResponsiblesByCoverage(
+  responsibles = [],
+  city = "",
+  coverageIndex = null,
+) {
+  const list = Array.from(responsibles ?? []);
+  const index = isCoverageIndex(coverageIndex)
+    ? coverageIndex
+    : createResponsibleCoverageIndex(list);
+
+  return list.sort((left, right) => {
+    const score = scoreWithCoverageIndex(left, city, index)
+      - scoreWithCoverageIndex(right, city, index);
     if (score) return score;
     if (Boolean(left.favorite) !== Boolean(right.favorite)) return left.favorite ? -1 : 1;
     return String(left.name ?? "").localeCompare(String(right.name ?? ""), "es");
@@ -85461,7 +85767,11 @@ export function createIndexedDocumentStore({
           database.createObjectStore(storeName, { keyPath: "key" });
         }
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => database.close();
+        resolve(database);
+      };
       request.onerror = () => reject(request.error ?? new Error("No fue posible abrir IndexedDB."));
       request.onblocked = () => reject(new Error("La base local está bloqueada por otra pestaña."));
     });
@@ -85540,10 +85850,12 @@ export function createIndexedDocumentStore({
       let claimed = false;
       request.onsuccess = () => {
         const current = request.result;
-        const age = current?.heartbeatAt
-          ? Date.now() - new Date(current.heartbeatAt).getTime()
-          : Infinity;
-        if (force || !current || current.ownerId === ownerId || age > staleAfterMs) {
+        const heartbeatTime = current?.heartbeatAt == null
+          ? Number.NaN
+          : new Date(current.heartbeatAt).getTime();
+        const heartbeatIsStale = !Number.isFinite(heartbeatTime)
+          || Date.now() - heartbeatTime > staleAfterMs;
+        if (force || !current || current.ownerId === ownerId || heartbeatIsStale) {
           store.put({ key, ownerId, heartbeatAt: new Date().toISOString() });
           claimed = true;
         }
@@ -85555,17 +85867,22 @@ export function createIndexedDocumentStore({
     });
   }
 
-  async function releaseLock(database, { key, ownerId }) {
-    const current = await readRecord(database, key);
-    if (current?.ownerId !== ownerId) return false;
-    await new Promise((resolve) => {
+  function releaseLock(database, { key, ownerId }) {
+    return new Promise((resolve, reject) => {
       const transaction = database.transaction(storeName, "readwrite");
-      transaction.objectStore(storeName).delete(key);
-      transaction.oncomplete = resolve;
-      transaction.onerror = resolve;
-      transaction.onabort = resolve;
+      const store = transaction.objectStore(storeName);
+      const request = store.get(key);
+      let released = false;
+      request.onsuccess = () => {
+        if (request.result?.ownerId !== ownerId) return;
+        store.delete(key);
+        released = true;
+      };
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve(released);
+      transaction.onerror = () => resolve(released);
+      transaction.onabort = () => resolve(released);
     });
-    return true;
   }
 
   return Object.freeze({
@@ -85602,6 +85919,99 @@ export function createJsonPreferences(storage, key) {
   }
 
   return Object.freeze({ read, update, clear });
+}
+
+
+export function createCalendarCommands({
+  getDocument,
+  setDocument,
+  executeOperation,
+  cloneDocument = structuredClone
+}) {
+  if (typeof getDocument !== "function") {
+    throw new TypeError("createCalendarCommands requiere getDocument.");
+  }
+  if (typeof setDocument !== "function") {
+    throw new TypeError("createCalendarCommands requiere setDocument.");
+  }
+  if (typeof executeOperation !== "function") {
+    throw new TypeError("createCalendarCommands requiere executeOperation.");
+  }
+
+  function dispatch(operation, payload = {}, options = {}) {
+    const before = cloneDocument(getDocument());
+    try {
+      const outcome = executeOperation(getDocument(), { operation, payload }, options);
+      if (outcome && outcome.changed) setDocument(outcome.document);
+      return outcome;
+    } catch (error) {
+      setDocument(before);
+      throw error;
+    }
+  }
+
+  return Object.freeze({
+    dispatch,
+    run: dispatch
+  });
+}
+
+
+export function createImportCommands({
+  getDocument,
+  setDocument,
+  cloneDocument = structuredClone,
+  adapter
+}) {
+  if (typeof getDocument !== "function") {
+    throw new TypeError("createImportCommands requiere getDocument.");
+  }
+  if (typeof setDocument !== "function") {
+    throw new TypeError("createImportCommands requiere setDocument.");
+  }
+  if (typeof cloneDocument !== "function") {
+    throw new TypeError("createImportCommands requiere cloneDocument.");
+  }
+  if (typeof adapter !== "function") {
+    throw new TypeError("createImportCommands requiere adapter.");
+  }
+
+  function normalizeOutcome(adapterResult) {
+    if (adapterResult === undefined || adapterResult === null) {
+      return { document: null, result: {} };
+    }
+    if (typeof adapterResult === "object" && !Array.isArray(adapterResult)) {
+      if ("document" in adapterResult) {
+        const { document: nextDocument, ...rest } = adapterResult;
+        return { document: nextDocument, result: rest };
+      }
+      return { document: adapterResult, result: {} };
+    }
+    throw new TypeError("El adapter debe devolver un documento o un objeto con propiedad document.");
+  }
+
+  function dispatch(payload = {}, options = {}) {
+    const before = cloneDocument(getDocument());
+    try {
+      const workingDocument = cloneDocument(before);
+      const adapterResult = adapter(workingDocument, payload, options);
+      const { document: normalizedDocument, result } = normalizeOutcome(adapterResult);
+      if (normalizedDocument === null || normalizedDocument === undefined) {
+        throw new TypeError("El adapter no produjo un documento válido.");
+      }
+      const nextDocument = cloneDocument(normalizedDocument);
+      setDocument(nextDocument);
+      return { changed: true, document: nextDocument, result };
+    } catch (error) {
+      setDocument(before);
+      throw error;
+    }
+  }
+
+  return Object.freeze({
+    dispatch,
+    run: dispatch
+  });
 }
 
 
@@ -85702,6 +86112,350 @@ export function displayInitialsFor(name) {
 }
 
 
+const STATUS_VARIANT = (status) => status.replaceAll("_", "-");
+
+function createStatusPresentation(key, label) {
+  return Object.freeze({
+    key,
+    label,
+    icon: STATUS_ICONS[key] ?? "•",
+    accessibleLabel: `Estado: ${label}`,
+    variant: STATUS_VARIANT(key)
+  });
+}
+
+export const ACTIVITY_STATUS_PRESENTATION = Object.freeze({
+  scheduled: createStatusPresentation("scheduled", ACTIVITY_STATUSES.scheduled),
+  confirmed: createStatusPresentation("confirmed", ACTIVITY_STATUSES.confirmed),
+  in_progress: createStatusPresentation("in_progress", ACTIVITY_STATUSES.in_progress),
+  completed: createStatusPresentation("completed", ACTIVITY_STATUSES.completed),
+  not_executed: createStatusPresentation("not_executed", ACTIVITY_STATUSES.not_executed),
+  cancelled: createStatusPresentation("cancelled", ACTIVITY_STATUSES.cancelled),
+  to_schedule: createStatusPresentation("to_schedule", ACTIVITY_STATUSES.to_schedule)
+});
+
+export function activityStatusPresentation(status) {
+  const key = safeText(status, 80);
+  if (ACTIVITY_STATUS_PRESENTATION[key]) return ACTIVITY_STATUS_PRESENTATION[key];
+
+  const fallbackKey = key || "unknown";
+  return createStatusPresentation(fallbackKey, key || "Estado desconocido");
+}
+
+export function activityObservationsTooltip(activity = {}) {
+  const observations = safeText(activity?.observations, 500);
+  return observations ? `Observaciones: ${observations}` : "Sin observaciones registradas";
+}
+
+function responsibleCatalogMap(catalog) {
+  if (catalog instanceof Map) return catalog;
+  if (Array.isArray(catalog)) {
+    return new Map(
+      catalog
+        .filter((item) => item && item.id !== undefined && item.id !== null)
+        .map((item) => [item.id, item])
+    );
+  }
+  if (!catalog || typeof catalog !== "object") return new Map();
+  if (Object.hasOwn(catalog, "responsibles")) return responsibleCatalogMap(catalog.responsibles);
+  return new Map(
+    Object.entries(catalog).filter(([, item]) => item && typeof item === "object")
+  );
+}
+
+function responsibleEntry(item, fallbackId) {
+  const name = safeText(item?.name, 180);
+  if (!name) return null;
+
+  const responsibleType = safeText(item.responsibleType, 40);
+  const visualVariant = responsibleType === "contractor"
+    ? "contractor"
+    : responsibleType === "payroll"
+      ? "payroll"
+      : "unknown";
+  const initials = safeText(item.initials || displayInitialsFor(name), 6).replace(/\s+/g, "");
+
+  return Object.freeze({
+    id: safeText(item.id ?? fallbackId, 160),
+    name,
+    initials,
+    responsibleType,
+    typeLabel: RESPONSIBLE_TYPES[responsibleType] ?? responsibleType,
+    visualVariant
+  });
+}
+
+export function activityResponsiblePresentation(activity = {}, catalog = []) {
+  const maps = responsibleCatalogMap(catalog);
+  const entries = (Array.isArray(activity?.responsibleIds) ? activity.responsibleIds : [])
+    .map((id) => {
+      const item = maps.get(id) ?? maps.get(String(id));
+      return item ? responsibleEntry(item, id) : null;
+    })
+    .filter(Boolean);
+  const fullNames = Object.freeze(entries.map((entry) => entry.name));
+  const initials = Object.freeze(entries.map((entry) => entry.initials));
+  const summary = fullNames.length ? fullNames.join(" · ") : "Sin responsable";
+  const variants = new Set(entries.map((entry) => entry.visualVariant));
+  const visualVariant = !entries.length
+    ? "unassigned"
+    : variants.size > 1
+      ? "mixed"
+      : entries[0].visualVariant;
+
+  return Object.freeze({
+    count: entries.length,
+    entries: Object.freeze(entries),
+    fullNames,
+    initials,
+    summary,
+    accessibleLabel: fullNames.length ? `Técnicos: ${summary}` : "Sin responsable",
+    visualVariant
+  });
+}
+
+function firstText(...values) {
+  for (const value of values) {
+    const text = safeText(value, 240);
+    if (text) return text;
+  }
+  return "";
+}
+
+function accessibleActivityLabel(activity, {
+  status,
+  responsibles,
+  title,
+  siteName,
+  serviceLabel,
+  rescheduled
+}) {
+  const observationSummary = safeText(activity?.observations, 240);
+  return [
+    title,
+    siteName ? `sede: ${siteName}` : "",
+    responsibles.fullNames.length ? `técnicos: ${responsibles.summary}` : "sin responsable",
+    serviceLabel ? `tipo de servicio: ${serviceLabel}` : "",
+    `estado: ${status.label}`,
+    rescheduled ? "reprogramada" : "",
+    observationSummary ? `observaciones: ${observationSummary}` : ""
+  ].filter(Boolean).join(", ");
+}
+
+export function buildActivityPresentation(activity = {}, options = {}) {
+  const config = options ?? {};
+  const status = activityStatusPresentation(activity?.status);
+  const responsibles = activityResponsiblePresentation(
+    activity,
+    config.responsibles ?? config.maps?.responsibles ?? []
+  );
+  const serviceLabel = firstText(
+    config.serviceLabel,
+    activity?.serviceLabel,
+    SERVICE_TYPES[activity?.serviceType],
+    activity?.serviceType
+  );
+  const title = firstText(
+    config.title,
+    config.clientName,
+    activity?.title,
+    activity?.clientName,
+    activity?.serviceType === "administrative" ? "Administrativo" : "",
+    serviceLabel || "Cliente sin catálogo"
+  );
+  const siteName = firstText(config.siteName, activity?.siteName);
+  const history = Array.isArray(activity?.history) ? activity.history : [];
+  const rescheduled = config.rescheduled ?? history.some(
+    (item) => item?.action === "rescheduled"
+  );
+
+  return Object.freeze({
+    status,
+    observationsTooltip: activityObservationsTooltip(activity),
+    responsibles,
+    accessibleLabel: accessibleActivityLabel(activity, {
+      status,
+      responsibles,
+      title,
+      siteName,
+      serviceLabel,
+      rescheduled
+    })
+  });
+}
+
+
+const EXPORT_TEXT_STYLES = Object.freeze({
+  title: Object.freeze({ font: "700 17px Arial", lineHeight: 21 }),
+  location: Object.freeze({ font: "14px Arial", lineHeight: 19 }),
+  responsible: Object.freeze({ font: "14px Arial", lineHeight: 19 }),
+  status: Object.freeze({ font: "12px Arial", lineHeight: 17 })
+});
+
+const DEFAULT_MAX_WIDTH = 1264;
+const DEFAULT_MIN_HEIGHT = 122;
+const DEFAULT_TOP_PADDING = 18;
+
+function firstExportText(...values) {
+  for (const value of values) {
+    const text = safeText(value, 240);
+    if (text) return text;
+  }
+  return "";
+}
+
+function namedText(value) {
+  return safeText(typeof value === "string" ? value : value?.name, 180);
+}
+
+function measuredWidth(measureContext, value) {
+  const result = measureContext.measureText(value);
+  const width = Number(result?.width);
+  if (!Number.isFinite(width)) throw new TypeError("measureText debe devolver un ancho numérico.");
+  return width;
+}
+
+function splitLongWord(measureContext, word, maxWidth) {
+  const chunks = [];
+  let chunk = "";
+  for (const character of word) {
+    const candidate = chunk + character;
+    if (chunk && measuredWidth(measureContext, candidate) > maxWidth) {
+      chunks.push(chunk);
+      chunk = character;
+    } else {
+      chunk = candidate;
+    }
+  }
+  if (chunk) chunks.push(chunk);
+  return chunks;
+}
+
+function validateWrapInput(measureContext, maxWidth) {
+  if (!measureContext || typeof measureContext.measureText !== "function") {
+    throw new TypeError("Se requiere un contexto con measureText().");
+  }
+  if (!Number.isFinite(maxWidth) || maxWidth <= 0) {
+    throw new RangeError("maxWidth debe ser un número positivo.");
+  }
+}
+
+export function wrapExportText(measureContext, text, maxWidth) {
+  validateWrapInput(measureContext, maxWidth);
+  const value = safeText(text, 1800);
+  if (!value) return Object.freeze([]);
+
+  const lines = [];
+  const paragraphs = value.split(/\r?\n/);
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      if (paragraphIndex < paragraphs.length - 1) lines.push("");
+      return;
+    }
+
+    let line = "";
+    for (const word of words) {
+      if (measuredWidth(measureContext, word) > maxWidth) {
+        if (line) {
+          lines.push(line);
+          line = "";
+        }
+        const chunks = splitLongWord(measureContext, word, maxWidth);
+        lines.push(...chunks.slice(0, -1));
+        line = chunks.at(-1) ?? "";
+        continue;
+      }
+
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && measuredWidth(measureContext, candidate) > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) lines.push(line);
+  });
+
+  return Object.freeze(lines);
+}
+
+export function buildExportActivityRow(activity = {}, options = {}) {
+  const config = options ?? {};
+  const clientName = firstExportText(config.clientName, namedText(config.client));
+  const siteName = firstExportText(config.siteName, namedText(config.site));
+  const city = safeText(activity?.city, 180);
+  const serviceLabel = firstExportText(
+    config.serviceLabel,
+    SERVICE_TYPES[activity?.serviceType],
+    activity?.serviceType
+  );
+  const serviceCode = SERVICE_CODES[activity?.serviceType] ?? "SV";
+  const statusPresentation = activityStatusPresentation(activity?.status);
+  const responsibles = activityResponsiblePresentation(
+    activity,
+    config.responsibles ?? config.maps?.responsibles ?? []
+  );
+  const responsibleNames = Object.freeze([...responsibles.fullNames]);
+  const observations = safeText(activity?.observations, 500);
+
+  return Object.freeze({
+    activity,
+    serviceCode,
+    serviceLabel,
+    title: `${serviceCode} · ${clientName || serviceLabel || "Actividad"}`,
+    location: siteName || city || "Sin sede",
+    responsibleNames,
+    responsible: `Técnicos: ${responsibleNames.length ? responsibleNames.join(" · ") : "Sin responsable"}`,
+    responsibleVariant: responsibles.visualVariant,
+    statusPresentation,
+    status: `${statusPresentation.icon} ${statusPresentation.label}${observations ? ` · ${observations}` : ""}`,
+    observations
+  });
+}
+
+function measureField(measureContext, text, maxWidth, style) {
+  const previousFont = measureContext.font;
+  measureContext.font = style.font;
+  try {
+    return wrapExportText(measureContext, text, maxWidth);
+  } finally {
+    measureContext.font = previousFont;
+  }
+}
+
+export function layoutExportActivityRow(row, measureContext, options = {}) {
+  if (!row || typeof row !== "object") throw new TypeError("row debe ser un objeto.");
+  const config = options ?? {};
+  const maxWidth = Number(config.maxWidth ?? DEFAULT_MAX_WIDTH);
+  const minHeight = Number(config.minHeight ?? DEFAULT_MIN_HEIGHT);
+  const topPadding = Number(config.topPadding ?? DEFAULT_TOP_PADDING);
+  validateWrapInput(measureContext, maxWidth);
+  if (!Number.isFinite(minHeight) || minHeight < 0) throw new RangeError("minHeight no es válido.");
+  if (!Number.isFinite(topPadding) || topPadding < 0) throw new RangeError("topPadding no es válido.");
+
+  const styles = config.styles ?? EXPORT_TEXT_STYLES;
+  const lines = Object.freeze({
+    title: measureField(measureContext, row.title, maxWidth, styles.title),
+    location: measureField(measureContext, row.location, maxWidth, styles.location),
+    responsible: measureField(measureContext, row.responsible, maxWidth, styles.responsible),
+    status: measureField(measureContext, row.status, maxWidth, styles.status)
+  });
+  const contentHeight = topPadding
+    + lines.title.length * styles.title.lineHeight
+    + lines.location.length * styles.location.lineHeight
+    + lines.responsible.length * styles.responsible.lineHeight
+    + lines.status.length * styles.status.lineHeight;
+
+  return Object.freeze({
+    ...row,
+    lines,
+    height: Math.max(minHeight, contentHeight)
+  });
+}
+
+
 export function createMutationController({
   getDocument,
   setDocument,
@@ -85715,8 +86469,21 @@ export function createMutationController({
   render,
   scheduleSave,
   notify,
-  afterUndo
+  afterUndo,
+  importAdapter
 }) {
+  const commands = createCalendarCommands({
+    getDocument,
+    setDocument,
+    executeOperation,
+    cloneDocument
+  });
+  const importCommands = createImportCommands({
+    getDocument,
+    setDocument,
+    cloneDocument,
+    adapter: importAdapter
+  });
   let undoSnapshot = null;
 
   function assertEditable() {
@@ -85753,12 +86520,42 @@ export function createMutationController({
   function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
     assertEditable();
     const before = cloneDocument(getDocument());
-    const outcome = executeOperation(getDocument(), { operation, payload });
+    const outcome = commands.dispatch(operation, payload);
     if (!outcome.changed) return outcome;
-    setDocument(outcome.document);
     if (undo) undoSnapshot = { document: before, label: detail };
     finishChange(detail, toast, undo);
     return outcome;
+  }
+
+  function mutateWithImport(
+    kind,
+    payload = {},
+    detail,
+    { undo = true, toast = detail, auditAction = `import.${kind}`, ...adapterOptions } = {}
+  ) {
+    assertEditable();
+    const before = cloneDocument(getDocument());
+    try {
+      const enrichedPayload = { ...payload, kind };
+      const outcome = importCommands.dispatch(enrichedPayload, adapterOptions);
+      if (!outcome.changed) {
+        setDocument(before);
+        return outcome;
+      }
+      const document = getDocument();
+      document.appVersion = appVersion;
+      document.schemaVersion = schemaVersion;
+      document.calendarMeta.revision += 1;
+      document.calendarMeta.updatedAt = new Date().toISOString();
+      document.settings.holidayRuleSetVersion = holidayRuleSetVersion;
+      appendAudit(auditAction, detail);
+      if (undo) undoSnapshot = { document: before, label: detail };
+      finishChange(detail, toast, undo);
+      return { ...outcome, document };
+    } catch (error) {
+      setDocument(before);
+      throw error;
+    }
   }
 
   function undo() {
@@ -85775,6 +86572,7 @@ export function createMutationController({
   return Object.freeze({
     mutate,
     mutateWithContract,
+    mutateWithImport,
     undo,
     clearUndo: () => { undoSnapshot = null; },
     hasUndo: () => undoSnapshot !== null
@@ -85782,7 +86580,42 @@ export function createMutationController({
 }
 
 
-export const APP_VERSION = "0.16.0-beta.2";
+export const VIEW_CLASSES = Object.freeze({
+  catalogCollapsed: "catalog-collapsed",
+  catalogMobileOpen: "catalog-mobile-open",
+  motionEnhanced: "motion-enhanced",
+  readOnly: "read-only"
+});
+
+export function deriveViewClasses(state = {}) {
+  const {
+    catalogCollapsed = false,
+    isMobileLayout = false,
+    catalogMobileOpen = false,
+    motionEnabled = false,
+    prefersReducedMotion = false,
+    hasEditControl = true
+  } = state;
+
+  const classes = {};
+
+  classes[VIEW_CLASSES.catalogCollapsed] = !isMobileLayout && catalogCollapsed;
+  classes[VIEW_CLASSES.catalogMobileOpen] = isMobileLayout && catalogMobileOpen;
+  classes[VIEW_CLASSES.motionEnhanced] = motionEnabled && !prefersReducedMotion;
+  classes[VIEW_CLASSES.readOnly] = !hasEditControl;
+
+  return classes;
+}
+
+export function applyViewClasses(body, classes) {
+  for (const [className, shouldApply] of Object.entries(classes)) {
+    body.classList.toggle(className, shouldApply);
+  }
+  return classes;
+}
+
+
+export const APP_VERSION = "0.17.0-beta.1";
 export const SCHEMA_VERSION = 4;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -88075,10 +88908,14 @@ export function applyParsedImport(document, parsed, now = new Date().toISOString
 }
 
 
+// Fachada pública estable para la interfaz y consumidores del paquete.
+
+
 export const CONTRACT_VERSION = 1;
 
 export const CALENDAR_OPERATIONS = Object.freeze({
   "calendar.inspect": Object.freeze({ readOnly: true, destructive: false }),
+  "calendar.identify": Object.freeze({ readOnly: false, destructive: false }),
   "calendar.export-csv": Object.freeze({ readOnly: true, destructive: false }),
   "activity.list": Object.freeze({ readOnly: true, destructive: false }),
   "activity.get": Object.freeze({ readOnly: true, destructive: false }),
@@ -88803,6 +89640,17 @@ function listHolidays(document, payload) {
 
 function executeCalendarHandler(operation, document, payload) {
   if (operation === "calendar.inspect") return { result: inspectCalendar(document) };
+  if (operation === "calendar.identify") {
+    allowOnly(payload, ["name", "coordinator"]);
+    const name = requireText(payload.name, "name", 160);
+    const coordinator = safeText(payload.coordinator, 160);
+    document.calendarMeta.name = name;
+    document.calendarMeta.coordinator = coordinator;
+    return {
+      result: { name, coordinator },
+      audit: { action: "calendar_identified", detail: "Identificación del cronograma actualizada" }
+    };
+  }
   if (operation === "calendar.export-csv") {
     allowOnly(payload, ["year", "month"]);
     const year = Number(payload.year);
@@ -89816,17 +90664,34 @@ function clone(value) {
   return structuredClone(value);
 }
 
+function readViewState() {
+  const prefs = uiPreferences.read();
+  return {
+    catalogCollapsed: prefs.catalogCollapsed === true,
+    isMobileLayout: compactLayoutQuery?.matches ?? false,
+    catalogMobileOpen: document.body.classList.contains("catalog-mobile-open"),
+    motionEnabled: prefs.motion === true,
+    prefersReducedMotion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true,
+    hasEditControl
+  };
+}
+
+function applyViewState() {
+  const classes = applyViewClasses(document.body, deriveViewClasses(readViewState()));
+  globalThis.calendaryThreeMotion?.setEnabled(classes["motion-enhanced"]);
+  return classes;
+}
+
 function applyCatalogPreference() {
+  const classes = applyViewState();
   if (compactLayoutQuery?.matches) {
-    const open = document.body.classList.contains("catalog-mobile-open");
+    const open = classes["catalog-mobile-open"];
     dom.toggleCatalogButton.setAttribute("aria-expanded", String(open));
     dom.toggleCatalogButton.title = open ? "Cerrar banco de tarjetas" : "Abrir banco de tarjetas";
     dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
     return;
   }
-  const collapsed = uiPreferences.read().catalogCollapsed === true;
-  document.body.classList.remove("catalog-mobile-open");
-  document.body.classList.toggle("catalog-collapsed", collapsed);
+  const collapsed = classes["catalog-collapsed"];
   dom.toggleCatalogButton.setAttribute("aria-expanded", String(!collapsed));
   dom.toggleCatalogButton.title = collapsed ? "Mostrar banco de tarjetas" : "Ocultar banco de tarjetas";
   dom.toggleCatalogButton.querySelector(".visually-hidden").textContent = dom.toggleCatalogButton.title;
@@ -89893,14 +90758,12 @@ function motionPreference() {
 }
 
 function applyMotionPreference() {
-  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
-  const enabled = motionPreference() && !reduced;
-  document.body.classList.toggle("motion-enhanced", enabled);
-  globalThis.calendaryThreeMotion?.setEnabled(enabled);
-  if (dom.motionEnabled) dom.motionEnabled.checked = motionPreference();
+  const prefs = uiPreferences.read();
+  applyViewState();
+  if (dom.motionEnabled) dom.motionEnabled.checked = prefs.motion === true;
   if (dom.motionButton) {
-    dom.motionButton.setAttribute("aria-pressed", String(motionPreference()));
-    dom.motionButton.querySelector("strong").textContent = `Animaciones visuales: ${motionPreference() ? "activas" : "inactivas"}`;
+    dom.motionButton.setAttribute("aria-pressed", String(prefs.motion === true));
+    dom.motionButton.querySelector("strong").textContent = `Animaciones visuales: ${prefs.motion === true ? "activas" : "inactivas"}`;
   }
 }
 
@@ -90129,7 +90992,7 @@ async function releaseEditLock() {
 }
 
 function renderAccessMode() {
-  document.body.classList.toggle("read-only", !hasEditControl);
+  applyViewState();
   dom.accessBanner.hidden = hasEditControl || (!storageAvailable && !CLOUD_MODE);
   dom.takeControlButton.hidden = CLOUD_MODE || hasEditControl || !storageAvailable;
   const guardedIds = [
@@ -90408,12 +91271,12 @@ function appendAudit(action, detail) {
   }
 }
 
-function mutate(action, detail, callback, { undo = true, toast = detail } = {}) {
-  return mutationController.mutate(action, detail, callback, { undo, toast });
-}
-
 function mutateWithContract(operation, payload, detail, { undo = true, toast = detail } = {}) {
   return mutationController.mutateWithContract(operation, payload, detail, { undo, toast });
+}
+
+function mutateWithImport(kind, payload, detail, options = {}) {
+  return mutationController.mutateWithImport(kind, payload, detail, options);
 }
 
 function undoLastMutation() {
@@ -90437,6 +91300,26 @@ function showToast(message, { type = "normal", undo = false, duration = 5000 } =
   window.setTimeout(() => toast.remove(), duration);
 }
 
+function importAdapter(workingDocument, payload, options = {}) {
+  const kind = payload?.kind;
+  if (kind === "base-operativa") {
+    if (!payload.parsed) throw new TypeError("Falta la importación analizada de Base Operativa.");
+    return applyParsedImport(
+      workingDocument,
+      payload.parsed,
+      options.now ?? new Date().toISOString()
+    );
+  }
+  if (kind === "programacion") {
+    if (!payload.preview) throw new TypeError("Falta la vista previa de programación.");
+    return applyProgrammingImport(workingDocument, payload.preview, {
+      includeDuplicates: options.includeDuplicates === true,
+      now: options.now ?? new Date().toISOString()
+    });
+  }
+  throw new TypeError(`Kind de importación desconocido: ${kind}`);
+}
+
 mutationController = createMutationController({
   getDocument: () => appDocument,
   setDocument: (documentSnapshot) => { appDocument = documentSnapshot; },
@@ -90454,7 +91337,8 @@ mutationController = createMutationController({
     selectedActivityIds.clear();
     activeDrawer = null;
     closeDrawer();
-  }
+  },
+  importAdapter
 });
 
 function showFormErrors(container, errors) {
@@ -90590,6 +91474,29 @@ function openMobileMonthPicker() {
   updateMotionSuspension();
 }
 
+function openDayExportDialog() {
+  closeAllActionMenus();
+  closeMobileMore();
+  dom.dayExportDate.value = mobileAgendaDate || appDocument.settings.currentDate || todayInBogota();
+  showFormErrors(dom.dayExportErrors, []);
+  openDialog("dayExportDialog");
+  window.requestAnimationFrame(() => dom.dayExportDate.focus());
+}
+
+function handleDayExportSubmit(event) {
+  event.preventDefault();
+  const date = dom.dayExportDate.value;
+  try {
+    parseISODate(date);
+  } catch {
+    showFormErrors(dom.dayExportErrors, ["Selecciona una fecha válida."]);
+    dom.dayExportDate.focus();
+    return;
+  }
+  closeDialog("dayExportDialog");
+  exportDayImage(date).catch((error) => showToast(error.message, { type: "error" }));
+}
+
 function closeMobileMonthPicker({ restoreFocus = true } = {}) {
   if (dom.monthGridWrap.parentElement === dom.mobileMonthGridHost) {
     dom.calendarPanel.insertBefore(dom.monthGridWrap, dom.mobileAgenda);
@@ -90621,19 +91528,39 @@ function matchesActivityFilters(activity, maps, filters = appDocument.settings.f
 }
 
 function responsibleVisualClass(activity, maps) {
-  const types = new Set(
-    activity.responsibleIds
-      .map((id) => maps.responsibles.get(id)?.responsibleType)
-      .filter(Boolean)
-  );
-  if (!types.size) return "unassigned";
-  if (types.size > 1) return "mixed";
-  return types.has("contractor") ? "contractor" : "payroll";
+  return activityResponsiblePresentation(activity, maps.responsibles).visualVariant;
 }
 
-function activityObservationsTooltip(activity) {
-  const observations = safeText(activity.observations, 500);
-  return observations ? `Observaciones: ${observations}` : "Sin observaciones registradas";
+function buildResponsibleSummary(activity, maps) {
+  const responsibles = activityResponsiblePresentation(activity, maps.responsibles);
+  const summary = createElement("span", "responsible-summary");
+  summary.setAttribute("aria-hidden", "true");
+  summary.title = responsibles.accessibleLabel;
+  if (!responsibles.entries.length) {
+    summary.append(createElement("span", "responsible-summary-empty", "—"));
+    return { element: summary };
+  }
+  const visible = responsibles.entries.slice(0, 2);
+  for (const responsible of visible) {
+    const typeClass = responsible.visualVariant === "contractor" ? "contractor" : "payroll";
+    const avatar = createElement("span", `responsible-avatar ${typeClass}`, responsible.initials);
+    avatar.title = responsible.name;
+    summary.append(avatar);
+  }
+  if (responsibles.entries.length > visible.length) {
+    summary.append(createElement("span", "responsible-more", `+${responsibles.entries.length - visible.length}`));
+  }
+  return { element: summary };
+}
+
+function statusIconElement(status) {
+  const statusPresentation = activityStatusPresentation(status);
+  const icon = createElement("span", `status-icon status-icon-${status}`);
+  icon.setAttribute("aria-hidden", "true");
+  if (!["scheduled", "to_schedule", "in_progress"].includes(status)) {
+    icon.textContent = statusPresentation.icon;
+  }
+  return icon;
 }
 
 function renderFilters() {
@@ -90886,10 +91813,7 @@ function handleCalendarSettingsSubmit(event) {
     return;
   }
   try {
-    mutate("calendar_identified", "Identificación del cronograma actualizada", () => {
-      appDocument.calendarMeta.name = name;
-      appDocument.calendarMeta.coordinator = coordinator;
-    });
+    mutateWithContract("calendar.identify", { name, coordinator }, "Identificación del cronograma actualizada");
     closeDialog("calendarSettingsDialog");
   } catch (error) {
     showFormErrors(dom.calendarSettingsErrors, [error.message]);
@@ -91252,56 +92176,64 @@ function buildActivityCard(activity, maps, { quarantine = false } = {}) {
   const title = activity.serviceType === "administrative" && !client
     ? "Administrativo"
     : client?.name ?? serviceLabel ?? "Cliente sin catálogo";
-  const observationSummary = safeText(activity.observations, 240);
-  const card = createElement("article", `activity-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
+  const rescheduled = activity.history?.some((item) => item.action === "rescheduled");
+  const presentation = buildActivityPresentation(activity, {
+    responsibles: maps.responsibles,
+    title,
+    siteName: site?.name,
+    serviceLabel,
+    rescheduled
+  });
+  const responsibleSummary = buildResponsibleSummary(activity, maps);
+  const locationLabel = [
+    site?.name || activity.city,
+    quarantine ? PLANNING_BUCKETS.quarantine : ""
+  ].filter(Boolean).join(" · ");
+  const card = createElement("article", `activity-card ${presentation.responsibles.visualVariant} ${activity.status.replaceAll("_", "-")}${quarantine ? " quarantine-card" : ""}`);
   card.draggable = hasEditControl;
   card.dataset.activityId = activity.id;
   card.dataset.serviceCode = serviceCode;
+  card.dataset.responsibleCount = String(presentation.responsibles.count);
   card.title = activityObservationsTooltip(activity);
   card.setAttribute(
     "aria-label",
-    `${title}${site?.name ? `, ${site.name}` : ""}, tipo de servicio: ${serviceLabel}, estado: ${ACTIVITY_STATUSES[activity.status]}${observationSummary ? `, observaciones: ${observationSummary}` : ""}`
+    presentation.accessibleLabel
   );
   if (selectedActivityIds.has(activity.id)) card.classList.add("selected");
 
   appendActivityCardSelection(card, activity, quarantine);
 
   const copyBlock = createElement("span", "activity-copy");
-  const assigned = activity.responsibleIds
-    .map((id) => maps.responsibles.get(id))
-    .filter(Boolean)
-    .map((item) => item.initials || displayInitialsFor(item.name))
-    .join(" · ");
-  copyBlock.append(createElement("strong", "", title));
-  const metadata = [
-    site?.name || activity.city,
-    assigned || "Sin responsable",
-    quarantine ? PLANNING_BUCKETS.quarantine : ""
-  ].filter(Boolean).join(" · ");
-  const small = createElement("small");
+  const head = createElement("span", "activity-head");
   const serviceCodeElement = createElement("span", "service-code", serviceCode);
   serviceCodeElement.title = activityObservationsTooltip(activity);
   serviceCodeElement.setAttribute("aria-hidden", "true");
-  small.append(serviceCodeElement);
-  if (metadata) small.append(document.createTextNode(` · ${metadata}`));
-  copyBlock.append(small);
+  const moved = rescheduled ? createElement("span", "rescheduled-indicator", "↪") : null;
+  if (moved) {
+    moved.title = "Actividad reprogramada";
+    moved.setAttribute("aria-hidden", "true");
+  }
+  const titleElement = createElement("strong", "activity-title", title);
+  titleElement.title = title;
+  head.append(serviceCodeElement);
+  if (moved) head.append(moved);
+  head.append(titleElement, responsibleSummary.element);
+  const location = createElement("small", "activity-location", locationLabel || "Sin sede");
+  location.title = locationLabel || "Sin sede";
+  copyBlock.append(head, location);
   card.append(copyBlock);
 
   const flags = createElement("span", "card-flags");
-  const openDetail = createElement("button", "quick-open", STATUS_ICONS[activity.status] ?? "•");
+  const openDetail = createElement("button", `quick-open status-action status-${activity.status}`);
+  openDetail.append(statusIconElement(activity.status));
   openDetail.type = "button";
-  openDetail.title = "Abrir detalle";
+  openDetail.title = `Abrir detalle · ${presentation.status.accessibleLabel}`;
   openDetail.setAttribute("aria-label", `Abrir detalle de ${title}`);
   openDetail.addEventListener("click", (event) => {
     event.stopPropagation();
     renderActivityDrawer(activity.id);
   });
   flags.append(openDetail);
-  if (activity.history?.some((item) => item.action === "rescheduled")) {
-    const moved = createElement("span", "", "↪");
-    moved.title = "Actividad reprogramada";
-    flags.append(moved);
-  }
   if (!quarantine && hasEditControl && activity.status !== "completed" && activity.status !== "cancelled") {
     const complete = createElement("button", "quick-complete", "✓");
     complete.type = "button";
@@ -91342,6 +92274,10 @@ function renderMobileAgenda(date, items, maps, holiday) {
     `${items.length} actividad${items.length === 1 ? "" : "es"} visible${items.length === 1 ? "" : "s"}`
   ].filter(Boolean).join(" · ");
   dom.mobileAgendaAddButton.disabled = !hasEditControl;
+  dom.mobileAgendaExportButton.disabled = !date;
+  dom.mobileAgendaExportButton.title = date
+    ? `Descargar imagen de ${formatDisplayDate(date)}`
+    : "Selecciona un día para descargar su imagen";
   const fragment = document.createDocumentFragment();
   if (!items.length) {
     const empty = createElement("div", "mobile-agenda-empty");
@@ -91388,16 +92324,20 @@ function buildDayOverflowButton(date, items, maps) {
     const title = activity.serviceType === "administrative" && !client
       ? "Administrativo"
       : client?.name ?? serviceLabel;
+    const presentation = buildActivityPresentation(activity, {
+      responsibles: maps.responsibles,
+      title,
+      serviceLabel
+    });
     const preview = createElement(
       "span",
       `day-overflow-card ${responsibleVisualClass(activity, maps)} ${activity.status.replaceAll("_", "-")}`
     );
     preview.style.setProperty("--stack-index", String(index));
-    preview.title = `${title} · ${serviceLabel} · ${ACTIVITY_STATUSES[activity.status]}`;
-    preview.append(
-      createElement("span", "day-overflow-service", `${serviceCode} ${STATUS_ICONS[activity.status] ?? "•"}`),
-      createElement("span", "day-overflow-title", title)
-    );
+    preview.title = presentation.observationsTooltip;
+    const service = createElement("span", "day-overflow-service", serviceCode);
+    service.append(statusIconElement(presentation.status.key));
+    preview.append(service, createElement("span", "day-overflow-title", title));
     stack.append(preview);
   }
 
@@ -92190,13 +93130,24 @@ function renderActivityDrawer(activityId) {
   const maps = lookupMaps();
   const client = maps.clients.get(activity.clientId);
   const site = maps.sites.get(activity.siteId);
-  const assigned = activity.responsibleIds.map((id) => maps.responsibles.get(id)).filter(Boolean);
+  const drawerTitle = client?.name ?? (activity.serviceType === "administrative" ? "Administrativo" : "Actividad");
+  const presentation = buildActivityPresentation(activity, {
+    responsibles: maps.responsibles,
+    title: drawerTitle,
+    siteName: site?.name,
+    serviceLabel: SERVICE_TYPES[activity.serviceType] ?? "Actividad"
+  });
   dom.drawerEyebrow.textContent = SERVICE_TYPES[activity.serviceType] ?? "Actividad";
-  dom.drawerTitle.textContent = client?.name ?? (activity.serviceType === "administrative" ? "Administrativo" : "Actividad");
+  dom.drawerTitle.textContent = drawerTitle;
 
   const body = createElement("div", "detail-grid activity-detail-grid");
   const badgeRow = createElement("div", "responsible-chips");
-  badgeRow.append(createElement("span", `status-badge ${activity.status}`, `${STATUS_ICONS[activity.status]} ${ACTIVITY_STATUSES[activity.status]}`));
+  const statusBadge = createElement("span", `status-badge ${activity.status}`);
+  statusBadge.append(
+    statusIconElement(activity.status),
+    document.createTextNode(presentation.status.label)
+  );
+  badgeRow.append(statusBadge);
   badgeRow.append(createElement("span", "service-badge", SERVICE_SHORT_LABELS[activity.serviceType] ?? activity.serviceType));
   if (activity.history?.some((item) => item.action === "rescheduled")) {
     badgeRow.append(createElement("span", "chip", "↪ Reprogramada"));
@@ -92214,18 +93165,19 @@ function renderActivityDrawer(activityId) {
   body.append(detailItem("Ciudad", activity.city || site?.city));
 
   const responsibleChips = createElement("div", "responsible-chips");
-  if (!assigned.length) responsibleChips.append(createElement("span", "chip", "Sin responsable"));
-  for (const responsible of assigned) {
-    const typeClass = responsible.responsibleType === "contractor" ? "contractor" : "payroll";
+  if (!presentation.responsibles.entries.length) responsibleChips.append(createElement("span", "chip", "Sin responsable"));
+  for (const responsible of presentation.responsibles.entries) {
+    const catalogResponsible = maps.responsibles.get(responsible.id) ?? maps.responsibles.get(String(responsible.id));
+    const typeClass = responsible.visualVariant === "contractor" ? "contractor" : "payroll";
     const chip = createElement("span", `chip ${typeClass}`, responsible.name);
-    chip.title = [RESPONSIBLE_TYPES[responsible.responsibleType], responsible.baseCity, responsible.company]
+    chip.title = [RESPONSIBLE_TYPES[responsible.responsibleType], catalogResponsible?.baseCity, catalogResponsible?.company]
       .filter(Boolean)
       .join(" · ");
     responsibleChips.append(chip);
   }
   body.append(detailItem("Responsables", responsibleChips));
   body.append(detailItem("Tipo de servicio", SERVICE_TYPES[activity.serviceType]));
-  body.append(detailItem("Estado", ACTIVITY_STATUSES[activity.status]));
+  body.append(detailItem("Estado", presentation.status.label));
   body.append(detailItem("Observaciones", activity.observations, { wide: true }));
 
   if (site?.entryConditions || site?.requiresApp != null || site?.address) {
@@ -92305,11 +93257,18 @@ function renderDayDrawer(date) {
     card.draggable = reorderEnabled;
     body.append(card);
   }
+  const dayActions = createElement("div", "detail-actions day-actions");
+  const exportButton = createElement("button", "button small ghost", "Descargar imagen del día");
+  exportButton.type = "button";
+  exportButton.addEventListener("click", () => {
+    exportDayImage(date).catch((error) => showToast(error.message, { type: "error" }));
+  });
   const add = createElement("button", "button primary", "Nueva actividad en esta fecha");
   add.type = "button";
   add.disabled = !hasEditControl;
   add.addEventListener("click", () => openActivityDialog({ date }));
-  body.append(add);
+  dayActions.append(exportButton, add);
+  body.append(dayActions);
   dom.drawerBody.replaceChildren(body);
   openDrawer();
 }
@@ -93178,20 +94137,78 @@ function exportQuarantineCsv() {
   showToast("Listado de pendientes descargado.");
 }
 
-async function exportQuarantineImage() {
+function drawExportLines(context, lines, x, y, {
+  font,
+  color,
+  lineHeight,
+  bold = false
+}) {
+  context.font = `${bold ? "700 " : ""}${font}`;
+  context.fillStyle = color;
+  lines.forEach((line, index) => context.fillText(line, x, y + index * lineHeight));
+}
+
+function activityListExportRows(activities, maps, measureContext, logicalWidth, accentFor) {
+  const textWidth = logicalWidth - 56;
+  return activities.map((activity) => {
+    const client = maps.clients.get(activity.clientId);
+    const site = maps.sites.get(activity.siteId);
+    const row = buildExportActivityRow(activity, {
+      client,
+      site,
+      responsibles: maps.responsibles
+    });
+    const laidOut = layoutExportActivityRow(row, measureContext, {
+      maxWidth: textWidth,
+      minHeight: 122,
+      topPadding: 18
+    });
+    return {
+      ...laidOut,
+      accent: accentFor(activity, laidOut)
+    };
+  });
+}
+
+async function exportActivityListImage({
+  title,
+  subtitle,
+  activities,
+  fileName,
+  emptyMessage,
+  auditAction,
+  auditDetail,
+  successMessage,
+  pending = false
+}) {
   const darkExport = document.documentElement.dataset.theme === "dark";
   const palette = darkExport
     ? { page: "#101713", header: "#315f35", headerText: "#f4faf5", text: "#edf4ee", secondary: "#c1ccc3", row: "#202b23", grid: "#465247" }
     : { page: "#f5f7f3", header: "#4f7d32", headerText: "#ffffff", text: "#1e2a21", secondary: "#566057", row: "#ffffff", grid: "#cfd8cf" };
   const maps = lookupMaps();
-  const pending = appDocument.activities
-    .filter((activity) => isQuarantineActivity(activity) && matchesActivityFilters(activity, maps))
-    .sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id));
   const logicalWidth = 1320;
   const headerHeight = 176;
-  const rowHeight = 88;
   const legendHeight = 72;
-  const logicalHeight = headerHeight + Math.max(1, pending.length) * rowHeight + legendHeight;
+  const measureCanvas = document.createElement("canvas");
+  const measureContext = measureCanvas.getContext("2d");
+  const pendingAccent = darkExport ? "#f0a16d" : "#b85f2d";
+  const rows = activityListExportRows(
+    activities,
+    maps,
+    measureContext,
+    logicalWidth,
+    (_activity, row) => pending
+      ? pendingAccent
+      : row.responsibleVariant === "contractor"
+        ? "#ed7d31"
+        : row.responsibleVariant === "mixed"
+          ? "#a87c63"
+          : row.responsibleVariant === "unassigned"
+            ? "#8b928b"
+            : "#58a29a"
+  );
+  const rowsHeight = rows.reduce((sum, row) => sum + row.height, 0);
+  const logicalHeight = headerHeight + rowsHeight + legendHeight;
   const scale = 2;
   const canvas = document.createElement("canvas");
   canvas.width = logicalWidth * scale;
@@ -93202,46 +94219,82 @@ async function exportQuarantineImage() {
   context.fillRect(0, 0, logicalWidth, logicalHeight);
   context.fillStyle = palette.header;
   context.fillRect(0, 0, logicalWidth, headerHeight);
-  canvasText(context, "Pendientes de programación", 32, 48, 850, { font: "30px Arial", color: palette.headerText, bold: true });
-  canvasText(context, appDocument.calendarMeta.coordinator || "Sin coordinador registrado", 32, 82, 850, { font: "18px Arial", color: palette.headerText });
-  canvasText(context, `${pending.length} tarjeta${pending.length === 1 ? "" : "s"}`, 1050, 52, 230, { font: "24px Arial", color: palette.headerText, bold: true });
+  canvasText(context, title, 32, 48, 850, { font: "30px Arial", color: palette.headerText, bold: true });
+  canvasText(context, subtitle, 32, 82, 980, { font: "18px Arial", color: palette.headerText });
+  canvasText(context, `${activities.length} actividad${activities.length === 1 ? "" : "es"}`, 1050, 52, 230, { font: "24px Arial", color: palette.headerText, bold: true });
   canvasText(context, `Generado ${timestampLabel(new Date().toISOString())}`, 32, 132, 1220, { font: "15px Arial", color: palette.headerText });
-  if (!pending.length) {
-    canvasText(context, "No hay pendientes visibles con los filtros actuales.", 36, headerHeight + 48, logicalWidth - 72, { font: "20px Arial", color: palette.text });
+  if (!rows.length) {
+    canvasText(context, emptyMessage, 36, headerHeight + 48, logicalWidth - 72, { font: "20px Arial", color: palette.text });
   }
-  pending.forEach((activity, index) => {
-    const y = headerHeight + index * rowHeight;
-    const client = maps.clients.get(activity.clientId);
-    const site = maps.sites.get(activity.siteId);
-    const assigned = activity.responsibleIds
-      .map((id) => maps.responsibles.get(id))
-      .filter(Boolean)
-      .map((item) => item.initials || displayInitialsFor(item.name))
-      .join(" · ");
-    const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
+  let y = headerHeight;
+  rows.forEach((row) => {
+    const { height: rowHeight } = row;
     context.fillStyle = palette.row;
     context.fillRect(0, y, logicalWidth, rowHeight);
     context.strokeStyle = palette.grid;
     context.strokeRect(0, y, logicalWidth, rowHeight);
-    context.fillStyle = darkExport ? "#f0a16d" : "#b85f2d";
+    context.fillStyle = row.accent;
     context.fillRect(0, y, 8, rowHeight);
-    canvasText(context, `${serviceCode} · ${client?.name || SERVICE_TYPES[activity.serviceType] || "Actividad"}`, 28, y + 25, 760, { font: "17px Arial", color: palette.text, bold: true });
-    canvasText(context, [site?.name || activity.city || "Sin sede", assigned || "Sin responsable"].filter(Boolean).join(" · "), 28, y + 48, 760, { font: "14px Arial", color: palette.secondary });
-    canvasText(context, `${STATUS_ICONS[activity.status] ?? "•"} ${ACTIVITY_STATUSES[activity.status]}${activity.observations ? ` · ${activity.observations}` : ""}`, 28, y + 70, logicalWidth - 56, { font: "12px Arial", color: palette.secondary });
+    let baseline = y + 25;
+    drawExportLines(context, row.lines.title, 28, baseline, { font: "17px Arial", color: palette.text, bold: true, lineHeight: 21 });
+    baseline += row.lines.title.length * 21;
+    drawExportLines(context, row.lines.location, 28, baseline, { font: "14px Arial", color: palette.secondary, lineHeight: 19 });
+    baseline += row.lines.location.length * 19;
+    drawExportLines(context, row.lines.responsible, 28, baseline, { font: "14px Arial", color: palette.secondary, lineHeight: 19 });
+    baseline += row.lines.responsible.length * 19;
+    drawExportLines(context, row.lines.status, 28, baseline, { font: "12px Arial", color: palette.secondary, lineHeight: 17 });
+    y += rowHeight;
   });
-  const legendY = headerHeight + Math.max(1, pending.length) * rowHeight;
+  const legendY = headerHeight + rowsHeight;
   context.fillStyle = darkExport ? "#1b281e" : "#e8eee5";
   context.fillRect(0, legendY, logicalWidth, legendHeight);
-  canvasText(context, "Convención: las tarjetas están sin fecha; el CSV conserva el detalle estructurado para edición o revisión.", 28, legendY + 29, logicalWidth - 56, { font: "14px Arial", color: palette.text });
+  canvasText(context, pending
+    ? "Convención: las tarjetas están sin fecha; los técnicos se muestran con nombre completo."
+    : "Los técnicos se muestran con nombre completo y las actividades respetan los filtros activos.", 28, legendY + 29, logicalWidth - 56, { font: "14px Arial", color: palette.text });
   canvasText(context, "Servicios: MP · MC · EM · DG · GA · AD   |   Estados: ○ Programada · ● Confirmada · ✓ Terminada · × Cancelada", 28, legendY + 54, logicalWidth - 56, { font: "13px Arial", color: palette.secondary });
   const blob = await new Promise((resolve, reject) =>
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error("El navegador no generó la imagen.")), "image/png")
   );
-  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
-  downloadBlob(blob, "image/png", `pendientes_${identity}.png`);
-  appendAudit("quarantine_png_exported", `${pending.length} pendiente(s) exportado(s)`);
+  downloadBlob(blob, "image/png", fileName);
+  appendAudit(auditAction, auditDetail);
   scheduleSave();
-  showToast("Imagen de pendientes descargada.");
+  showToast(successMessage);
+}
+
+async function exportQuarantineImage() {
+  const maps = lookupMaps();
+  const pending = appDocument.activities
+    .filter((activity) => isQuarantineActivity(activity) && matchesActivityFilters(activity, maps))
+    .sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "") || a.id.localeCompare(b.id));
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  await exportActivityListImage({
+    title: "Pendientes de programación",
+    subtitle: appDocument.calendarMeta.coordinator || "Sin coordinador registrado",
+    activities: pending,
+    fileName: `pendientes_${identity}.png`,
+    emptyMessage: "No hay pendientes visibles con los filtros actuales.",
+    auditAction: "quarantine_png_exported",
+    auditDetail: `${pending.length} pendiente(s) exportado(s)`,
+    successMessage: "Imagen de pendientes descargada.",
+    pending: true
+  });
+}
+
+async function exportDayImage(date) {
+  const maps = lookupMaps();
+  const activities = calendarActivitiesForDate(date, maps)
+    .filter((activity) => matchesActivityFilters(activity, maps));
+  const identity = normalizeKey(appDocument.calendarMeta.name) || "cronograma";
+  await exportActivityListImage({
+    title: "Actividades del día",
+    subtitle: `${formatDisplayDate(date, { weekday: "long" })} · ${appDocument.calendarMeta.coordinator || "Sin coordinador registrado"}`,
+    activities,
+    fileName: `${date}_actividades_${identity}.png`,
+    emptyMessage: "No hay actividades visibles con los filtros actuales.",
+    auditAction: "day_png_exported",
+    auditDetail: `${activities.length} actividad(es) exportada(s) del ${date}`,
+    successMessage: "Imagen del día descargada."
+  });
 }
 
 function canvasText(context, text, x, y, maxWidth, { font = "24px Arial", color = "#1e2a21", bold = false } = {}) {
@@ -93285,6 +94338,14 @@ async function exportCurrentMonthImage() {
     list.push(activity);
     byDate.set(activity.date, list);
   }
+  const exportRows = new Map(filtered.map((activity) => [
+    activity.id,
+    buildExportActivityRow(activity, {
+      client: maps.clients.get(activity.clientId),
+      site: maps.sites.get(activity.siteId),
+      responsibles: maps.responsibles
+    })
+  ]));
   const weekHeights = Array.from({ length: 6 }, (_, week) => {
     const maxCards = Math.max(...dates.slice(week * 7, week * 7 + 7).map((date) => byDate.get(date)?.length ?? 0));
     return Math.max(160, 68 + maxCards * 66);
@@ -93336,15 +94397,8 @@ async function exportCurrentMonthImage() {
       if (holiday) canvasText(context, holiday.name, x + 48, y + 27, columnWidth - 60, { font: "13px Arial", color: palette.holiday });
       let cardY = y + 42;
       for (const activity of byDate.get(date) ?? []) {
-        const client = maps.clients.get(activity.clientId);
-        const site = maps.sites.get(activity.siteId);
-        const assigned = activity.responsibleIds
-          .map((id) => maps.responsibles.get(id))
-          .filter(Boolean)
-          .map((item) => item.initials || displayInitialsFor(item.name))
-          .join(" · ");
-        const serviceCode = SERVICE_CODES[activity.serviceType] ?? "SV";
-        const visual = responsibleVisualClass(activity, maps);
+        const row = exportRows.get(activity.id);
+        const visual = row.responsibleVariant;
         const colors = visual === "contractor"
           ? [darkExport ? "#4a3022" : "#fff0e4", "#ed7d31"]
           : visual === "mixed"
@@ -93357,9 +94411,9 @@ async function exportCurrentMonthImage() {
         context.fillRect(x + 8, cardY, columnWidth - 16, 56);
         context.fillStyle = colors[1];
         context.fillRect(x + 8, cardY, 5, 56);
-        canvasText(context, `${serviceCode} · ${client?.name || SERVICE_TYPES[activity.serviceType]}`, x + 20, cardY + 17, columnWidth - 36, { font: "13px Arial", color: palette.text, bold: true });
-        canvasText(context, [site?.name || activity.city || "Sin sede", assigned || "Sin responsable"].filter(Boolean).join(" · "), x + 20, cardY + 35, columnWidth - 36, { font: "11px Arial", color: palette.secondary });
-        canvasText(context, `${STATUS_ICONS[activity.status] ?? "•"} ${ACTIVITY_STATUSES[activity.status]}`, x + 20, cardY + 51, columnWidth - 36, { font: "10px Arial", color: palette.secondary });
+        canvasText(context, row.title, x + 20, cardY + 17, columnWidth - 36, { font: "13px Arial", color: palette.text, bold: true });
+        canvasText(context, [row.location, row.responsibleNames.join(" · ") || "Sin responsable"].filter(Boolean).join(" · "), x + 20, cardY + 35, columnWidth - 36, { font: "11px Arial", color: palette.secondary });
+        canvasText(context, `${row.statusPresentation.icon} ${row.statusPresentation.label}`, x + 20, cardY + 51, columnWidth - 36, { font: "10px Arial", color: palette.secondary });
         context.globalAlpha = 1;
         cardY += 66;
       }
@@ -93518,9 +94572,12 @@ function handleProgrammingImportSubmit(event) {
     const count = pendingProgrammingImport.rows.filter((row) =>
       !row.errors.length && (includeDuplicates || !row.duplicate)
     ).length;
-    mutate("programming_imported", `${count} filas de programación importadas`, () => {
-      appDocument = applyProgrammingImport(appDocument, pendingProgrammingImport, { includeDuplicates }).document;
-    });
+    mutateWithImport(
+      "programacion",
+      { preview: pendingProgrammingImport },
+      `${count} filas de programación importadas`,
+      { includeDuplicates, auditAction: "programming_imported" }
+    );
     pendingProgrammingImport = null;
     closeDialog("programmingImportDialog");
   } catch (error) {
@@ -93758,9 +94815,12 @@ function handleImportSubmit(event) {
   event.preventDefault();
   if (!pendingImport) return;
   try {
-    mutate("base_imported", "Base Operativa importada", () => {
-      appDocument = applyParsedImport(appDocument, pendingImport.parsed, new Date().toISOString());
-    });
+    mutateWithImport(
+      "base-operativa",
+      { parsed: pendingImport.parsed },
+      "Base Operativa importada",
+      { auditAction: "base_imported" }
+    );
     pendingImport = null;
     closeDialog("importDialog");
   } catch (error) {
@@ -93853,6 +94913,10 @@ function bindPrimaryActionEvents() {
   dom.mobileAgendaAddButton.addEventListener("click", () => openActivityDialog({
     date: mobileAgendaDate || appDocument.settings.currentDate || todayInBogota()
   }));
+  dom.mobileAgendaExportButton.addEventListener("click", () => {
+    exportDayImage(mobileAgendaDate || appDocument.settings.currentDate || todayInBogota())
+      .catch((error) => showToast(error.message, { type: "error" }));
+  });
   dom.emptyImportButton.addEventListener("click", () => dom.baseFileInput.click());
   dom.backupButton.addEventListener("click", createBackup);
   dom.backupBannerButton.addEventListener("click", createBackup);
@@ -93863,6 +94927,7 @@ function bindPrimaryActionEvents() {
   dom.exportQuarantineImageButton.addEventListener("click", () => {
     exportQuarantineImage().catch((error) => showToast(error.message, { type: "error" }));
   });
+  dom.exportDayImageButton.addEventListener("click", openDayExportDialog);
   dom.exportImageButton.addEventListener("click", () => {
     exportCurrentMonthImage().catch((error) => showToast(error.message, { type: "error" }));
   });
@@ -93879,6 +94944,7 @@ function bindPrimaryActionEvents() {
   dom.themeButton.addEventListener("click", cycleThemePreference);
   dom.motionButton.addEventListener("click", toggleMotionPreference);
   dom.themeForm.addEventListener("submit", handleThemeSubmit);
+  dom.dayExportForm.addEventListener("submit", handleDayExportSubmit);
   dom.normalizeTextForm.addEventListener("submit", handleNormalizeTextSubmit);
   for (const input of [dom.normalizeActivities, dom.normalizeCatalog, dom.normalizeMeta]) {
     input.addEventListener("change", updateNormalizationPreview);
