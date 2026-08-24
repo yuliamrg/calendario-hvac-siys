@@ -2,21 +2,21 @@
 
 ## Alcance y corte verificado
 
-Este documento describe el estado comprobable del `main` local después de la
-ola de refactorización y documentación (corte auditado el 2026-08-23). El
-trabajo aún está pendiente de integración en el remoto. Documenta el flujo que
-existe hoy; no autoriza publicar, promover canales ni afirmar que las URLs
-remotas estén actualizadas.
+Este documento describe el estado comprobable de la rama local de release,
+derivada del `main`, después de la ola de refactorización, documentación y
+preparación de publicación (corte auditado el 2026-08-23). El trabajo aún está
+pendiente de integración en el remoto. Documenta el flujo que existe hoy; no
+prueba por sí solo que las URLs remotas estén actualizadas.
 
 ## Fuentes autoritativas
 
 | Dato | Fuente autoritativa | Hecho verificado |
 | --- | --- | --- |
-| Versión de la aplicación y de la CLI | `package.json`, campo `version` | `0.16.0-beta.2` |
-| Versión visible y de respaldos nuevos | `src/core.js`, `APP_VERSION` | `0.16.0-beta.2`, igual a `package.json` |
-| Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.16.0-beta.2` |
+| Versión de la aplicación y de la CLI | `package.json`, campo `version` | `0.17.0-beta.1` |
+| Versión visible y de respaldos nuevos | `src/core.js`, `APP_VERSION` | `0.17.0-beta.1`, igual a `package.json` |
+| Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.17.0-beta.1` |
 | Puntero estable | `stable-version.txt` | `v0.15.0`; es un puntero de distribución, no la versión de `main` |
-| Historial de cambios | `CHANGELOG.md` | La entrada actual es `0.16.0-beta.2` y conserva stable en `v0.15.0` |
+| Historial de cambios | `CHANGELOG.md` | La entrada actual es `0.17.0-beta.1` y conserva stable en `v0.15.0` |
 | Manifiesto y algoritmo de empaquetado | `scripts/build.mjs` | La lista se expresa relativa a `src/` y se valida contra el grafo de `src/app.js` |
 | Fuente de ejecución web | `src/app.js` y sus módulos locales | Se concatena en un HTML; los imports locales se eliminan después de incluir los módulos |
 
@@ -84,11 +84,11 @@ desactivado. El workflow de Pages suministra esas variables para sus builds;
 sólo se admite la clave publishable en el frontend, nunca una `service_role` ni
 una contraseña de Postgres.
 
-Los archivos de `dist/` son salidas generadas y no se editan manualmente. El
-`HEAD` local contiene el commit `d27383a`, que regeneró ambos HTML después de
-la última frontera de imports. `npm run verify` pasó en este corte y no produjo
-cambios en `dist/`; esto no certifica el despliegue remoto, por lo que CI y los
-smokes autorizados deben repetirse después de integrar.
+Los archivos de `dist/` son salidas generadas y no se editan manualmente. La
+rama de release regenera ambos HTML desde las fuentes después de actualizar la
+versión; el resultado local debe quedar sin diferencias después del build.
+Esto no certifica el despliegue remoto, por lo que CI y los smokes autorizados
+deben repetirse después de integrar.
 
 ## Canales y distribución
 
@@ -96,7 +96,7 @@ smokes autorizados deben repetirse después de integrar.
 | --- | --- | --- |
 | Local | `dist/calendario-hvac-siys.html` | Archivo descargable; `file:`, localhost y servidores locales conservan la ruta local |
 | Stable | Tag normal indicado por `stable-version.txt` (`v0.15.0`) | Raíz de GitHub Pages |
-| Beta | `main` y su versión prerelease (`0.16.0-beta.2`) | `/beta/` de GitHub Pages |
+| Beta | `main` y su versión prerelease (`0.17.0-beta.1`) | `/beta/` de GitHub Pages |
 
 `.github/workflows/pages.yml` comprueba `stable-version.txt`, obtiene ese tag
 en `stable-src`, verifica stable y beta por separado, y copia
@@ -113,7 +113,10 @@ La política operativa está en `docs/VERSIONAMIENTO.md`:
 - los tags usan `v<version>`;
 - stable usa una versión normal y beta usa `-beta.N`;
 - `stable-version.txt` puede apuntar a stable mientras `main` contiene otra
-  prerelease.
+  prerelease;
+- `npm run release:check -- --require-current-tag` exige que el tag actual
+  exista y resuelva al mismo commit que `HEAD`, no sólo que tenga el nombre
+  correcto.
 
 Los gates definidos por el repositorio son:
 
@@ -138,15 +141,15 @@ build, `version:check`, `audit` y verifica que el build no deje diferencias en
 
 ## Pendientes de integración y release
 
-- El commit documental actual queda pendiente junto con los commits locales que
-  todavía no están en `origin/main`; no se debe reescribir ni mezclar ese
-  conjunto con `reset`, `rebase` o `checkout` destructivo.
-- Debe ejecutarse `npm run goal:check` sobre el conjunto integrado antes de abrir
-  el PR o crear un tag. El gate de publicación incluye además los smokes de
-  navegador y la verificación autorizada de Pages, Supabase y migraciones.
-- La documentación local confirma `0.16.0-beta.2` en `main` y `v0.15.0` en
-  `stable-version.txt`; un cambio documental no incrementa la versión de la
-  aplicación.
+- La rama de release contiene los commits locales pendientes de integración y
+  el commit de publicación `0.17.0-beta.1`; `main` remoto conserva el último
+  corte integrado hasta que el PR sea aceptado.
+- Debe ejecutarse `npm run goal:check` sobre la rama antes de abrir el PR y
+  repetir CI después de integrarla. El gate de publicación incluye además los
+  smokes de navegador, el smoke autenticado y la verificación autorizada de
+  Pages, Supabase y migraciones.
+- `stable-version.txt` continúa en `v0.15.0`; no se modifica al publicar una
+  beta.
 - Los módulos de aplicación deben recibir sus dependencias por argumentos y
   evitar estado global; los adaptadores de almacenamiento permanecen fuera de
   esa capa.

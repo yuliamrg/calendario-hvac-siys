@@ -157,7 +157,7 @@ contenía artefactos modificados antes de esta intervención.
 
 ### Puerta D — Cierre
 
-- [x] `npm test` pasa (189 pruebas en el corte actual).
+- [x] `npm test` pasa (190 pruebas en el corte actual).
 - [x] `npm run verify` pasa en el corte local y no cambia `dist/`; los smokes de
   navegador y la verificación remota deben repetirse sobre el conjunto
   integrado antes de publicar.

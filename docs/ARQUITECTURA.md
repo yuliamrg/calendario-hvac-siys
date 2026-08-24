@@ -101,7 +101,7 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 El siguiente inventario fue comprobado en el worktree local el 2026-08-23; no
 es una certificación de despliegue remoto ni de una release publicada:
 
-- `npm test` terminó con 189 pruebas aprobadas en el corte documentado; el
+- `npm test` terminó con 190 pruebas aprobadas en el corte documentado; el
   número de pruebas no es un límite de diseño.
 - El conteo de líneas es: `src/app.js` 4.823, `src/core.js` 1.315 y
   `src/importer.js` 11. Son métricas descriptivas del corte, no límites de
@@ -182,7 +182,7 @@ en 1.153 líneas, `importer.js` en 11, `src/cli/main.js` en 54 y los estilos se
 distribuyeron en tres archivos ordenados. Se añadieron 20 módulos enfocados en
 dominio, importación, persistencia, UI y CLI. Los smokes registrados aprobaron
 Chrome y Edge, seis viewports sin desbordamiento del documento y el flujo de
-Pendientes. No debe leerse como el resultado de las 189 pruebas actuales ni
+Pendientes. No debe leerse como el resultado de las 190 pruebas actuales ni
 como una verificación remota vigente.
 
 ## Puertas de verificación

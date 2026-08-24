@@ -44,11 +44,11 @@ La validación automatizada está disponible con:
 npm run version:check
 ~~~
 
-En el corte local comprobado el 2026-08-23, `package.json` y `src/core.js`
-declaran `0.16.0-beta.2`, los dos valores de versión de `package-lock.json`
-coinciden y `stable-version.txt` contiene `v0.15.0`. Es un estado del
-repositorio local: no certifica qué HTML está sirviendo actualmente GitHub
-Pages.
+En el corte local comprobado el 2026-08-23, la rama de release declara
+`0.17.0-beta.1` en `package.json` y `src/core.js`, los dos valores de versión
+de `package-lock.json` coinciden y `stable-version.txt` contiene `v0.15.0`. Es
+un estado del repositorio local: no certifica qué HTML está sirviendo
+actualmente GitHub Pages.
 
 ## 2. Regla base de Semantic Versioning
 
@@ -86,6 +86,25 @@ PATCH: desde 0.13.0 se obtiene 0.13.1.
 
 No se incrementa MINOR sólo porque haya una nueva compilación. Tampoco se
 incrementa PATCH para esconder una nueva capacidad pública.
+
+### Decisión práctica antes de cambiar la versión
+
+La decisión se toma sobre el alcance público que llegará al canal, no sobre el
+número de commits ni sobre el tamaño del diff:
+
+| Pregunta | Evidencia que se revisa | Decisión |
+|---|---|---|
+| ¿Aparece una capacidad visible, una operación CLI o un flujo nuevo para el cliente? | UI, contrato, CLI, manual y pruebas | Nueva línea MINOR en `beta.1`. |
+| ¿Sólo corrige un defecto dentro de la capacidad ya anunciada? | Issue, pruebas de regresión y changelog | PATCH de la misma base. |
+| ¿La beta conserva exactamente el alcance público de su base? | Changelog y comparación contra el último tag publicado | `beta.N + 1`. |
+| ¿Cambia esquema, respaldo, contrato o compatibilidad operativa? | `SCHEMA_VERSION`, `CONTRACT_VERSION`, `formatVersion` y migraciones | Nueva línea y advertencia de compatibilidad; si es incompatible, no se oculta como PATCH. |
+| ¿El cambio sólo es documentación, test, CI, build o refactor interno? | No cambia comportamiento ni contrato | Conserva la versión. |
+
+Para este corte, los cambios posteriores a `0.16.0-beta.2` agregan capacidades
+públicas de presentación/exportación y fronteras operativas nuevas. Por eso se
+abre `0.17.0-beta.1`; no se usa `0.16.0-beta.3`. El esquema persistido y el
+contrato se mantienen en 4 y 1, respectivamente, por lo que no se trata de una
+ruptura de compatibilidad.
 
 ## 3. Cómo se organiza una línea beta
 
@@ -230,8 +249,11 @@ no lo demuestra.
 6. Revisar git diff --check, git status y que dist/ sólo sea salida generada.
 7. Abrir un PR hacia main con el alcance, la versión y las evidencias.
 8. Esperar CI, integrar el PR y crear el tag beta sobre el commit exacto
-   integrado: v<version>.
-9. Ejecutar `npm run release:check -- --require-current-tag`. Probar `/beta/`
+   integrado: v<version>. El tag se crea después de integrar, nunca sobre una
+   rama o commit distinto del que CI aprobó.
+9. Ejecutar `npm run release:check -- --require-current-tag`. Esta variante
+   resuelve el commit de `v<version>` y lo compara con `HEAD`; no basta con que
+   el tag exista. Probar `/beta/`
    sólo cuando exista un despliegue autorizado y registrar la versión visible,
    el canal y el resultado de las pruebas; no inferirlo desde el tag o `dist/`.
 10. Para otra beta de la misma versión normal, repetir desde el paso 2 con
@@ -266,7 +288,8 @@ Para cualquier publicación:
 - npm run verify pasa;
 - dist/ es autocontenido, idéntico en sus dos archivos y proviene del build;
 - CI pasa y el PR conserva trazabilidad;
-- el tag apunta al commit de la versión publicada.
+- el tag apunta al commit exacto de la versión publicada, comprobado con
+  `npm run release:check -- --require-current-tag`.
 
 Para promover a estable, además:
 
@@ -282,14 +305,15 @@ Para promover a estable, además:
 
 En el corte local comprobado el 2026-08-23:
 
-- `main` contiene la línea `0.16.0-beta.2` en `package.json` y `APP_VERSION`.
+- la rama de release contiene la línea `0.17.0-beta.1` en `package.json` y
+  `APP_VERSION`, derivada del `main` local con los commits pendientes de PR;
 - `package-lock.json` conserva esa misma versión en su raíz y en
   `packages[""]`.
 - `stable-version.txt` selecciona `v0.15.0` como tag normal para la fuente
   estable del workflow.
-- `CHANGELOG.md` registra `0.15.0` como promoción estable y mantiene la línea
-  beta `0.16.0`; esto es evidencia local del repositorio, no confirmación de
-  que Pages esté sirviendo esas rutas.
+- `CHANGELOG.md` registra `0.17.0-beta.1` como la nueva línea beta y mantiene
+  `0.15.0` como promoción estable; esto es evidencia local del repositorio, no
+  confirmación de que Pages esté sirviendo esas rutas.
 
 Las versiones `0.14.0`, `0.14.1`, `0.15.0-beta.3` y las demás que aparecen en
 los ejemplos o en el changelog se conservan como historial. No deben leerse

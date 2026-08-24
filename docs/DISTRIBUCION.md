@@ -31,12 +31,12 @@ imports. Eso no certifica que GitHub Pages esté sirviendo esos archivos.
 | Canal | Fuente publicada | Versión |
 |---|---|---|
 | Estable, raíz | Tag normal indicado por `stable-version.txt` | La versión del tag, sin prerelease. En el corte local, `v0.15.0`. |
-| Beta, /beta/ | `main` | La versión prerelease de `main`. En el corte local, `0.16.0-beta.2`. |
+| Beta, /beta/ | `main` | La versión prerelease de `main`. En el corte local, `0.17.0-beta.1`. |
 | Local | `dist/calendario-hvac-siys.html` | Artefacto generado; leer la versión visible sólo como verificación del artefacto. |
 
 `stable-version.txt` es un puntero de distribución, no la fuente de la versión
-de `main`. En el corte local apunta a `v0.15.0`, mientras `main` declara
-`0.16.0-beta.2`; esa diferencia es intencional. El puntero y el código local no
+de `main`. En el corte local apunta a `v0.15.0`, mientras la rama de release
+declara `0.17.0-beta.1`; esa diferencia es intencional. El puntero y el código local no
 demuestran por sí solos que las URLs públicas estén desplegadas o actualizadas.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
@@ -89,7 +89,8 @@ npm run goal:check
 6. Abrir un PR hacia main con el alcance, la versión y la evidencia.
 7. Esperar CI e integrar el PR.
 8. Crear el tag beta sobre el commit exacto integrado: `v<version>`.
-9. Ejecutar `npm run release:check -- --require-current-tag`.
+9. Ejecutar `npm run release:check -- --require-current-tag`; esta comprobación
+   exige que `v<version>` exista y apunte al commit exacto de `HEAD`.
 10. Verificar `/beta/` sólo con un despliegue autorizado y registrar versión,
     canal, persistencia y resultado del smoke test.
 

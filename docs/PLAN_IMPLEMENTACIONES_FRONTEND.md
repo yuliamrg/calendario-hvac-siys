@@ -38,7 +38,7 @@ calendar-contract.js, debe detenerse y reportarlo antes de editar.
 
 - [x] Auditoría estática de HTML, CSS, JavaScript y build realizada.
 - [x] No hay IDs duplicados en la plantilla actual: 326 IDs y 326 únicos.
-- [x] npm test: 189 pruebas aprobadas en la verificación del corte actual.
+- [x] npm test: 190 pruebas aprobadas en la verificación del corte actual.
 - [x] Se conserva el alcance local y no se modifican datos persistentes.
 - [x] Registrar git status --short y git diff --check antes de integrar.
 - [ ] Ejecutar smoke local de navegador antes de la primera integración visual.
@@ -299,7 +299,7 @@ Checks:
 - [x] F-04 añadió src/ui/export-layout.js y tests/export-layout.test.mjs.
 - [x] F-01/F-04 se integraron en src/app.js; no se regeneró dist/.
 - [x] F-09 añadió src/domain/responsible-ranking.js y tests/responsible-ranking.test.mjs.
-- [x] npm test del maestro: 189 pruebas aprobadas en el corte actual.
+- [x] npm test del maestro: 190 pruebas aprobadas en el corte actual.
 - [x] git diff --check aprobado.
 - [x] La integración modificó únicamente src/app.js dentro de la superficie
   autorizada; no se modificaron HTML, core.js, calendar-contract.js ni dist/.

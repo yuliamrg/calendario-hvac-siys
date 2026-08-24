@@ -67,7 +67,7 @@ mismo canal y perfil del que salió, salvo que se haya autorizado un traslado
 explícito.
 
 En el corte local comprobado el 2026-08-23, `package.json` y
-`src/core.js > APP_VERSION` declaran `0.16.0-beta.2`, `package-lock.json`
+`src/core.js > APP_VERSION` declaran `0.17.0-beta.1`, `package-lock.json`
 coincide y `stable-version.txt` contiene `v0.15.0`. `schemaVersion` vigente es
 4 y `formatVersion` de la envoltura de respaldo es 1. Estos datos locales no
 prueban qué versión o contenido están sirviendo las URLs públicas.
@@ -75,7 +75,7 @@ prueban qué versión o contenido están sirviendo las URLs públicas.
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
 | Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `stable-version.txt` → `v0.15.0` en el corte local | Supabase/Auth si el despliegue recibe configuración |
-| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → `0.16.0-beta.2` en el corte local; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
+| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | rama de release → `0.17.0-beta.1` en el corte local; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
 | Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | IndexedDB y sin autenticación |
 
 Las URLs de la tabla son referencias configuradas, no evidencia de un
