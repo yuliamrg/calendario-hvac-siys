@@ -68,7 +68,7 @@ calendarMeta contiene únicamente:
 | updatedAt | Marca de última actualización del calendario; el contrato la actualiza en una mutación real salvo restauración con política preserve. |
 
 El valor inicial de revision es 0. El valor de appVersion inicial lo aporta
-APP_VERSION; en el código leído es 0.17.0-beta.1. El valor de
+APP_VERSION; en el código leído es 0.17.0. El valor de
 settings.holidayRuleSetVersion se fuerza al HOLIDAY_RULESET_VERSION vigente
 del código, que actualmente es CO-NATIONAL-2026-06-02.
 

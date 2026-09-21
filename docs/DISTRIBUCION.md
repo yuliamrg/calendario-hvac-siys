@@ -30,14 +30,15 @@ imports. Eso no certifica que GitHub Pages esté sirviendo esos archivos.
 
 | Canal | Fuente publicada | Versión |
 |---|---|---|
-| Estable, raíz | Tag normal indicado por `stable-version.txt` | La versión del tag, sin prerelease. En el corte local, `v0.15.0`. |
-| Beta, /beta/ | `main` | La versión prerelease de `main`. En el corte local, `0.17.0-beta.1`. |
+| Estable, raíz | Tag normal indicado por `stable-version.txt` | `v0.17.0`, la versión promovida sin prerelease. |
+| Beta, /beta/ | `main` | `0.17.0` mientras la beta permanece pausada; conserva el canal y los datos beta separados. |
 | Local | `dist/calendario-hvac-siys.html` | Artefacto generado; leer la versión visible sólo como verificación del artefacto. |
 
 `stable-version.txt` es un puntero de distribución, no la fuente de la versión
-de `main`. En el corte local apunta a `v0.15.0`, mientras la rama de release
-declara `0.17.0-beta.1`; esa diferencia es intencional. El puntero y el código local no
-demuestran por sí solos que las URLs públicas estén desplegadas o actualizadas.
+de `main`. Tras la promoción apunta a `v0.17.0`; `/beta/` queda pausada sobre
+el mismo código hasta iniciar una nueva línea prerelease. El puntero y el código
+local no demuestran por sí solos que las URLs públicas estén desplegadas o
+actualizadas.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo

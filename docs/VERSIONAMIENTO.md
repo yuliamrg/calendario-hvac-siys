@@ -224,10 +224,11 @@ dentro del mismo proyecto. Estas versiones no describen el corte actual.
 ## 7. Canales de distribución
 
 - La raíz de GitHub Pages usa el tag indicado por stable-version.txt.
-- /beta/ usa la versión de main y debe mostrar la versión prerelease y la
-  insignia BETA.
-- El hecho de que package.json en main diga una beta no cambia la versión
-  estable de la raíz.
+- /beta/ usa la versión de main y muestra la insignia BETA; durante una pausa
+  explícita puede conservar temporalmente la última versión estable hasta que
+  se inicie la siguiente línea prerelease.
+- El hecho de que package.json en main cambie no modifica la raíz: ésta sigue
+  el tag indicado por stable-version.txt.
 - Supabase se activa en estable y beta cuando Pages inyecta la configuración
   pública; el archivo local conserva IndexedDB sin autenticación.
 - Los respaldos se validan por URL, canal, versión visible, appVersion,
@@ -301,19 +302,17 @@ Para promover a estable, además:
 - se documenta la decisión de promoción y la compatibilidad de esquema,
   respaldos, CLI y persistencia.
 
-## 11. Corte local actual e historial
+## 11. Corte estable actual e historial
 
-En el corte local comprobado el 2026-08-23:
+En la promoción comprobada el 2026-09-20:
 
-- la rama de release contiene la línea `0.17.0-beta.1` en `package.json` y
-  `APP_VERSION`, derivada del `main` local con los commits pendientes de PR;
-- `package-lock.json` conserva esa misma versión en su raíz y en
-  `packages[""]`.
-- `stable-version.txt` selecciona `v0.15.0` como tag normal para la fuente
-  estable del workflow.
-- `CHANGELOG.md` registra `0.17.0-beta.1` como la nueva línea beta y mantiene
-  `0.15.0` como promoción estable; esto es evidencia local del repositorio, no
-  confirmación de que Pages esté sirviendo esas rutas.
+- `package.json`, `APP_VERSION` y `package-lock.json` declaran `0.17.0`;
+- `stable-version.txt` selecciona `v0.17.0` como tag normal para la fuente
+  estable del workflow;
+- `v0.17.0` apunta al commit integrado que pasó CI;
+- `CHANGELOG.md` conserva `0.17.0-beta.1` como historial y registra su
+  promoción a estable;
+- el canal beta queda pausado hasta autorizar una nueva línea prerelease.
 
 Las versiones `0.14.0`, `0.14.1`, `0.15.0-beta.3` y las demás que aparecen en
 los ejemplos o en el changelog se conservan como historial. No deben leerse
