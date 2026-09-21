@@ -1,5 +1,22 @@
 # Historial de cambios
 
+## [0.17.0] - 2026-09-20
+
+### Promoción a estable
+
+- Se promueve íntegramente `0.17.0-beta.1` a `0.17.0` después de validar el
+  contrato, la persistencia, la CLI, Supabase y los canales públicos estable y
+  beta.
+- Se conserva el esquema 4, el contrato de operaciones 1, los respaldos y la
+  separación de calendarios lógicos stable/beta.
+
+### Compatibilidad
+
+- La promoción no migra ni mezcla documentos: el canal estable conserva su
+  calendario y el canal beta conserva el suyo.
+- Las cuatro migraciones locales están alineadas con la base remota y no se
+  requiere una migración adicional para esta release.
+
 ## [0.17.0-beta.1] - 2026-08-23
 
 ### Nuevas capacidades públicas
