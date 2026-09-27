@@ -514,3 +514,44 @@ test("T36 REST GET incluye Accept y no añade Content-Type sin body", async () =
   assert.equal(calls[0].init.headers.apikey, CONFIG.publishableKey);
   assert.equal(calls[0].init.headers.Authorization, "Bearer fixture-access-token");
 });
+
+test("T37 auth construction con fetchImpl null produce NETWORK_UNAVAILABLE de CLI", () => {
+  assert.throws(
+    () => createSupabaseAuthClient(CONFIG, { fetchImpl: null, sessionStore: sessionStore(null) }),
+    (error) => {
+      assert.equal(error.name, "CloudCliError");
+      assert.equal(error.code, "NETWORK_UNAVAILABLE");
+      assert.equal(error instanceof SupabaseTransportError, false);
+      assert.notEqual(error.code, "fetch_unavailable");
+      return true;
+    }
+  );
+});
+
+test("T38 read construction con fetchImpl null produce NETWORK_UNAVAILABLE de CLI", () => {
+  const auth = { accessToken: async () => "fixture-access-token" };
+  assert.throws(
+    () => createSupabaseReadClient(CONFIG, { auth, fetchImpl: null }),
+    (error) => {
+      assert.equal(error.name, "CloudCliError");
+      assert.equal(error.code, "NETWORK_UNAVAILABLE");
+      assert.equal(error instanceof SupabaseTransportError, false);
+      assert.notEqual(error.code, "fetch_unavailable");
+      return true;
+    }
+  );
+});
+
+test("T39 read construction con config incompleta produce CONFIG_INVALID de CLI", () => {
+  const auth = { accessToken: async () => "fixture-access-token" };
+  assert.throws(
+    () => createSupabaseReadClient({}, { auth, fetchImpl: async () => response([]) }),
+    (error) => {
+      assert.equal(error.name, "CloudCliError");
+      assert.equal(error.code, "CONFIG_INVALID");
+      assert.equal(error instanceof SupabaseTransportError, false);
+      assert.notEqual(error.code, "invalid_config");
+      return true;
+    }
+  );
+});

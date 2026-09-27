@@ -166,7 +166,12 @@ export function createSupabaseAuthClient(config, {
   timeoutMs = DEFAULT_TIMEOUT_MS
 } = {}) {
   const normalized = normalizeSupabaseConfig(config);
-  const transport = createSupabaseTransport(normalized, { fetchImpl, timeoutMs });
+  let transport;
+  try {
+    transport = createSupabaseTransport(normalized, { fetchImpl, timeoutMs });
+  } catch (error) {
+    throw mapTransportError(error, "configuración");
+  }
   let session = null;
 
   async function authRequest(path, { method = "GET", body, accessToken } = {}) {

@@ -93,7 +93,12 @@ export function createSupabaseReadClient(config, {
 } = {}) {
   const normalized = config ?? supabaseConfigFromEnv();
   const authClient = auth ?? createSupabaseAuthClient(normalized, { fetchImpl, timeoutMs });
-  const transport = createSupabaseTransport(normalized, { fetchImpl, timeoutMs });
+  let transport;
+  try {
+    transport = createSupabaseTransport(normalized, { fetchImpl, timeoutMs });
+  } catch (error) {
+    throw mapTransportError(error, "configuración");
+  }
 
   async function get(path, { operation = "consulta cloud", retry = true } = {}) {
     assertCloudReadMethod("GET");
