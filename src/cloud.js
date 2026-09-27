@@ -1,3 +1,5 @@
+import { createSupabaseTransport, SupabaseTransportError } from "./supabase/transport.js";
+
 const SESSION_KEY_PREFIX = "siys-sync-supabase-session";
 const STABLE_CALENDAR_KEY = "calendario-hvac-siys";
 const BETA_CALENDAR_KEY = "calendario-hvac-siys-beta";
@@ -81,6 +83,33 @@ export class SupabaseCloudAuthRequiredError extends SupabaseCloudError {
   }
 }
 
+function transportToCloudError(error) {
+  if (!(error instanceof SupabaseTransportError)) return error;
+  const cause = error.cause ?? error;
+  return new SupabaseCloudError(`No fue posible conectar con Supabase: ${cause?.message ?? error.message}`, {
+    code: "network_error",
+    details: cause
+  });
+}
+
+function createCloudTransport(normalized, fetchImpl) {
+  try {
+    return createSupabaseTransport(normalized, { fetchImpl });
+  } catch (error) {
+    if (error instanceof SupabaseTransportError && error.code === "invalid_config") {
+      throw new SupabaseCloudError("La configuración de Supabase está incompleta.", {
+        code: "invalid_config"
+      });
+    }
+    if (error instanceof SupabaseTransportError && error.code === "fetch_unavailable") {
+      throw new SupabaseCloudError("Este navegador no permite conexiones a Supabase.", {
+        code: "fetch_unavailable"
+      });
+    }
+    throw error;
+  }
+}
+
 function sessionFromAuthPayload(payload) {
   const candidate = payload?.session ?? payload;
   if (!candidate?.access_token) return null;
@@ -120,6 +149,8 @@ export function createSupabasePersistence(config, {
       code: "fetch_unavailable"
     });
   }
+
+  const transport = createCloudTransport(normalized, fetchImpl);
 
   const sessionKey = SESSION_KEY_PREFIX;
   const legacySessionKeys = [
@@ -172,21 +203,17 @@ export function createSupabasePersistence(config, {
   async function authRequest(path, { method = "POST", body, headers = {} } = {}) {
     let response;
     try {
-      response = await fetchImpl(`${normalized.url}/auth/v1/${path}`, {
+      response = await transport.authRequest(path, {
         method,
+        body,
         headers: {
-          apikey: normalized.publishableKey,
           "Content-Type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
           ...headers
         },
-        body: body === undefined ? undefined : JSON.stringify(body)
+        accessToken: session?.access_token
       });
     } catch (error) {
-      throw new SupabaseCloudError(`No fue posible conectar con Supabase: ${error.message}`, {
-        code: "network_error",
-        details: error
-      });
+      throw transportToCloudError(error);
     }
     return parseResponse(response);
   }
@@ -230,21 +257,17 @@ export function createSupabasePersistence(config, {
     if (!session?.access_token) throw new SupabaseCloudAuthRequiredError();
     let response;
     try {
-      response = await fetchImpl(`${normalized.url}${path}`, {
+      response = await transport.restRequest(path, {
         method,
+        body,
         headers: {
-          apikey: normalized.publishableKey,
-          Authorization: `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
           ...headers
         },
-        body: body === undefined ? undefined : JSON.stringify(body)
+        accessToken: session.access_token
       });
     } catch (error) {
-      throw new SupabaseCloudError(`No fue posible conectar con Supabase: ${error.message}`, {
-        code: "network_error",
-        details: error
-      });
+      throw transportToCloudError(error);
     }
     if (response.status === 401 && retry && session.refresh_token) {
       const refreshed = await refreshSession();

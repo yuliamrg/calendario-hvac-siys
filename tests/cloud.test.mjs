@@ -7,8 +7,10 @@ import {
   shouldUseSupabaseCloud,
   shouldMigrateLocalDocument,
   SupabaseCloudConflictError,
+  SupabaseCloudError,
   supabaseCalendarKeyForChannel
 } from "../src/cloud.js";
+import { SupabaseTransportError } from "../src/supabase/transport.js";
 
 function response(payload, status = 200) {
   return {
@@ -379,4 +381,292 @@ test("una actualización sin filas se reporta como conflicto cloud", async () =>
     persistence.write({ calendarMeta: { name: "Cronograma HVAC" } }),
     (error) => error instanceof SupabaseCloudConflictError
   );
+});
+
+test("un fallo de red en Auth conserva el contrato browser de network_error", async () => {
+  const failure = new TypeError("falló la red en auth");
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    fetchImpl: async () => { throw failure; },
+    storage: storageMock()
+  });
+
+  await assert.rejects(
+    persistence.signIn("test@example.com", "secret123"),
+    (error) => (
+      error instanceof SupabaseCloudError
+      && !(error instanceof SupabaseTransportError)
+      && error.name === "SupabaseCloudError"
+      && error.code === "network_error"
+      && error.message === "No fue posible conectar con Supabase: falló la red en auth"
+      && error.details === failure
+    )
+  );
+});
+
+test("un fallo de red en REST conserva el contrato browser de network_error", async () => {
+  const failure = new TypeError("falló la red en rest");
+  const session = {
+    access_token: "access-1",
+    refresh_token: "refresh-1",
+    expires_in: 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    fetchImpl: async (url) => {
+      if (url.includes("/auth/v1/token?grant_type=password")) return response(session);
+      throw failure;
+    },
+    storage: storageMock()
+  });
+
+  await persistence.signIn("test@example.com", "secret123");
+  await assert.rejects(
+    persistence.loadCalendars(),
+    (error) => (
+      error instanceof SupabaseCloudError
+      && !(error instanceof SupabaseTransportError)
+      && error.code === "network_error"
+      && error.message === "No fue posible conectar con Supabase: falló la red en rest"
+      && error.details === failure
+    )
+  );
+});
+
+test("un Auth request sin body conserva Content-Type application/json", async () => {
+  const calls = [];
+  const session = {
+    access_token: "access-1",
+    refresh_token: "refresh-1",
+    expires_in: 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options });
+      if (url.includes("/auth/v1/token?grant_type=password")) return response(session);
+      return response(null, 204);
+    },
+    storage: storageMock()
+  });
+
+  await persistence.signIn("test@example.com", "secret123");
+  await persistence.signOut();
+
+  const logout = calls.find(({ url }) => url.includes("/auth/v1/logout"));
+  assert.ok(logout, "debe emitir el Auth request de logout");
+  assert.equal(logout.options.body, undefined);
+  assert.equal(logout.options.headers["Content-Type"], "application/json");
+});
+
+test("un REST GET sin body conserva Content-Type, apikey y Authorization", async () => {
+  const calls = [];
+  const session = {
+    access_token: "access-1",
+    refresh_token: "refresh-1",
+    expires_in: 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options });
+      if (url.includes("/auth/v1/token?grant_type=password")) return response(session);
+      if (url.includes("/rest/v1/calendars?legacy_id=")) return response([]);
+      return response({}, 500);
+    },
+    storage: storageMock()
+  });
+
+  await persistence.signIn("test@example.com", "secret123");
+  await persistence.loadCalendars();
+
+  const get = calls.find(({ url }) => url.includes("/rest/v1/calendars?legacy_id="));
+  assert.ok(get, "debe emitir el GET de calendarios");
+  assert.equal(get.options.method, "GET");
+  assert.equal(get.options.body, undefined);
+  assert.equal(get.options.headers["Content-Type"], "application/json");
+  assert.equal(get.options.headers.apikey, "sb_publishable_demo");
+  assert.equal(get.options.headers.Authorization, "Bearer access-1");
+});
+
+test("un 401 REST dispara exactamente un refresh y un solo retry", async () => {
+  let refreshCalls = 0;
+  let getCalls = 0;
+  const session = {
+    access_token: "access-1",
+    refresh_token: "refresh-1",
+    expires_in: 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const refreshed = {
+    access_token: "access-2",
+    refresh_token: "refresh-2",
+    expires_in: 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    fetchImpl: async (url) => {
+      if (url.includes("/auth/v1/token?grant_type=password")) return response(session);
+      if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+        refreshCalls += 1;
+        return response(refreshed);
+      }
+      if (url.includes("/rest/v1/calendars?legacy_id=")) {
+        getCalls += 1;
+        return getCalls === 1 ? response({}, 401) : response([]);
+      }
+      return response({}, 500);
+    },
+    storage: storageMock()
+  });
+
+  await persistence.signIn("test@example.com", "secret123");
+  const calendars = await persistence.loadCalendars();
+
+  assert.deepEqual(calendars, []);
+  assert.equal(refreshCalls, 1);
+  assert.equal(getCalls, 2);
+});
+
+test("un 401 REST persistente no reintenta en bucle", async () => {
+  let refreshCalls = 0;
+  let getCalls = 0;
+  const session = {
+    access_token: "access-1",
+    refresh_token: "refresh-1",
+    expires_in: 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const refreshed = {
+    access_token: "access-2",
+    refresh_token: "refresh-2",
+    expires_in: 3600,
+    user: { id: "user-1", email: "test@example.com" }
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    fetchImpl: async (url) => {
+      if (url.includes("/auth/v1/token?grant_type=password")) return response(session);
+      if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+        refreshCalls += 1;
+        return response(refreshed);
+      }
+      if (url.includes("/rest/v1/calendars?legacy_id=")) {
+        getCalls += 1;
+        return response({}, 401);
+      }
+      return response({}, 500);
+    },
+    storage: storageMock()
+  });
+
+  await persistence.signIn("test@example.com", "secret123");
+  await assert.rejects(
+    persistence.loadCalendars(),
+    (error) => error instanceof SupabaseCloudError && error.status === 401
+  );
+  assert.equal(refreshCalls, 1);
+  assert.equal(getCalls, 2);
+});
+
+test("la configuración incompleta conserva invalid_config browser", () => {
+  for (const config of [
+    { enabled: true, url: "", publishableKey: "sb_publishable_demo" },
+    { enabled: true, url: "https://example.supabase.co", publishableKey: "" },
+    { enabled: false, url: "https://example.supabase.co", publishableKey: "sb_publishable_demo" }
+  ]) {
+    assert.throws(
+      () => createSupabasePersistence(config, { fetchImpl: async () => response({}) }),
+      (error) => (
+        error instanceof SupabaseCloudError
+        && error.code === "invalid_config"
+        && error.message === "La configuración de Supabase está incompleta."
+      ),
+      `configuración inválida no detectada: ${JSON.stringify(config)}`
+    );
+  }
+});
+
+test("fetchImpl null conserva fetch_unavailable browser", () => {
+  assert.throws(
+    () => createSupabasePersistence({
+      enabled: true,
+      url: "https://example.supabase.co",
+      publishableKey: "sb_publishable_demo"
+    }, { fetchImpl: null }),
+    (error) => (
+      error instanceof SupabaseCloudError
+      && error.code === "fetch_unavailable"
+      && error.message === "Este navegador no permite conexiones a Supabase."
+    )
+  );
+});
+
+test("los headers Prefer llegan intactos en POST y PATCH de escritura", async () => {
+  const calls = [];
+  const calendar = { id: "calendar-1", name: "Cronograma HVAC", coordinator: "", created_by: "user-1" };
+  const document = {
+    schemaVersion: 4,
+    calendarMeta: { name: "Cronograma HVAC", coordinator: "" },
+    activities: []
+  };
+  const persistence = createSupabasePersistence({
+    enabled: true,
+    url: "https://example.supabase.co",
+    publishableKey: "sb_publishable_demo"
+  }, {
+    calendarKey: "calendario-test",
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options });
+      if (url.includes("/auth/v1/token?grant_type=password")) {
+        return response({ access_token: "access-1", refresh_token: "refresh-1", expires_in: 3600, user: { id: "user-1" } });
+      }
+      if (url.includes("/rest/v1/calendars?legacy_id=")) return response([calendar]);
+      if (url.includes("/rest/v1/profiles?")) return response([]);
+      if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "GET") return response([]);
+      if (url.includes("/rest/v1/calendar_documents?select=") && options.method === "POST") {
+        return response([{ document, revision: 0, updated_at: "2026-08-04T00:00:00Z" }], 201);
+      }
+      if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "PATCH") {
+        return response([{ document, revision: 1, updated_at: "2026-08-04T00:01:00Z" }]);
+      }
+      if (url.includes("/rest/v1/calendars?id=")) return response(null, 204);
+      throw new Error(`Ruta no simulada: ${url}`);
+    },
+    storage: storageMock()
+  });
+
+  await persistence.signIn("test@example.com", "secret123");
+  await persistence.initialize({ initialDocument: document });
+  await persistence.write({ ...document, calendarMeta: { ...document.calendarMeta, coordinator: "Coordinación" } });
+
+  const post = calls.find(({ url, options }) => url.includes("/rest/v1/calendar_documents?select=") && options.method === "POST");
+  const patch = calls.find(({ url, options }) => url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "PATCH");
+  const metadata = calls.find(({ url, options }) => url.includes("/rest/v1/calendars?id=") && options.method === "PATCH");
+  assert.ok(post && patch && metadata, "debe ejecutar el write de dos pasos");
+  assert.equal(post.options.headers.Prefer, "return=representation");
+  assert.equal(patch.options.headers.Prefer, "return=representation");
+  assert.equal(metadata.options.headers.Prefer, "return=minimal");
 });
