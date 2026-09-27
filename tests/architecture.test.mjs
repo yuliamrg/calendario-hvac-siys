@@ -6,6 +6,7 @@ import {
   classifyModule,
   findForbiddenPackageReferences,
   findForbiddenSemanticReferences,
+  findForbiddenSupabaseRuntimeImports,
   formatArchitectureReport,
   validateArchitectureGraph
 } from "../scripts/architecture-check.mjs";
@@ -334,6 +335,75 @@ test("cloud puede importar la capa supabase", async () => {
   const report = validateArchitectureGraph({
     modules: actual.modules,
     graph
+  });
+
+  assert.equal(report.ok, true, formatArchitectureReport(report));
+  assert.equal(report.violations.length, 0);
+});
+
+test("findForbiddenSupabaseRuntimeImports detecta cualquier specifier node:", () => {
+  const source = [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";',
+    'import { join } from "node:path";',
+    'const stream = await import("node:stream");',
+    'import { createTransport } from "../transport.js";',
+    'import test from "node:test";'
+  ].join("\n");
+
+  assert.deepEqual(
+    findForbiddenSupabaseRuntimeImports(source).sort(),
+    ["node:fs/promises", "node:os", "node:path", "node:stream", "node:test"]
+  );
+  assert.deepEqual(findForbiddenSupabaseRuntimeImports('import x from "./local.js";'), []);
+});
+
+test("un módulo supabase no puede importar módulos runtime node:", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  graph.set("supabase/synthetic-runtime.js", []);
+  const sources = new Map(actual.sources);
+  sources.set("supabase/synthetic-runtime.js", [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";',
+    'export async function load() { return readFile(homedir(), "utf8"); }'
+  ].join("\n"));
+
+  const report = validateArchitectureGraph({
+    modules: [...actual.modules, "supabase/synthetic-runtime.js"],
+    graph,
+    sources
+  });
+
+  assert.equal(report.ok, false);
+  for (const specifier of ["node:fs/promises", "node:os"]) {
+    assert.equal(
+      report.violations.some((item) => (
+        item.type === "forbidden-supabase-runtime-import"
+        && item.module === "supabase/synthetic-runtime.js"
+        && item.specifier === specifier
+      )),
+      true,
+      `supabase no debe importar ${specifier}`
+    );
+  }
+  assert.match(formatArchitectureReport(report), /node:fs\/promises/);
+});
+
+test("la prohibición de node: no aplica a la capa cli", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  graph.set("cli/synthetic-runtime.js", []);
+  const sources = new Map(actual.sources);
+  sources.set("cli/synthetic-runtime.js", [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";'
+  ].join("\n"));
+
+  const report = validateArchitectureGraph({
+    modules: [...actual.modules, "cli/synthetic-runtime.js"],
+    graph,
+    sources
   });
 
   assert.equal(report.ok, true, formatArchitectureReport(report));

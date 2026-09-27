@@ -1,3 +1,4 @@
+import { SupabaseTransportError, createSupabaseTransport } from "../supabase/transport.js";
 import { CloudCliError } from "./cloud-errors.js";
 import { createSupabaseAuthClient, supabaseConfigFromEnv } from "./cloud-auth.js";
 import { documentHash, documentRevision } from "./source-metadata.js";
@@ -56,6 +57,22 @@ async function parseResponse(response, operation) {
   return payload;
 }
 
+function mapTransportError(error, operation) {
+  if (!(error instanceof SupabaseTransportError)) return error;
+  const cause = error.cause ?? error;
+  if (error.code === "network_error" || error.code === "timeout") {
+    const code = error.code === "timeout" ? "TIMEOUT" : "NETWORK_ERROR";
+    return new CloudCliError(code, `No fue posible conectar con Supabase durante ${operation}.`, { cause });
+  }
+  if (error.code === "invalid_config") {
+    return new CloudCliError("CONFIG_INVALID", error.message, { cause });
+  }
+  if (error.code === "fetch_unavailable") {
+    return new CloudCliError("NETWORK_UNAVAILABLE", error.message, { cause });
+  }
+  return error;
+}
+
 function validateRows(payload, operation) {
   if (!Array.isArray(payload)) throw new CloudCliError("REMOTE_INVALID", `Supabase no devolvió una lista durante ${operation}.`);
   return payload;
@@ -76,36 +93,27 @@ export function createSupabaseReadClient(config, {
 } = {}) {
   const normalized = config ?? supabaseConfigFromEnv();
   const authClient = auth ?? createSupabaseAuthClient(normalized, { fetchImpl, timeoutMs });
+  const transport = createSupabaseTransport(normalized, { fetchImpl, timeoutMs });
 
   async function get(path, { operation = "consulta cloud", retry = true } = {}) {
     assertCloudReadMethod("GET");
     const token = await authClient.accessToken();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response;
     try {
-      try {
-        response = await fetchImpl(`${normalized.url}${path}`, {
-          method: "GET",
-          headers: {
-            apikey: normalized.publishableKey,
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json"
-          },
-          signal: controller.signal
-        });
-      } catch (error) {
-        const code = error?.name === "AbortError" ? "TIMEOUT" : "NETWORK_ERROR";
-        throw new CloudCliError(code, `No fue posible conectar con Supabase durante ${operation}.`, { cause: error });
-      }
-      if (response.status === 401 && retry) {
-        await authClient.refreshSession();
-        return get(path, { operation, retry: false });
-      }
-      return await parseResponse(response, operation);
-    } finally {
-      clearTimeout(timer);
+      response = await transport.restRequest(path, {
+        method: "GET",
+        accessToken: token,
+        operation,
+        headers: { Accept: "application/json" }
+      });
+    } catch (error) {
+      throw mapTransportError(error, operation);
     }
+    if (response.status === 401 && retry) {
+      await authClient.refreshSession();
+      return get(path, { operation, retry: false });
+    }
+    return await parseResponse(response, operation);
   }
 
   return Object.freeze({ get });

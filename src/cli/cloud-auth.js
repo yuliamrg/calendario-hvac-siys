@@ -1,6 +1,11 @@
 import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
+import {
+  SupabaseTransportError,
+  createSupabaseTransport,
+  normalizeSupabaseConfig as normalizeBasicSupabaseConfig
+} from "../supabase/transport.js";
 import { CloudCliError } from "./cloud-errors.js";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -16,9 +21,8 @@ function compactMessage(value, fallback) {
   return fallback;
 }
 
-function normalizeConfig(config = {}) {
-  const url = String(config.url ?? "").trim().replace(/\/+$/, "");
-  const publishableKey = String(config.publishableKey ?? "").trim();
+export function normalizeSupabaseConfig(config = {}) {
+  const { url, publishableKey } = normalizeBasicSupabaseConfig(config);
   if (!url || !publishableKey) {
     throw new CloudCliError("CONFIG_INVALID", "Faltan SIYS_SUPABASE_URL o SIYS_SUPABASE_PUBLISHABLE_KEY.");
   }
@@ -34,10 +38,26 @@ function normalizeConfig(config = {}) {
 }
 
 export function supabaseConfigFromEnv(env = process.env) {
-  return normalizeConfig({
+  return normalizeSupabaseConfig({
     url: env.SIYS_SUPABASE_URL,
     publishableKey: env.SIYS_SUPABASE_PUBLISHABLE_KEY
   });
+}
+
+function mapTransportError(error, operation) {
+  if (!(error instanceof SupabaseTransportError)) return error;
+  const cause = error.cause ?? error;
+  if (error.code === "network_error" || error.code === "timeout") {
+    const code = error.code === "timeout" ? "TIMEOUT" : "NETWORK_ERROR";
+    return new CloudCliError(code, `No fue posible conectar con Supabase durante ${operation}.`, { cause });
+  }
+  if (error.code === "invalid_config") {
+    return new CloudCliError("CONFIG_INVALID", error.message, { cause });
+  }
+  if (error.code === "fetch_unavailable") {
+    return new CloudCliError("NETWORK_UNAVAILABLE", error.message, { cause });
+  }
+  return error;
 }
 
 export function sessionFilePath(env = process.env) {
@@ -145,33 +165,24 @@ export function createSupabaseAuthClient(config, {
   now = () => Date.now(),
   timeoutMs = DEFAULT_TIMEOUT_MS
 } = {}) {
-  const normalized = normalizeConfig(config);
+  const normalized = normalizeSupabaseConfig(config);
+  const transport = createSupabaseTransport(normalized, { fetchImpl, timeoutMs });
   let session = null;
 
   async function authRequest(path, { method = "GET", body, accessToken } = {}) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response;
     try {
-      let response;
-      try {
-        response = await fetchImpl(`${normalized.url}/auth/v1/${path}`, {
-          method,
-          headers: {
-            apikey: normalized.publishableKey,
-            "Content-Type": "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
-          },
-          body: body === undefined ? undefined : JSON.stringify(body),
-          signal: controller.signal
-        });
-      } catch (error) {
-        const code = error?.name === "AbortError" ? "TIMEOUT" : "NETWORK_ERROR";
-        throw new CloudCliError(code, `No fue posible conectar con Supabase durante ${path}.`, { cause: error });
-      }
-      return await parseResponse(response, path);
-    } finally {
-      clearTimeout(timer);
+      response = await transport.authRequest(path, {
+        method,
+        body,
+        accessToken,
+        operation: path,
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      throw mapTransportError(error, path);
     }
+    return await parseResponse(response, path);
   }
 
   async function persist(next) {
@@ -278,4 +289,4 @@ export function createSupabaseAuthClient(config, {
   });
 }
 
-export { normalizeConfig as normalizeSupabaseConfig, sanitizeUser };
+export { sanitizeUser };

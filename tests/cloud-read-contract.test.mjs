@@ -7,7 +7,8 @@ import { resolve } from "node:path";
 import { createBackupEnvelope, createDefaultDocument } from "../src/core.js";
 import { executeCalendarOperation } from "../src/calendar-contract.js";
 import { createSupabaseAuthClient } from "../src/cli/cloud-auth.js";
-import { assertCloudReadMethod, CloudCalendarSource } from "../src/cli/cloud-read.js";
+import { assertCloudReadMethod, CloudCalendarSource, createSupabaseReadClient } from "../src/cli/cloud-read.js";
+import { SupabaseTransportError } from "../src/supabase/transport.js";
 import { FileCalendarSource } from "../src/cli/sources.js";
 import { runCli } from "../src/cli/main.js";
 
@@ -380,4 +381,136 @@ test("T29 configuración real de process.env sigue funcionando en el límite CLI
     const output = JSON.parse(result.stdout);
     assert.equal(output.calendars[0].calendarId, CALENDAR_BETA);
   });
+});
+
+test("T30 auth client traduce un fallo de red a NETWORK_ERROR de CLI con cause", async () => {
+  const failure = new TypeError("red caída");
+  const auth = createSupabaseAuthClient(CONFIG, {
+    sessionStore: sessionStore(null),
+    fetchImpl: async () => { throw failure; }
+  });
+  await assert.rejects(auth.signIn("fixture@example.com", "secret"), (error) => {
+    assert.equal(error.name, "CloudCliError");
+    assert.equal(error.code, "NETWORK_ERROR");
+    assert.equal(error instanceof SupabaseTransportError, false);
+    assert.equal(error.cause, failure);
+    assert.equal(error.message, "No fue posible conectar con Supabase durante token?grant_type=password.");
+    return true;
+  });
+});
+
+test("T31 auth client traduce un abort por timeout a TIMEOUT de CLI conservando el mensaje", async () => {
+  const auth = createSupabaseAuthClient(CONFIG, {
+    sessionStore: sessionStore(null),
+    timeoutMs: 10,
+    fetchImpl: (url, init) => new Promise((resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const abortError = new Error("aborted");
+        abortError.name = "AbortError";
+        reject(abortError);
+      });
+    })
+  });
+  await assert.rejects(auth.signIn("fixture@example.com", "secret"), (error) => {
+    assert.equal(error.code, "TIMEOUT");
+    assert.equal(error instanceof SupabaseTransportError, false);
+    assert.equal(error.cause?.name, "AbortError");
+    assert.equal(error.message, "No fue posible conectar con Supabase durante token?grant_type=password.");
+    return true;
+  });
+});
+
+test("T32 read client traduce un fallo de red a NETWORK_ERROR con cause", async () => {
+  const failure = new TypeError("red caída");
+  const auth = { accessToken: async () => "fixture-access-token" };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    fetchImpl: async () => { throw failure; }
+  });
+  await assert.rejects(client.get("/rest/v1/calendars?select=id", { operation: "listar calendarios" }), (error) => {
+    assert.equal(error.code, "NETWORK_ERROR");
+    assert.equal(error instanceof SupabaseTransportError, false);
+    assert.equal(error.cause, failure);
+    assert.equal(error.message, "No fue posible conectar con Supabase durante listar calendarios.");
+    return true;
+  });
+});
+
+test("T33 read client traduce un abort por timeout a TIMEOUT", async () => {
+  const auth = { accessToken: async () => "fixture-access-token" };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    timeoutMs: 10,
+    fetchImpl: (url, init) => new Promise((resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const abortError = new Error("aborted");
+        abortError.name = "AbortError";
+        reject(abortError);
+      });
+    })
+  });
+  await assert.rejects(client.get("/rest/v1/calendars?select=id", { operation: "listar calendarios" }), (error) => {
+    assert.equal(error.code, "TIMEOUT");
+    assert.equal(error.cause?.name, "AbortError");
+    assert.equal(error.message, "No fue posible conectar con Supabase durante listar calendarios.");
+    return true;
+  });
+});
+
+test("T34 REST 401 refresca y reintenta exactamente una vez y nunca entra en loop", async () => {
+  const calls = [];
+  let refreshCount = 0;
+  const auth = {
+    accessToken: async () => "fixture-access-token",
+    refreshSession: async () => { refreshCount += 1; return { access_token: "fixture-access-token" }; }
+  };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response({ message: "expired" }, 401);
+    }
+  });
+  await assert.rejects(client.get("/rest/v1/calendars?select=id", { operation: "listar calendarios" }),
+    (error) => error.code === "AUTH_REQUIRED");
+  assert.equal(refreshCount, 1);
+  assert.equal(calls.length, 2);
+});
+
+test("T35 Auth sin body conserva Content-Type application/json", async () => {
+  const calls = [];
+  const store = sessionStore({
+    access_token: "fixture-access-token",
+    refresh_token: "fixture-refresh-token",
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: USER
+  });
+  const auth = createSupabaseAuthClient(CONFIG, {
+    sessionStore: store,
+    fetchImpl: async (url, init) => { calls.push({ url, init }); return response({}); }
+  });
+  await auth.logout();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `${CONFIG.url}/auth/v1/logout`);
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.equal(calls[0].init.body, undefined);
+});
+
+test("T36 REST GET incluye Accept y no añade Content-Type sin body", async () => {
+  const calls = [];
+  const auth = { accessToken: async () => "fixture-access-token" };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    fetchImpl: async (url, init) => { calls.push({ url, init }); return response([]); }
+  });
+  const rows = await client.get("/rest/v1/calendars?select=id");
+  assert.deepEqual(rows, []);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `${CONFIG.url}/rest/v1/calendars?select=id`);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.Accept, "application/json");
+  assert.equal("Content-Type" in calls[0].init.headers, false);
+  assert.equal(calls[0].init.headers.apikey, CONFIG.publishableKey);
+  assert.equal(calls[0].init.headers.Authorization, "Bearer fixture-access-token");
 });

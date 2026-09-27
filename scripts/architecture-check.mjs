@@ -55,6 +55,8 @@ export const APPLICATION_FORBIDDEN_PACKAGES = Object.freeze([
   "@supabase/supabase-js"
 ]);
 
+export const SUPABASE_RUNTIME_IMPORT_PREFIX = "node:";
+
 export function normalizeModulePath(modulePath) {
   return String(modulePath)
     .replaceAll("\\", "/")
@@ -149,12 +151,21 @@ export function findForbiddenPackageReferences(source) {
   return [...new Set(specifiers.filter(isForbiddenApplicationPackage))];
 }
 
-export function extractLocalImportSpecifiers(source) {
+export function extractImportSpecifiers(source) {
   const specifiers = [
     ...collectMatches(source, staticImportPattern),
     ...collectMatches(source, dynamicImportPattern)
   ];
-  return [...new Set(specifiers)].filter((specifier) => specifier.startsWith("."));
+  return [...new Set(specifiers)];
+}
+
+export function findForbiddenSupabaseRuntimeImports(source) {
+  return extractImportSpecifiers(source)
+    .filter((specifier) => specifier.startsWith(SUPABASE_RUNTIME_IMPORT_PREFIX));
+}
+
+export function extractLocalImportSpecifiers(source) {
+  return extractImportSpecifiers(source).filter((specifier) => specifier.startsWith("."));
 }
 
 export function resolveLocalModulePath(importerRelativePath, specifier, root = sourceRoot) {
@@ -256,14 +267,21 @@ export function validateArchitectureGraph({ modules, graph, sources }) {
 
   if (sources) {
     for (const modulePath of normalizedModules) {
-      if (classifyModule(modulePath) !== "application") continue;
+      const layer = classifyModule(modulePath);
       const source = sources.get(modulePath);
       if (typeof source !== "string") continue;
-      for (const token of findForbiddenSemanticReferences(source)) {
-        violations.push(violation("forbidden-semantic-reference", { module: modulePath, token }));
+      if (layer === "application") {
+        for (const token of findForbiddenSemanticReferences(source)) {
+          violations.push(violation("forbidden-semantic-reference", { module: modulePath, token }));
+        }
+        for (const specifier of findForbiddenPackageReferences(source)) {
+          violations.push(violation("forbidden-application-package", { module: modulePath, specifier }));
+        }
       }
-      for (const specifier of findForbiddenPackageReferences(source)) {
-        violations.push(violation("forbidden-application-package", { module: modulePath, specifier }));
+      if (layer === "supabase") {
+        for (const specifier of findForbiddenSupabaseRuntimeImports(source)) {
+          violations.push(violation("forbidden-supabase-runtime-import", { module: modulePath, specifier }));
+        }
       }
     }
   }
@@ -300,6 +318,8 @@ function formatViolation(item) {
       return `módulo application ${item.module} referencia el token prohibido '${item.token}'`;
     case "forbidden-application-package":
       return `módulo application ${item.module} importa el paquete prohibido '${item.specifier}'`;
+    case "forbidden-supabase-runtime-import":
+      return `módulo supabase ${item.module} importa un runtime específico no portable '${item.specifier}'`;
     default:
       return `violación desconocida: ${JSON.stringify(item)}`;
   }
