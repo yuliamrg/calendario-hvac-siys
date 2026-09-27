@@ -11,16 +11,28 @@ const staticImportPattern = /\b(?:import|export)\s+(?:(?:[\s\S]*?)\s+from\s+)?["
 const dynamicImportPattern = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
 
 export const ARCHITECTURE_RULES = Object.freeze({
-  domain: Object.freeze(["ui", "persistence", "cli", "cloud", "composition"]),
-  core: Object.freeze(["ui", "persistence", "cli", "cloud", "composition"]),
-  contract: Object.freeze(["ui", "persistence", "cli", "cloud", "composition"]),
-  import: Object.freeze(["ui", "persistence", "cli", "cloud", "composition"]),
-  persistence: Object.freeze(["ui", "cli", "cloud", "composition"]),
+  domain: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
+  core: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
+  contract: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
+  import: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
+  persistence: Object.freeze(["ui", "cli", "cloud", "composition", "supabase"]),
   cloud: Object.freeze(["ui", "cli", "composition"]),
-  ui: Object.freeze(["persistence", "cli", "cloud", "composition"]),
+  ui: Object.freeze(["persistence", "cli", "cloud", "composition", "supabase"]),
   cli: Object.freeze(["ui", "persistence", "cloud", "composition"]),
   composition: Object.freeze([]),
-  application: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "import"]),
+  supabase: Object.freeze([
+    "domain",
+    "core",
+    "contract",
+    "import",
+    "persistence",
+    "ui",
+    "cloud",
+    "cli",
+    "composition",
+    "application"
+  ]),
+  application: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "import", "supabase"]),
 });
 
 export const APPLICATION_FORBIDDEN_TOKENS = Object.freeze([
@@ -61,6 +73,7 @@ export function classifyModule(modulePath) {
   if (normalizedPath.startsWith("ui/")) return "ui";
   if (normalizedPath.startsWith("cli/")) return "cli";
   if (normalizedPath.startsWith("application/")) return "application";
+  if (normalizedPath.startsWith("supabase/")) return "supabase";
   return null;
 }
 
