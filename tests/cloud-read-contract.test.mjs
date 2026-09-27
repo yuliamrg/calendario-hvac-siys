@@ -110,20 +110,39 @@ async function invokeCli(args, fixture, env = {}) {
   const err = [];
   stdout.on("data", (chunk) => out.push(chunk.toString()));
   stderr.on("data", (chunk) => err.push(chunk.toString()));
-  const status = await runCli(args, {
+  const io = {
     stdout,
     stderr,
     fetch: fixture?.fetchImpl,
     sessionStore: fixture?.store,
-    stdin: fixture?.stdin,
-    env: {
+    stdin: fixture?.stdin
+  };
+  if (env !== null) {
+    io.env = {
+      ...process.env,
       SIYS_SUPABASE_URL: CONFIG.url,
       SIYS_SUPABASE_PUBLISHABLE_KEY: CONFIG.publishableKey,
-      ...process.env,
       ...env
-    }
-  });
+    };
+  }
+  const status = await runCli(args, io);
   return { status, stdout: out.join(""), stderr: err.join("") };
+}
+
+async function withProcessEnv(values, run) {
+  const saved = new Map(Object.entries(values).map(([key]) => [key, process.env[key]]));
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    return await run();
+  } finally {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 }
 
 test("T1 stable mapea legacy_id correcto", async () => {
@@ -337,4 +356,28 @@ test("T27 cloud login acepta contraseña solo por stdin", async () => {
   assert.equal(output.loggedIn, true);
   assert.ok(!result.stdout.includes("fixture-access-token"));
   assert.equal(fixture.store.value.user.id, USER.id);
+});
+
+test("T28 configuración inyectada por io.env no depende de process.env", async () => {
+  await withProcessEnv({ SIYS_SUPABASE_URL: undefined, SIYS_SUPABASE_PUBLISHABLE_KEY: undefined }, async () => {
+    const fixture = makeCloudFixture();
+    const result = await invokeCli(["cloud", "calendars", "--channel", "beta", "--output", "json"], fixture);
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.calendars[0].calendarId, CALENDAR_BETA);
+    assert.equal(output.calendars[0].ownerName, "Usuario Fixture");
+  });
+});
+
+test("T29 configuración real de process.env sigue funcionando en el límite CLI", async () => {
+  await withProcessEnv({
+    SIYS_SUPABASE_URL: CONFIG.url,
+    SIYS_SUPABASE_PUBLISHABLE_KEY: CONFIG.publishableKey
+  }, async () => {
+    const fixture = makeCloudFixture();
+    const result = await invokeCli(["cloud", "calendars", "--channel", "beta", "--output", "json"], fixture, null);
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.calendars[0].calendarId, CALENDAR_BETA);
+  });
 });

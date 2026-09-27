@@ -56,8 +56,7 @@ function printCloudHuman(stdout, value) {
   stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
-async function makeAuth(io) {
-  const config = supabaseConfigFromEnv(io.env ?? process.env);
+async function makeAuth(io, config = supabaseConfigFromEnv(io.env ?? process.env)) {
   return createSupabaseAuthClient(config, {
     fetchImpl: io.fetch,
     sessionStore: io.sessionStore,
@@ -66,7 +65,8 @@ async function makeAuth(io) {
 }
 
 async function runCloudCommand(operation, values, io, stdout, stderr) {
-  const auth = await makeAuth(io);
+  const config = supabaseConfigFromEnv(io.env ?? process.env);
+  const auth = await makeAuth(io, config);
   const output = values.output ?? "human";
   if (!["human", "json"].includes(output)) throw new CloudCliError("INVALID_REQUEST", "--output debe ser human o json.");
   if (operation === "cloud.login") {
@@ -95,7 +95,7 @@ async function runCloudCommand(operation, values, io, stdout, stderr) {
   }
   if (operation === "cloud.calendars") {
     if (!values.channel || !["stable", "beta"].includes(values.channel)) throw new CloudCliError("CHANNEL_INVALID", "cloud calendars requiere --channel stable|beta.");
-    const source = new CloudCalendarSource(null, { auth, fetchImpl: io.fetch, timeoutMs: io.timeoutMs });
+    const source = new CloudCalendarSource(config, { auth, fetchImpl: io.fetch, timeoutMs: io.timeoutMs });
     const calendars = await source.listCalendars({ channel: values.channel, mine: Boolean(values.mine) });
     const result = { source: { kind: "cloud", channel: values.channel, observedAt: new Date().toISOString() }, calendars };
     if (output === "json") printJson(stdout, result);
@@ -127,7 +127,7 @@ export async function runCli(argv, io = {}) {
     if (sourceKind === "cloud") {
       ensureCloudRequest(parsed.operation, values);
       const config = supabaseConfigFromEnv(io.env ?? process.env);
-      const auth = await makeAuth(io);
+      const auth = await makeAuth(io, config);
       const source = new CloudCalendarSource(config, {
         auth,
         fetchImpl: io.fetch,
