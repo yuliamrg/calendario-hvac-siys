@@ -291,11 +291,11 @@ test("T18 source=file continúa funcionando", async () => {
   }
 });
 
-test("T19 operación write + cloud produce CLOUD_WRITE_NOT_ALLOWED antes de red", async () => {
+test("T19 --write + cloud produce INVALID_REQUEST antes de red", async () => {
   const fixture = makeCloudFixture();
   const result = await invokeCli(["activity", "create", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_BETA, "--write", "never.json"], fixture);
-  assert.equal(result.status, 4);
-  assert.match(result.stderr, /CLOUD_WRITE_NOT_ALLOWED/);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /INVALID_REQUEST/);
   assert.equal(fixture.calls.length, 0);
 });
 

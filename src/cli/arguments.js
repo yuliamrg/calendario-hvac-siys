@@ -2,7 +2,7 @@ import { parseArgs } from "node:util";
 import { CALENDAR_OPERATIONS } from "../calendar-contract.js";
 import { readCalendarFile } from "./files.js";
 
-export const HELP = `calendary — calendario HVAC local por archivos JSON o lectura cloud
+export const HELP = `calendary — calendario HVAC local por archivos JSON o cloud (lectura y mutaciones habilitadas)
 
 Uso:
   calendary <grupo> <acción> [opciones]
@@ -26,19 +26,22 @@ Contrato de entrada:
 Archivos y seguridad:
   --source file|cloud      Fuente (file por defecto; backup usa --source como ruta)
   --input archivo          Respaldo actual; obligatorio con --source file
-  --write archivo          Nuevo respaldo para operaciones de escritura
+  --write archivo          Nuevo respaldo; sólo aplica al modo file
   backup restore/merge     --source archivo es el respaldo origen
-  --dry-run                Valida y muestra el resultado sin escribir
+  --dry-run                Valida y muestra el resultado sin escribir ni persistir en cloud
   --yes                    Confirma delete y restore sin preguntar
   --allow-non-working      Autoriza domingos o festivos
 
-Cloud read-only:
+Cloud:
   --channel stable|beta    Canal Supabase explícito
   --calendar-id UUID       Calendario cloud inequívoco
   --mine                   Restringe la selección a created_by del usuario autenticado
   --as-of valor            No soportado: falla con HISTORICAL_QUERY_UNSUPPORTED
   --email correo           Email para cloud login (la contraseña nunca va en argv)
   --password-stdin         Lee la contraseña desde stdin sin mostrarla
+  cloud soporta lectura y las mutaciones de activity, catalog, holiday y document.
+  cloud no admite --write ni --input; persiste en el calendario seleccionado.
+  calendar.identify y backup restore/merge aún no son targets cloud.
 
 Salida:
   --output human|json      Formato de consola (predeterminado: human)

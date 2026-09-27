@@ -6,6 +6,7 @@ import { CLOUD_COMMANDS, HELP, buildPayload, parseCli } from "./arguments.js";
 import { createSupabaseAuthClient, supabaseConfigFromEnv } from "./cloud-auth.js";
 import { CloudCliError } from "./cloud-errors.js";
 import { CloudCalendarSource } from "./cloud-read.js";
+import { createCloudCalendarWriter } from "./cloud-write.js";
 import { readPassword, readPasswordFromStdin } from "./auth-prompt.js";
 import { confirmDestructive, exitCodeFor, formatHumanResult, writeNewTextFile } from "./io.js";
 import { FileCalendarSource } from "./sources.js";
@@ -19,10 +20,22 @@ function sourceKindFor(operation, values) {
   return kind;
 }
 
-function ensureCloudRequest(operation, values) {
+const DEFERRED_CLOUD_OPERATIONS = Object.freeze({
+  "calendar.identify": "La sincronización de metadata cloud (calendar.identify) aún no está habilitada.",
+  "backup.restore": "backup.restore no es un target cloud; usa --source con la ruta de un respaldo.",
+  "backup.merge": "backup.merge no es un target cloud; usa --source con la ruta de un respaldo."
+});
+
+function isCloudMutating(operation) {
   const definition = CALENDAR_OPERATIONS[operation];
-  if (!definition?.readOnly) throw new CloudCliError("CLOUD_WRITE_NOT_ALLOWED", "Las operaciones de escritura cloud están deshabilitadas en esta fase.");
+  return Boolean(definition) && !definition.readOnly && !Object.hasOwn(DEFERRED_CLOUD_OPERATIONS, operation);
+}
+
+function ensureCloudRequest(operation, values) {
+  const deferred = DEFERRED_CLOUD_OPERATIONS[operation];
+  if (deferred) throw new CloudCliError("CLOUD_WRITE_NOT_ALLOWED", deferred);
   if (values.input) throw new CloudCliError("INVALID_REQUEST", "--input no se usa con --source cloud.");
+  if (values.write) throw new CloudCliError("INVALID_REQUEST", "--write sólo aplica al modo file; las escrituras cloud persisten en el calendario seleccionado.");
   if (!values.channel || !["stable", "beta"].includes(values.channel)) {
     throw new CloudCliError("CHANNEL_INVALID", "--channel stable|beta es obligatorio para --source cloud.");
   }
@@ -124,10 +137,12 @@ export async function runCli(argv, io = {}) {
       throw new CloudCliError("INVALID_REQUEST", "Las escrituras requieren --write o --dry-run.");
     }
     let input;
+    let auth = null;
+    let config = null;
     if (sourceKind === "cloud") {
       ensureCloudRequest(parsed.operation, values);
-      const config = supabaseConfigFromEnv(io.env ?? process.env);
-      const auth = await makeAuth(io, config);
+      config = supabaseConfigFromEnv(io.env ?? process.env);
+      auth = await makeAuth(io, config);
       const source = new CloudCalendarSource(config, {
         auth,
         fetchImpl: io.fetch,
@@ -145,7 +160,6 @@ export async function runCli(argv, io = {}) {
 
     if (!values.output) values.output = "human";
     if (!["human", "json"].includes(values.output)) throw new CloudCliError("INVALID_REQUEST", "--output debe ser human o json.");
-    if (sourceKind === "cloud" && !definition.readOnly) throw new CloudCliError("CLOUD_WRITE_NOT_ALLOWED", "Las operaciones de escritura cloud están deshabilitadas en esta fase.");
     if (sourceKind === "file" && values.write && input.input.absolute.toLowerCase() === resolve(values.write).toLowerCase()) {
       throw new CloudCliError("CONFLICT", "--write debe ser distinto de --input.");
     }
@@ -159,19 +173,35 @@ export async function runCli(argv, io = {}) {
       else stdout.write(outcome.result.content);
       return 0;
     }
-    if (sourceKind === "cloud" && !definition.readOnly) throw new CloudCliError("CLOUD_WRITE_NOT_ALLOWED", "La operación cloud no es de solo lectura.");
     let written = null;
-    if (!definition.readOnly && !values["dry-run"] && outcome.changed) written = await (async () => {
+    if (isCloudMutating(parsed.operation) && sourceKind === "cloud" && !values["dry-run"] && outcome.changed) {
+      const writer = createCloudCalendarWriter(config, {
+        auth,
+        fetchImpl: io.fetch,
+        timeoutMs: io.timeoutMs
+      });
+      const persisted = await writer.writeDocument({
+        calendarId: input.source.calendarId,
+        expectedRevision: input.source.cloudRevision,
+        document: outcome.document
+      });
+      written = {
+        kind: "cloud",
+        calendarId: persisted.calendarId,
+        revision: persisted.revision,
+        updatedAt: persisted.updatedAt
+      };
+    } else if (!definition.readOnly && sourceKind === "file" && !values["dry-run"] && outcome.changed) {
       const { writeCalendarFile } = await import("./files.js");
-      return writeCalendarFile(values.write, outcome.document, { channel: input.source.channel });
-    })();
+      written = await writeCalendarFile(values.write, outcome.document, { channel: input.source.channel });
+    }
     const rendered = {
       ...outcome,
       source: input.source,
       document: definition.readOnly ? undefined : outcome.document,
       written
     };
-    if (!values.quiet) stdout.write(`${values.output === "json" ? JSON.stringify(rendered, null, 2) : formatHumanResult(parsed.operation, outcome, input.source)}\n`);
+    if (!values.quiet) stdout.write(`${values.output === "json" ? JSON.stringify(rendered, null, 2) : formatHumanResult(parsed.operation, outcome, input.source, written, { dryRun: Boolean(values["dry-run"]) })}\n`);
     return 0;
   } catch (error) {
     const code = error instanceof CalendarContractError || error instanceof CloudCliError ? error.code : (error.code ?? "INTERNAL_ERROR");

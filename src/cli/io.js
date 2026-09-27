@@ -18,17 +18,22 @@ export async function confirmDestructive(operation, values, stdin, stdout) {
   }
 }
 
-export function formatHumanResult(operation, outcome, source = null) {
+export function formatHumanResult(operation, outcome, source = null, written = null, { dryRun = false } = {}) {
   const sourceLine = source?.kind === "cloud"
     ? `Fuente cloud ${source.channel}/${source.calendarId}; revisión cloud=${source.cloudRevision ?? "?"}, documento=${source.documentRevision ?? "?"}; observado=${source.observedAt}.${source.warnings?.length ? ` Advertencias: ${source.warnings.join(", ")}.` : ""}`
     : null;
   if (["activity.list", "catalog.list", "holiday.list"].includes(operation)) {
     return [sourceLine, outcome.result.items.map((item) => JSON.stringify(item)).join("\n") || "Sin resultados."].filter(Boolean).join("\n");
   }
+  const cloudWritten = written?.kind === "cloud"
+    ? `Persistido en cloud ${written.calendarId}; revisión cloud=${written.revision}.`
+    : null;
   const result = outcome.changed
-    ? `OK ${operation}: revisión ${outcome.document.calendarMeta.revision}.`
+    ? (dryRun
+      ? `OK ${operation} (dry-run): sin persistencia; revisión propuesta ${outcome.document.calendarMeta.revision}.`
+      : `OK ${operation}: revisión ${outcome.document.calendarMeta.revision}.`)
     : `${operation}: sin cambios.\n${JSON.stringify(outcome.result, null, 2)}`;
-  return [sourceLine, result].filter(Boolean).join("\n");
+  return [sourceLine, result, cloudWritten].filter(Boolean).join("\n");
 }
 
 export function exitCodeFor(error) {
