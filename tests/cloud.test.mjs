@@ -145,7 +145,7 @@ test("una sesión heredada por canal se migra a la clave compartida al restaurar
   assert.ok(storage.getItem("siys-sync-supabase-session"));
 });
 
-test("el adaptador autentica, crea el calendario inicial y usa revisión optimista", async () => {
+test("el adaptador autentica, crea el calendario inicial y usa revisión optimista vía RPC", async () => {
   const calls = [];
   const initialDocument = {
     schemaVersion: 4,
@@ -158,6 +158,7 @@ test("el adaptador autentica, crea el calendario inicial y usa revisión optimis
     coordinator: "",
     created_by: "user-1"
   };
+  let rpcCount = 0;
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options });
     if (url.includes("/auth/v1/token?grant_type=password")) {
@@ -170,22 +171,18 @@ test("el adaptador autentica, crea el calendario inicial y usa revisión optimis
     }
     if (url.includes("/rest/v1/calendars?legacy_id=")) return response([]);
     if (url.includes("/rest/v1/rpc/create_calendar_for_current_user")) return response([calendar], 201);
-    if (url.includes("/rest/v1/calendar_members?")) return response([{ role: "owner" }]);
-    if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "GET") return response([]);
-    if (url.includes("/rest/v1/calendar_documents?select=")) return response([{
-      document: initialDocument,
-      revision: 0,
-      updated_at: "2026-08-04T00:00:00Z"
-    }], 201);
-    if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "PATCH") {
-      assert.match(url, /revision=eq\.0/);
-      return response([{
-        document: initialDocument,
-        revision: 1,
-        updated_at: "2026-08-04T00:01:00Z"
-      }]);
+    if (url.includes("/rest/v1/rpc/persist_calendar_document")) {
+      rpcCount += 1;
+      const body = JSON.parse(options.body);
+      if (rpcCount === 1) {
+        assert.equal(body.expected_revision, null, "la creación inicial no usa CAS");
+        return response([{ revision: 0, updated_at: "2026-08-04T00:00:00Z", updated_by: "user-1" }], 201);
+      }
+      assert.equal(body.expected_revision, 0, "la actualización usa la revisión cargada");
+      return response([{ revision: 1, updated_at: "2026-08-04T00:01:00Z", updated_by: "user-1" }]);
     }
-    if (url.includes("/rest/v1/calendars?id=")) return response(null, 204);
+    if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "GET") return response([]);
+    if (url.includes("/rest/v1/calendars?id=")) throw new Error("el write no debe hacer un PATCH separado a calendars");
     throw new Error(`Ruta no simulada: ${url}`);
   };
   const persistence = createSupabasePersistence({
@@ -214,7 +211,8 @@ test("el adaptador autentica, crea el calendario inicial y usa revisión optimis
     calendarMeta: { ...initialDocument.calendarMeta, coordinator: "Coordinación" }
   });
   assert.equal(saved.revision, 1);
-  assert.ok(calls.some(({ url, options }) => url.includes("/rest/v1/calendar_documents") && options.method === "PATCH"));
+  assert.equal(rpcCount, 2);
+  assert.equal(calls.filter(({ options }) => options.method === "PATCH").length, 0);
 });
 
 test("una cuenta nueva crea su propio calendario aunque ya exista otro del mismo canal", async () => {
@@ -254,12 +252,15 @@ test("una cuenta nueva crea su propio calendario aunque ya exista otro del mismo
     if (url.includes("/rest/v1/profiles?")) return response([]);
     if (url.includes("/rest/v1/rpc/create_calendar_for_current_user")) return response([created], 201);
     if (url.includes("/rest/v1/calendar_documents?calendar_id=eq.calendar-new") && options.method === "GET") return response([]);
-    if (url.includes("/rest/v1/calendar_documents?select=") && options.method === "POST") return response([{
-      document: initialDocument,
-      revision: 0,
-      updated_at: "2026-08-06T00:00:00Z"
-    }], 201);
-    if (url.includes("/rest/v1/calendars?id=eq.calendar-new")) return response(null, 204);
+    if (url.includes("/rest/v1/rpc/persist_calendar_document")) {
+      const body = JSON.parse(options.body);
+      assert.equal(body.target_calendar_id, "calendar-new");
+      assert.equal(body.expected_revision, null);
+      assert.equal(body.next_document.calendarMeta.name, "Cronograma de la cuenta nueva");
+      assert.equal(body.next_document.calendarMeta.coordinator, "Coordinación 2");
+      return response([{ revision: 0, updated_at: "2026-08-06T00:00:00Z", updated_by: "user-2" }], 201);
+    }
+    if (url.includes("/rest/v1/calendars?id=")) throw new Error("el bootstrap no debe hacer un PATCH separado a calendars");
     throw new Error(`Ruta no simulada: ${url}`);
   };
   const persistence = createSupabasePersistence({
@@ -370,7 +371,7 @@ test("una actualización sin filas se reporta como conflicto cloud", async () =>
         created_by: "user-1"
       }]);
       if (url.includes("/rest/v1/calendar_documents") && options.method === "GET") return response([{ document: { calendarMeta: { name: "Cronograma HVAC" } }, revision: 4 }]);
-      if (url.includes("/rest/v1/calendar_documents") && options.method === "PATCH") return response([]);
+      if (url.includes("/rest/v1/rpc/persist_calendar_document")) return response([]);
       throw new Error(`Ruta no simulada: ${url}`);
     },
     storage: storageMock()
@@ -624,7 +625,7 @@ test("fetchImpl null conserva fetch_unavailable browser", () => {
   );
 });
 
-test("los headers Prefer llegan intactos en POST y PATCH de escritura", async () => {
+test("el write de un documento existente es una sola transacción sin segundo PATCH a calendars", async () => {
   const calls = [];
   const calendar = { id: "calendar-1", name: "Cronograma HVAC", coordinator: "", created_by: "user-1" };
   const document = {
@@ -646,27 +647,36 @@ test("los headers Prefer llegan intactos en POST y PATCH de escritura", async ()
       if (url.includes("/rest/v1/calendars?legacy_id=")) return response([calendar]);
       if (url.includes("/rest/v1/profiles?")) return response([]);
       if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "GET") return response([]);
-      if (url.includes("/rest/v1/calendar_documents?select=") && options.method === "POST") {
-        return response([{ document, revision: 0, updated_at: "2026-08-04T00:00:00Z" }], 201);
+      if (url.includes("/rest/v1/rpc/persist_calendar_document")) {
+        const body = JSON.parse(options.body);
+        if (body.expected_revision === null) {
+          return response([{ revision: 0, updated_at: "2026-08-04T00:00:00Z", updated_by: "user-1" }], 201);
+        }
+        return response([{ revision: 1, updated_at: "2026-08-04T00:01:00Z", updated_by: "user-1" }]);
       }
-      if (url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "PATCH") {
-        return response([{ document, revision: 1, updated_at: "2026-08-04T00:01:00Z" }]);
-      }
-      if (url.includes("/rest/v1/calendars?id=")) return response(null, 204);
+      if (url.includes("/rest/v1/calendars?id=")) throw new Error("no debe existir PATCH separado a calendars");
       throw new Error(`Ruta no simulada: ${url}`);
     },
     storage: storageMock()
   });
 
   await persistence.signIn("test@example.com", "secret123");
-  await persistence.initialize({ initialDocument: document });
-  await persistence.write({ ...document, calendarMeta: { ...document.calendarMeta, coordinator: "Coordinación" } });
+  const initialized = await persistence.initialize({ initialDocument: document });
+  assert.equal(initialized.initializedFromInitial, true);
+  assert.equal(initialized.revision, 0);
 
-  const post = calls.find(({ url, options }) => url.includes("/rest/v1/calendar_documents?select=") && options.method === "POST");
-  const patch = calls.find(({ url, options }) => url.includes("/rest/v1/calendar_documents?calendar_id=") && options.method === "PATCH");
-  const metadata = calls.find(({ url, options }) => url.includes("/rest/v1/calendars?id=") && options.method === "PATCH");
-  assert.ok(post && patch && metadata, "debe ejecutar el write de dos pasos");
-  assert.equal(post.options.headers.Prefer, "return=representation");
-  assert.equal(patch.options.headers.Prefer, "return=representation");
-  assert.equal(metadata.options.headers.Prefer, "return=minimal");
+  const coordinator = "Coordinación";
+  const saved = await persistence.write({ ...document, calendarMeta: { name: "Cronograma HVAC", coordinator } });
+  assert.equal(saved.revision, 1);
+  assert.equal(saved.updatedAt, "2026-08-04T00:01:00Z");
+
+  const rpc = calls.filter(({ url }) => url.includes("/rest/v1/rpc/persist_calendar_document"));
+  assert.equal(rpc.length, 2, "bootstrap + update, una persistencia por escritura");
+  const updateBody = JSON.parse(rpc[1].options.body);
+  assert.equal(updateBody.target_calendar_id, "calendar-1");
+  assert.equal(updateBody.expected_revision, 0);
+  assert.equal(updateBody.next_document.calendarMeta.name, "Cronograma HVAC");
+  assert.equal(updateBody.next_document.calendarMeta.coordinator, coordinator);
+
+  assert.equal(calls.filter(({ options }) => options.method === "PATCH").length, 0);
 });

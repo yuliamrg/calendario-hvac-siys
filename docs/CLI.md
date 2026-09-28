@@ -2,9 +2,9 @@
 
 La CLI es una capa local y portable sobre el mismo contrato de la interfaz. La
 fuente `file` (predeterminada) no usa red ni abre IndexedDB: lee una copia JSON
-y, para cambios, crea otra copia JSON. La fuente `cloud` solo lee el documento
-actual de Supabase; no implementa escrituras cloud, migraciones, backfill ni
-historial as-of.
+y, para cambios, crea otra copia JSON. La fuente `cloud` lee y escribe el
+documento actual de Supabase mediante la operación atómica de persistencia; no
+implementa migraciones, backfill ni historial as-of.
 
 El flujo operativo completo —incluida la carpeta canónica de respaldos, la
 separación estable/beta y la restauración verificada— está en
@@ -65,11 +65,15 @@ la lectura ni presentar el documento como corrupto. `observedAt` es el momento d
 soportado y falla con `HISTORICAL_QUERY_UNSUPPORTED`.
 
 Las operaciones de lectura cloud sólo realizan GET sobre `calendars`,
-`calendar_documents` y, cuando está disponible, `profiles`. El inicio y cierre
-de sesión usan las operaciones de autenticación correspondientes. Los errores
-de autenticación, RLS o red no hacen fallback silencioso al JSON local. Las operaciones de mutación con
-`--source cloud` fallan antes de realizar una petición con
-`CLOUD_WRITE_NOT_ALLOWED`.
+`calendar_documents` y, cuando está disponible, `profiles`. Las mutaciones con
+`--source cloud` ejecutan el contrato local y persisten por el RPC transaccional
+`persist_calendar_document`: hace CAS sobre `calendar_documents.revision` y
+sincroniza `calendars.name`/`coordinator` desde el mismo documento en una sola
+transacción. El inicio y cierre de sesión usan las operaciones de autenticación
+correspondientes. Los errores de autenticación, RLS o red no hacen fallback
+silencioso al JSON local. Si `calendar_documents.revision` cambió en el
+servidor, la operación falla con `CONFLICT` sin recargar ni reaplicar.
+`backup restore` y `backup merge` siguen siendo exclusivos de archivos.
 
 Una escritura nunca sobrescribe la entrada ni un destino existente:
 

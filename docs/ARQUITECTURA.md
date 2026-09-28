@@ -37,8 +37,9 @@ importar código de interfaz, persistencia ni CLI.
 7. **Presentación (`src/ui/` y `src/app.js`)**: formato visible, DOM, eventos,
    diálogos y coordinación del estado de la página.
 8. **CLI (`src/cli/`)**: adaptación entre argumentos, fuentes `FileCalendarSource`/
-   `CloudCalendarSource` y contrato. La fuente cloud es solo lectura; autenticación
-   y lectura PostgREST están separadas del dominio.
+   `CloudCalendarSource` y contrato. La fuente cloud lee y persiste por el RPC
+   atómico compartido; autenticación y transporte PostgREST están separados del
+   dominio.
 9. **Distribución (`scripts/build.mjs`)**: valida el manifiesto y la sintaxis,
    concatena los módulos en orden de dependencia e inserta código, estilos,
    icono, SheetJS, Three.js y sus avisos de licencia en el HTML final.
@@ -53,7 +54,7 @@ interfaz ----> aplicación --------^           ^
     +----> presentación -----> dominio
 
 CLI source=file  ────────────┘
-CLI source=cloud ── GET Supabase → documento → contrato
+CLI source=cloud ── GET Supabase → documento → contrato → RPC atómico (CAS + metadata)
 
 build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 ```

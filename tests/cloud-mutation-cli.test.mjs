@@ -11,6 +11,7 @@ const CALENDAR_ID = "11111111-1111-4111-8111-111111111112";
 const NOW = "2026-09-01T10:00:00.000Z";
 const ACCESS_TOKEN = "fixture-access-token";
 const REFRESH_TOKEN = "fixture-refresh-token";
+const RPC_PATH = "/rest/v1/rpc/persist_calendar_document";
 
 function response(payload, status = 200) {
   return {
@@ -50,16 +51,16 @@ function documentWithActivity(cloudRevision) {
   return document;
 }
 
-function makeFixture({ cloudRevision = 12, patchResponder } = {}) {
+function makeFixture({ cloudRevision = 12, rpcResponder } = {}) {
   const store = sessionStore();
   const calls = [];
-  const patch = patchResponder ?? (() => response([{ revision: cloudRevision + 1, updated_at: "2026-09-01T10:01:00.000Z", updated_by: USER.id }]));
+  const persist = rpcResponder ?? (() => response([{ revision: cloudRevision + 1, updated_at: "2026-09-01T10:01:00.000Z", updated_by: USER.id }]));
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options });
     if (url.includes("grant_type=refresh_token")) {
       return response({ access_token: ACCESS_TOKEN, refresh_token: REFRESH_TOKEN, expires_at: Math.floor(Date.now() / 1000) + 3600, user: USER });
     }
-    if (options.method === "PATCH") return patch(url, options, calls);
+    if (url.includes(RPC_PATH)) return persist(url, options, calls);
     if (url.includes("/rest/v1/profiles?")) return response([{ id: USER.id, display_name: "Usuario Fixture" }]);
     if (url.includes("/rest/v1/calendars?legacy_id=")) {
       return response([{
@@ -112,20 +113,31 @@ function baseArgs() {
   return ["activity", "create", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_ID, "--output", "json"];
 }
 
-function patches(calls) {
+function identifyArgs() {
+  return ["calendar", "identify", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_ID, "--output", "json"];
+}
+
+function rpcWrites(calls) {
+  return calls.filter((call) => call.url.includes(RPC_PATH));
+}
+
+function patchWrites(calls) {
   return calls.filter((call) => call.options.method === "PATCH");
 }
 
-test("C1 activity.create cloud carga rev 12, ejecuta contrato y emite un único PATCH con CAS", async () => {
+test("C1 activity.create cloud carga rev 12, ejecuta contrato y emite un único RPC con CAS", async () => {
   const fixture = makeFixture({ cloudRevision: 12 });
   const result = await invokeCli([...baseArgs(), "--payload", createPayload()], fixture);
   assert.equal(result.status, 0, result.stderr);
-  const patch = patches(fixture.calls);
-  assert.equal(patch.length, 1);
-  assert.match(patch[0].url, /revision=eq\.12/);
-  const body = JSON.parse(patch[0].options.body);
-  assert.equal(body.revision, 13);
-  assert.equal(body.document.calendarMeta.revision, 13);
+  const rpc = rpcWrites(fixture.calls);
+  assert.equal(rpc.length, 1);
+  assert.equal(rpc[0].options.method, "POST");
+  assert.equal(patchWrites(fixture.calls).length, 0);
+  const body = JSON.parse(rpc[0].options.body);
+  assert.equal(body.target_calendar_id, CALENDAR_ID);
+  assert.equal(body.expected_revision, 12);
+  assert.equal(body.next_document.calendarMeta.revision, 13);
+  assert.ok(body.next_document.calendarMeta.name, "la metadata viaja dentro del documento");
 });
 
 test("C2 respuesta exitosa expone written cloud y conserva source.cloudRevision original", async () => {
@@ -142,18 +154,18 @@ test("C2 respuesta exitosa expone written cloud y conserva source.cloudRevision 
   assert.ok(!result.stderr.includes(ACCESS_TOKEN));
 });
 
-test("C3 --dry-run realiza reads y contrato pero no emite PATCH ni written cloud", async () => {
+test("C3 --dry-run realiza reads y contrato pero no emite RPC ni written cloud", async () => {
   const fixture = makeFixture({ cloudRevision: 12 });
   const result = await invokeCli([...baseArgs(), "--dry-run", "--payload", createPayload()], fixture);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(patches(fixture.calls).length, 0);
+  assert.equal(rpcWrites(fixture.calls).length, 0);
   const output = JSON.parse(result.stdout);
   assert.equal(output.changed, true);
   assert.equal(output.written, null);
   assert.ok(output.document.activities.length >= 2);
 });
 
-test("C4 outcome.changed=false no emite PATCH (operación no-op real)", async () => {
+test("C4 outcome.changed=false no emite RPC (operación no-op real)", async () => {
   const fixture = makeFixture({ cloudRevision: 12 });
   const result = await invokeCli([
     "activity", "edit", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_ID, "--output", "json",
@@ -163,45 +175,45 @@ test("C4 outcome.changed=false no emite PATCH (operación no-op real)", async ()
   const output = JSON.parse(result.stdout);
   assert.equal(output.changed, false);
   assert.equal(output.written, null);
-  assert.equal(patches(fixture.calls).length, 0);
+  assert.equal(rpcWrites(fixture.calls).length, 0);
 });
 
-test("C5 conflicto OCC produce CONFLICT con un único PATCH y ningún GET posterior", async () => {
-  const fixture = makeFixture({ cloudRevision: 12, patchResponder: () => response([]) });
+test("C5 conflicto OCC produce CONFLICT con un único RPC y ningún GET posterior", async () => {
+  const fixture = makeFixture({ cloudRevision: 12, rpcResponder: () => response([]) });
   const result = await invokeCli([...baseArgs(), "--payload", createPayload()], fixture);
   assert.equal(result.status, 4);
   assert.match(result.stderr, /CONFLICT/);
-  assert.equal(patches(fixture.calls).length, 1);
-  const patchIndex = fixture.calls.findIndex((call) => call.options.method === "PATCH");
-  const after = fixture.calls.slice(patchIndex + 1);
+  assert.equal(rpcWrites(fixture.calls).length, 1);
+  const rpcIndex = fixture.calls.findIndex((call) => call.url.includes(RPC_PATH));
+  const after = fixture.calls.slice(rpcIndex + 1);
   assert.equal(after.filter((call) => call.options.method === "GET").length, 0);
 });
 
-test("C6 RLS 403 en PATCH produce RLS_DENIED sin fallback", async () => {
-  const fixture = makeFixture({ cloudRevision: 12, patchResponder: () => response({ message: "denied" }, 403) });
+test("C6 RLS 403 en el RPC produce RLS_DENIED sin fallback", async () => {
+  const fixture = makeFixture({ cloudRevision: 12, rpcResponder: () => response({ message: "denied" }, 403) });
   const result = await invokeCli([...baseArgs(), "--payload", createPayload()], fixture);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /RLS_DENIED/);
-  assert.equal(patches(fixture.calls).length, 1);
+  assert.equal(rpcWrites(fixture.calls).length, 1);
 });
 
-test("C7 fallo de red en PATCH produce NETWORK_ERROR sin retry", async () => {
+test("C7 fallo de red en el RPC produce NETWORK_ERROR sin retry", async () => {
   const failure = new TypeError("red caída");
-  const fixture = makeFixture({ cloudRevision: 12, patchResponder: () => { throw failure; } });
+  const fixture = makeFixture({ cloudRevision: 12, rpcResponder: () => { throw failure; } });
   const result = await invokeCli([...baseArgs(), "--payload", createPayload()], fixture);
   assert.equal(result.status, 1);
   assert.match(result.stderr, /NETWORK_ERROR/);
-  assert.equal(patches(fixture.calls).length, 1);
+  assert.equal(rpcWrites(fixture.calls).length, 1);
 });
 
-test("C8 401 refresca una vez y completa el PATCH en el segundo intento", async () => {
-  let patchCount = 0;
+test("C8 401 refresca una vez y completa el RPC en el segundo intento", async () => {
+  let rpcCount = 0;
   let refreshCount = 0;
   const fixture = makeFixture({
     cloudRevision: 12,
-    patchResponder: () => {
-      patchCount += 1;
-      return patchCount === 1
+    rpcResponder: () => {
+      rpcCount += 1;
+      return rpcCount === 1
         ? response({ message: "expired" }, 401)
         : response([{ revision: 13, updated_at: "2026-09-01T10:01:00.000Z", updated_by: USER.id }]);
     }
@@ -214,12 +226,12 @@ test("C8 401 refresca una vez y completa el PATCH en el segundo intento", async 
   const result = await invokeCli([...baseArgs(), "--payload", createPayload()], fixture);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(refreshCount, 1);
-  assert.equal(patchCount, 2);
+  assert.equal(rpcCount, 2);
   const output = JSON.parse(result.stdout);
   assert.equal(output.written.revision, 13);
 });
 
-test("C9 destructive sin --yes en stdin no-TTY falla antes del PATCH", async () => {
+test("C9 destructive sin --yes en stdin no-TTY falla antes del RPC", async () => {
   const fixture = makeFixture({ cloudRevision: 12 });
   const result = await invokeCli([
     "activity", "delete", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_ID, "--output", "json",
@@ -227,31 +239,77 @@ test("C9 destructive sin --yes en stdin no-TTY falla antes del PATCH", async () 
   ], fixture);
   assert.equal(result.status, 4);
   assert.match(result.stderr, /CONFIRMATION_REQUIRED/);
-  assert.equal(patches(fixture.calls).length, 0);
+  assert.equal(rpcWrites(fixture.calls).length, 0);
 });
 
-test("C10 destructive con --yes permite el PATCH", async () => {
+test("C10 destructive con --yes permite el RPC", async () => {
   const fixture = makeFixture({ cloudRevision: 12 });
   const result = await invokeCli([
     "activity", "delete", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_ID, "--output", "json", "--yes",
     "--payload", JSON.stringify({ activityIds: ["activity-today"] })
   ], fixture);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(patches(fixture.calls).length, 1);
+  assert.equal(rpcWrites(fixture.calls).length, 1);
 });
 
-test("C11 calendar.identify --source cloud produce CLOUD_WRITE_NOT_ALLOWED antes de red", async () => {
+test("C11 calendar.identify --source cloud carga N, ejecuta contrato y persiste N+1 una sola vez", async () => {
   const fixture = makeFixture({ cloudRevision: 12 });
   const result = await invokeCli([
-    "calendar", "identify", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_ID,
-    "--payload", JSON.stringify({ name: "Nuevo", coordinator: "Nueva" })
+    ...identifyArgs(), "--payload", JSON.stringify({ name: "Nuevo", coordinator: "Nueva" })
   ], fixture);
-  assert.equal(result.status, 4);
-  assert.match(result.stderr, /CLOUD_WRITE_NOT_ALLOWED/);
-  assert.equal(fixture.calls.length, 0);
+  assert.equal(result.status, 0, result.stderr);
+  const rpc = rpcWrites(fixture.calls);
+  assert.equal(rpc.length, 1);
+  assert.equal(patchWrites(fixture.calls).length, 0);
+  const body = JSON.parse(rpc[0].options.body);
+  assert.equal(body.expected_revision, 12);
+  assert.equal(body.next_document.calendarMeta.name, "Nuevo");
+  assert.equal(body.next_document.calendarMeta.coordinator, "Nueva");
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.written.kind, "cloud");
+  assert.equal(output.written.revision, 13);
+  assert.equal(output.document.calendarMeta.name, "Nuevo");
+  assert.equal(output.document.calendarMeta.coordinator, "Nueva");
+  assert.equal(output.source.cloudRevision, 12);
 });
 
-test("C12 no se filtran tokens en stdout ni stderr", async () => {
+test("C12 identify en conflicto produce CONFLICT sin reload ni reap", async () => {
+  const fixture = makeFixture({ cloudRevision: 12, rpcResponder: () => response([]) });
+  const result = await invokeCli([
+    ...identifyArgs(), "--payload", JSON.stringify({ name: "Nuevo", coordinator: "Nueva" })
+  ], fixture);
+  assert.equal(result.status, 4);
+  assert.match(result.stderr, /CONFLICT/);
+  assert.equal(rpcWrites(fixture.calls).length, 1);
+  const rpcIndex = fixture.calls.findIndex((call) => call.url.includes(RPC_PATH));
+  assert.equal(fixture.calls.slice(rpcIndex + 1).length, 0, "no debe recargar ni reaplicar");
+});
+
+test("C13 identify --dry-run no emite ningún RPC", async () => {
+  const fixture = makeFixture({ cloudRevision: 12 });
+  const result = await invokeCli([
+    ...identifyArgs(), "--dry-run", "--payload", JSON.stringify({ name: "Nuevo", coordinator: "Nueva" })
+  ], fixture);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(rpcWrites(fixture.calls).length, 0);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.changed, true);
+  assert.equal(output.written, null);
+});
+
+test("C14 identify no-op no emite ningún RPC", async () => {
+  const fixture = makeFixture({ cloudRevision: 12 });
+  const result = await invokeCli([
+    ...identifyArgs(), "--payload", JSON.stringify({ name: "Cronograma HVAC", coordinator: "" })
+  ], fixture);
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.changed, false);
+  assert.equal(output.written, null);
+  assert.equal(rpcWrites(fixture.calls).length, 0);
+});
+
+test("C15 no se filtran tokens en stdout ni stderr", async () => {
   const fixture = makeFixture({ cloudRevision: 12 });
   const result = await invokeCli([...baseArgs(), "--payload", createPayload()], fixture);
   assert.equal(result.status, 0, result.stderr);

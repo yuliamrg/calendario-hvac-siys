@@ -4,6 +4,7 @@ import { supabaseConfigFromEnv } from "./cloud-auth.js";
 
 const DEFAULT_OPERATION = "escribir documento cloud";
 const DEFAULT_SCHEMA_VERSION = 4;
+const PERSIST_RPC_PATH = "/rest/v1/rpc/persist_calendar_document";
 
 function safeCalendarId(value) {
   const id = String(value ?? "").trim();
@@ -49,15 +50,16 @@ export function createCloudCalendarWriter(config, {
     const currentRevision = safeExpectedRevision(expectedRevision);
     const nextDocument = safeDocument(document);
     const nextRevision = currentRevision + 1;
-    const path = `/rest/v1/calendar_documents?calendar_id=eq.${encodeURIComponent(id)}&revision=eq.${currentRevision}&select=document,revision,updated_at,updated_by`;
-    const payload = await rest.request(path, {
-      method: "PATCH",
+    // The server keeps CAS on calendar_documents.revision and synchronizes
+    // calendars.name/coordinator from the same document in one transaction.
+    const payload = await rest.request(PERSIST_RPC_PATH, {
+      method: "POST",
       body: {
-        document: nextDocument,
-        revision: nextRevision,
-        schema_version: Number(nextDocument?.schemaVersion) || DEFAULT_SCHEMA_VERSION
+        target_calendar_id: id,
+        expected_revision: currentRevision,
+        next_document: nextDocument,
+        next_schema_version: Number(nextDocument?.schemaVersion) || DEFAULT_SCHEMA_VERSION
       },
-      headers: { Prefer: "return=representation" },
       operation
     });
     if (!Array.isArray(payload)) {

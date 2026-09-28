@@ -39,9 +39,10 @@ Cloud:
   --as-of valor            No soportado: falla con HISTORICAL_QUERY_UNSUPPORTED
   --email correo           Email para cloud login (la contraseña nunca va en argv)
   --password-stdin         Lee la contraseña desde stdin sin mostrarla
-  cloud soporta lectura y las mutaciones de activity, catalog, holiday y document.
-  cloud no admite --write ni --input; persiste en el calendario seleccionado.
-  calendar.identify y backup restore/merge aún no son targets cloud.
+  cloud soporta lectura y las mutaciones de calendar.identify, activity, catalog,
+  holiday y document. cloud no admite --write ni --input; persiste en el
+  calendario seleccionado con una escritura atómica de documento y metadata.
+  backup restore/merge aún no son targets cloud.
 
 Salida:
   --output human|json      Formato de consola (predeterminado: human)

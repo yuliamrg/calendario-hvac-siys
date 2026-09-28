@@ -90659,38 +90659,21 @@ export function createSupabasePersistence(config, {
         status: 403
       });
     }
-    const nextRevision = remoteRevision === null ? 0 : remoteRevision + 1;
-    const payload = {
-      document: documentSnapshot,
-      revision: nextRevision,
-      schema_version: Number(documentSnapshot?.schemaVersion) || 4
-    };
-    let rows;
-    if (remoteRevision === null) {
-      rows = await restRequest("/rest/v1/calendar_documents?select=document,revision,updated_at,updated_by", {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: [{ calendar_id: calendar.id, ...payload }]
-      });
-    } else {
-      const query = `/rest/v1/calendar_documents?calendar_id=eq.${encodeURIComponent(calendar.id)}&revision=eq.${encodeURIComponent(String(remoteRevision))}&select=document,revision,updated_at,updated_by`;
-      rows = await restRequest(query, {
-        method: "PATCH",
-        headers: { Prefer: "return=representation" },
-        body: payload
-      });
-      if (!rows.length) throw new SupabaseCloudConflictError();
-    }
-    const record = rows[0];
-    remoteRevision = Number(record?.revision ?? nextRevision);
-    await restRequest(`/rest/v1/calendars?id=eq.${encodeURIComponent(calendar.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
+    // One server-side transaction performs the CAS on calendar_documents.revision
+    // and synchronizes calendars.name/coordinator from the same document. A null
+    // expected_revision requests initial document creation.
+    const rows = await restRequest("/rest/v1/rpc/persist_calendar_document", {
+      method: "POST",
       body: {
-        name: String(documentSnapshot?.calendarMeta?.name || calendar.name).trim() || calendar.name,
-        coordinator: String(documentSnapshot?.calendarMeta?.coordinator || "").trim()
+        target_calendar_id: calendar.id,
+        expected_revision: remoteRevision,
+        next_document: documentSnapshot,
+        next_schema_version: Number(documentSnapshot?.schemaVersion) || 4
       }
     });
+    if (!Array.isArray(rows) || !rows.length) throw new SupabaseCloudConflictError();
+    const record = rows[0];
+    remoteRevision = Number(record?.revision);
     return { revision: remoteRevision, updatedAt: record?.updated_at ?? null };
   }
 

@@ -21,7 +21,6 @@ function sourceKindFor(operation, values) {
 }
 
 const DEFERRED_CLOUD_OPERATIONS = Object.freeze({
-  "calendar.identify": "La sincronización de metadata cloud (calendar.identify) aún no está habilitada.",
   "backup.restore": "backup.restore no es un target cloud; usa --source con la ruta de un respaldo.",
   "backup.merge": "backup.merge no es un target cloud; usa --source con la ruta de un respaldo."
 });

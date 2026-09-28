@@ -7,6 +7,7 @@ import { createSupabaseRestClient } from "../src/cli/cloud-rest.js";
 const CONFIG = { url: "https://example.supabase.co", publishableKey: "sb_publishable_fixture" };
 const CALENDAR_ID = "11111111-1111-4111-8111-111111111112";
 const ACCESS_TOKEN = "fixture-access-token";
+const RPC_PATH = `${CONFIG.url}/rest/v1/rpc/persist_calendar_document`;
 
 function response(payload, status = 200) {
   return {
@@ -19,7 +20,7 @@ function response(payload, status = 200) {
 function cloudDocument() {
   return {
     schemaVersion: 5,
-    calendarMeta: { id: "calendar-meta-fixture", revision: 99 },
+    calendarMeta: { id: "calendar-meta-fixture", name: "Cronograma", coordinator: "", revision: 99 },
     catalog: { clients: [], sites: [] },
     activities: []
   };
@@ -40,7 +41,7 @@ function makeWriter({ responder, options = {} } = {}) {
   return { writer, auth, calls, counters };
 }
 
-test("writeDocument aplica CAS sobre expectedRevision=12 e ignora calendarMeta.revision", async () => {
+test("writeDocument usa el RPC atómico con CAS sobre expectedRevision=12 e ignora calendarMeta.revision", async () => {
   const { writer, calls } = makeWriter({
     responder: () => response([{ revision: 13, updated_at: "2026-09-01T00:00:00.000Z", updated_by: "user-1" }])
   });
@@ -49,41 +50,40 @@ test("writeDocument aplica CAS sobre expectedRevision=12 e ignora calendarMeta.r
 
   assert.equal(calls.length, 1);
   const [{ url, init }] = calls;
-  assert.equal(init.method, "PATCH");
-  assert.match(url, /\/rest\/v1\/calendar_documents\?/);
-  assert.ok(url.includes(`calendar_id=eq.${CALENDAR_ID}`));
-  assert.ok(url.includes("revision=eq.12"));
-  assert.ok(url.includes("select=document,revision,updated_at,updated_by"));
-  assert.ok(!url.includes("revision=eq.99"), "el CAS no debe usar calendarMeta.revision");
-  assert.equal(init.headers.Prefer, "return=representation");
+  assert.equal(url, RPC_PATH);
+  assert.equal(init.method, "POST");
   assert.equal(init.headers["Content-Type"], "application/json");
+  assert.ok(!url.includes("calendar_documents"), "no debe existir PATCH directo a calendar_documents");
 
   const body = JSON.parse(init.body);
-  assert.equal(body.revision, 13);
-  assert.equal(body.schema_version, 5);
-  assert.equal(body.document.calendarMeta.revision, 99);
+  assert.equal(body.target_calendar_id, CALENDAR_ID);
+  assert.equal(body.expected_revision, 12);
+  assert.equal(body.next_schema_version, 5);
+  assert.equal(body.next_document.calendarMeta.revision, 99);
+  assert.ok(!("revision" in body), "la revisión la calcula el servidor, no el cliente");
 
   assert.equal(result.revision, 13);
   assert.equal(result.updatedAt, "2026-09-01T00:00:00.000Z");
   assert.equal(result.calendarId, CALENDAR_ID);
+  assert.equal(result.updatedBy, "user-1");
 });
 
-test("schema_version cae a 4 cuando el documento no lo declara", async () => {
+test("next_schema_version cae a 4 cuando el documento no lo declara", async () => {
   const { writer, calls } = makeWriter({
     responder: () => response([{ revision: 1, updated_at: null, updated_by: null }])
   });
-  await writer.writeDocument({ calendarId: CALENDAR_ID, expectedRevision: 0, document: { calendarMeta: {} } });
-  assert.equal(JSON.parse(calls[0].init.body).schema_version, 4);
+  await writer.writeDocument({ calendarId: CALENDAR_ID, expectedRevision: 0, document: { calendarMeta: { name: "X" } } });
+  assert.equal(JSON.parse(calls[0].init.body).next_schema_version, 4);
 });
 
-test("cero filas producen CONFLICT con un único PATCH y ningún GET ni recarga", async () => {
+test("cero filas producen CONFLICT con un único POST y ningún GET ni recarga", async () => {
   const { writer, calls } = makeWriter({ responder: () => response([]) });
   await assert.rejects(
     writer.writeDocument({ calendarId: CALENDAR_ID, expectedRevision: 12, document: cloudDocument() }),
     (error) => error.code === "CONFLICT"
   );
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].init.method, "PATCH");
+  assert.equal(calls[0].init.method, "POST");
   assert.equal(calls.filter((call) => call.init.method === "GET").length, 0);
 });
 
@@ -145,7 +145,7 @@ test("403 produce RLS_DENIED sin reintento", async () => {
   assert.equal(calls.length, 1);
 });
 
-test("un fallo de red produce NETWORK_ERROR y no reintenta el PATCH", async () => {
+test("un fallo de red produce NETWORK_ERROR y no reintenta el RPC", async () => {
   const failure = new TypeError("red caída");
   const { writer, calls } = makeWriter({ responder: () => { throw failure; } });
   await assert.rejects(
@@ -155,7 +155,7 @@ test("un fallo de red produce NETWORK_ERROR y no reintenta el PATCH", async () =
   assert.equal(calls.length, 1);
 });
 
-test("un timeout produce TIMEOUT y no reintenta el PATCH", async () => {
+test("un timeout produce TIMEOUT y no reintenta el RPC", async () => {
   const { writer, calls } = makeWriter({
     options: { timeoutMs: 10 },
     responder: (url, init) => new Promise((resolve, reject) => {

@@ -31,7 +31,7 @@ no sustituyen las fuentes del código actual.
 - [Arquitectura](ARQUITECTURA.md): capas, módulos y fronteras de importación.
 - [Contrato del calendario](CONTRATO_CALENDARIO.md): operaciones, payloads,
   respuestas y errores.
-- [CLI](CLI.md): comandos locales y lecturas cloud.
+- [CLI](CLI.md): comandos locales y cloud (lectura y mutaciones).
 - [Pruebas CLI](PRUEBAS_CLI.md): smoke, e2e y cobertura del contrato.
 - [Historial de cambios](../CHANGELOG.md): cambios agrupados por versión
   publicada.

@@ -55,9 +55,13 @@ accionables. No prueba la Base Operativa real ni los despliegues públicos; esos
 son escenarios separados de navegador y de publicación.
 
 La lectura cloud se prueba en `tests/cloud-read-contract.test.mjs` mediante
-fixtures HTTP sintéticos. La matriz T1–T27 cubre canales stable/beta,
+fixtures HTTP sintéticos. La matriz T1–T39 cubre canales stable/beta,
 selección inequívoca, `--mine`, documento actual, revisiones separadas,
 `observedAt`, `documentUpdatedAt`, hash, reutilización de `calendar-contract`,
-errores de auth/RLS, rechazo de métodos no GET, compatibilidad `file`, rechazo
-de escrituras cloud, ausencia de fallback y rechazo explícito de `--as-of`.
-La suite no usa datos cloud reales ni guarda tokens.
+errores de auth/RLS, rechazo de métodos no GET, compatibilidad `file`, ausencia
+de fallback y rechazo explícito de `--as-of`. La escritura cloud se prueba en
+`tests/cloud-write-contract.test.mjs` (RPC atómico, CAS, conflicto, 401, red,
+timeout) y en `tests/cloud-mutation-cli.test.mjs` (mutaciones y
+`calendar.identify` sobre el mismo writer). El contrato SQL de la migración se
+verifica en `tests/migration-rpc-contract.test.mjs`. La suite no usa datos cloud
+reales ni guarda tokens.
