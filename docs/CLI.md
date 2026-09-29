@@ -73,7 +73,8 @@ transacción. El inicio y cierre de sesión usan las operaciones de autenticaci�
 correspondientes. Los errores de autenticación, RLS o red no hacen fallback
 silencioso al JSON local. Si `calendar_documents.revision` cambió en el
 servidor, la operación falla con `CONFLICT` sin recargar ni reaplicar.
-`backup restore` y `backup merge` siguen siendo exclusivos de archivos.
+`backup restore` y `backup merge` también aceptan `--source cloud` y persisten
+por ese mismo RPC; el respaldo se indica siempre con `--backup-file`.
 
 Una escritura nunca sobrescribe la entrada ni un destino existente:
 
@@ -102,6 +103,68 @@ en procesos no interactivos requieren `--yes`. Las fechas dominicales o
 festivas requieren `--allow-non-working` cuando la operación tiene ese control.
 Para normalizar texto visible o ampliar rangos se recomienda usar `--payload`
 con el objeto exacto del contrato.
+
+## Respaldos (`backup restore` / `backup merge`)
+
+`--source` selecciona siempre la autoridad o target del calendario (`file` o
+`cloud`). El respaldo JSON es un operando independiente que se indica con
+`--backup-file` y nunca determina el target. En modo file, `--input` es el
+documento actual, `--backup-file` el respaldo y `--write` el destino nuevo; en
+modo cloud, el documento actual se lee del calendario y el respaldo sólo entra
+por `--backup-file`.
+
+File restore (el `--source file` es el predeterminado y puede omitirse):
+
+```powershell
+npm run cli -- backup restore `
+  --input .\actual.json `
+  --backup-file .\respaldo.json `
+  --write .\restaurado.json
+```
+
+File merge:
+
+```powershell
+npm run cli -- backup merge `
+  --source file `
+  --input .\actual.json `
+  --backup-file .\respaldo.json `
+  --write .\combinado.json
+```
+
+Cloud restore (`--yes` confirma la operación destructiva en modo no interactivo):
+
+```powershell
+npm run cli -- backup restore `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --backup-file .\respaldo.json `
+  --yes
+```
+
+Cloud merge:
+
+```powershell
+npm run cli -- backup merge `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --backup-file .\respaldo.json
+```
+
+Cloud dry-run (lee el documento real, valida el respaldo y ejecuta el contrato,
+sin persistir):
+
+```powershell
+npm run cli -- backup restore `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --backup-file .\respaldo.json `
+  --dry-run --yes
+```
+
+La sintaxis histórica `backup restore --source respaldo.json` ya no es válida:
+`--source` sólo admite `file` o `cloud`. El respaldo se indica con
+`--backup-file`.
 
 ## Salidas y códigos
 

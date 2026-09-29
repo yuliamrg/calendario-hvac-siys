@@ -17,9 +17,10 @@ de OneDrive exista.
 ## Estado y alcance
 
 La línea actual del repositorio incluye `bin/calendary.js`, el contrato
-compartido y las pruebas de la CLI. La CLI opera únicamente sobre copias JSON y no accede
-directamente a IndexedDB ni a Supabase. La interfaz y la CLI usan la misma
-frontera de escritura.
+compartido y las pruebas de la CLI. La CLI opera sobre copias JSON con
+`--source file` (predeterminado) o sobre el documento cloud con `--source cloud`;
+no accede directamente a IndexedDB. La interfaz y la CLI usan la misma frontera
+de escritura.
 
 Una **actividad de calendario** no es una orden real creada en SIYS.net. Si se
 necesita crear una orden en SIYS, debe usarse el flujo y contrato de SIYS
@@ -200,6 +201,23 @@ En la misma sesión de Chrome:
 Una restauración no debe ejecutarse si, después de descargar el origen, el
 cronograma actual cambió. En ese caso se descarga otro respaldo y se repite el
 flujo desde el preflight.
+
+La restauración y combinación también pueden hacerse con la CLI. `--source`
+selecciona el target (`file` o `cloud`) y el respaldo se indica con
+`--backup-file`; `backup restore` sigue siendo destructivo y en modo no
+interactivo requiere `--yes`, mientras que `backup merge` no pide confirmación.
+Sobre cloud, `--dry-run` lee y valida sin persistir:
+
+```powershell
+node bin/calendary.js backup merge --source cloud --channel beta `
+  --calendar-id <uuid> --backup-file $modified
+
+node bin/calendary.js backup restore --source cloud --channel beta `
+  --calendar-id <uuid> --backup-file $source --yes
+```
+
+`backup restore --source <ruta>` ya no es válido: `--source` sólo admite
+`file` o `cloud`.
 
 La automatización con Chrome adjunto puede rechazar la carga directa con
 `DOM.setFileInputFiles: Not allowed`. No se debe desactivar la seguridad ni

@@ -24,10 +24,10 @@ Contrato de entrada:
   --year, --month, --from, --to, --field, --value, --mode y --values.
 
 Archivos y seguridad:
-  --source file|cloud      Fuente (file por defecto; backup usa --source como ruta)
-  --input archivo          Respaldo actual; obligatorio con --source file
-  --write archivo          Nuevo respaldo; sólo aplica al modo file
-  backup restore/merge     --source archivo es el respaldo origen
+  --source file|cloud      Autoridad/target del calendario (file por defecto)
+  --backup-file archivo    Respaldo JSON para backup restore|merge (sólo operando)
+  --input archivo          Documento actual; obligatorio con --source file
+  --write archivo          Nuevo documento; sólo aplica al modo file
   --dry-run                Valida y muestra el resultado sin escribir ni persistir en cloud
   --yes                    Confirma delete y restore sin preguntar
   --allow-non-working      Autoriza domingos o festivos
@@ -40,9 +40,10 @@ Cloud:
   --email correo           Email para cloud login (la contraseña nunca va en argv)
   --password-stdin         Lee la contraseña desde stdin sin mostrarla
   cloud soporta lectura y las mutaciones de calendar.identify, activity, catalog,
-  holiday y document. cloud no admite --write ni --input; persiste en el
-  calendario seleccionado con una escritura atómica de documento y metadata.
-  backup restore/merge aún no son targets cloud.
+  holiday, document, backup.restore y backup.merge. cloud no admite --write ni
+  --input; para restore/merge el respaldo se indica con --backup-file y persiste
+  en el calendario seleccionado con una escritura atómica de documento y metadata.
+  --dry-run no persiste.
 
 Salida:
   --output human|json      Formato de consola (predeterminado: human)
@@ -54,7 +55,7 @@ Salida:
 `;
 
 const VALUE_OPTIONS = [
-  "input", "write", "source", "payload", "payload-file", "output", "csv-output",
+  "input", "write", "source", "backup-file", "payload", "payload-file", "output", "csv-output",
   "activity-id", "activity-ids", "target-date", "date", "end-date", "from-date", "to-date", "status", "scope",
   "common-scope", "status-scope", "type", "id", "override-id", "year", "month", "from", "to",
   "field", "value", "mode", "values", "client-id", "site-id", "city", "responsible-ids",
@@ -103,7 +104,7 @@ export async function buildPayload(operation, values) {
     "planning-bucket": "planningBucket"
   };
   for (const key of VALUE_OPTIONS) {
-    if (values[key] === undefined || ["input", "write", "source", "payload", "payload-file", "output", "csv-output", "channel", "calendar-id", "as-of", "email"].includes(key)) continue;
+    if (values[key] === undefined || ["input", "write", "source", "backup-file", "payload", "payload-file", "output", "csv-output", "channel", "calendar-id", "as-of", "email"].includes(key)) continue;
     let value = values[key];
     if (["activity-ids", "responsible-ids", "responsible-names"].includes(key)) value = split(value);
     if (["year", "month"].includes(key)) value = Number(value);
@@ -127,8 +128,10 @@ export async function buildPayload(operation, values) {
     for (const key of fields) delete payload[key];
   }
   if (operation === "backup.restore" || operation === "backup.merge") {
-    if (!values.source) throw Object.assign(new Error("Esta operación requiere --source."), { code: "INVALID_REQUEST" });
-    payload.document = (await readCalendarFile(values.source)).document;
+    if (!values["backup-file"]) {
+      throw Object.assign(new Error("Esta operación requiere --backup-file con el respaldo JSON."), { code: "INVALID_REQUEST" });
+    }
+    payload.document = (await readCalendarFile(values["backup-file"])).document;
   }
   return payload;
 }

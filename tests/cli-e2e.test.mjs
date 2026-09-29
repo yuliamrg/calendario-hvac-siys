@@ -265,9 +265,9 @@ test("ruta e2e de la CLI cubre el contrato completo y sus controles operativos",
     const incomingDocument = await documentFrom(incomingOutput);
     assert.ok(incomingDocument.activities.some((item) => item.observations === "Sólo en merge"));
 
-    const merged = await writeOperation("backup", "merge", {}, ["--source", incomingOutput]);
+    const merged = await writeOperation("backup", "merge", {}, ["--backup-file", incomingOutput]);
     assert.equal(merged.result.result.counts.added, 1);
-    const restored = await writeOperation("backup", "restore", {}, ["--source", beforeMerge, "--yes"]);
+    const restored = await writeOperation("backup", "restore", {}, ["--backup-file", beforeMerge, "--yes"]);
     assert.equal(restored.result.result.counts.activities, (await documentFrom(beforeMerge)).activities.length);
     const finalDocument = await documentFrom(current);
     assert.equal(finalDocument.activities.some((item) => item.observations === "Sólo en merge"), false);

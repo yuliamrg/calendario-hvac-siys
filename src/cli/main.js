@@ -12,27 +12,22 @@ import { confirmDestructive, exitCodeFor, formatHumanResult, writeNewTextFile } 
 import { FileCalendarSource } from "./sources.js";
 
 function sourceKindFor(operation, values) {
-  if (operation === "backup.restore" || operation === "backup.merge") return "file";
   const kind = values.source ?? "file";
   if (!["file", "cloud"].includes(kind)) {
-    throw new CloudCliError("INVALID_REQUEST", "--source debe ser file o cloud.");
+    const hint = operation === "backup.restore" || operation === "backup.merge"
+      ? " Usa --backup-file para indicar el respaldo."
+      : "";
+    throw new CloudCliError("INVALID_REQUEST", `--source debe ser file o cloud.${hint}`);
   }
   return kind;
 }
 
-const DEFERRED_CLOUD_OPERATIONS = Object.freeze({
-  "backup.restore": "backup.restore no es un target cloud; usa --source con la ruta de un respaldo.",
-  "backup.merge": "backup.merge no es un target cloud; usa --source con la ruta de un respaldo."
-});
-
 function isCloudMutating(operation) {
   const definition = CALENDAR_OPERATIONS[operation];
-  return Boolean(definition) && !definition.readOnly && !Object.hasOwn(DEFERRED_CLOUD_OPERATIONS, operation);
+  return Boolean(definition) && !definition.readOnly;
 }
 
-function ensureCloudRequest(operation, values) {
-  const deferred = DEFERRED_CLOUD_OPERATIONS[operation];
-  if (deferred) throw new CloudCliError("CLOUD_WRITE_NOT_ALLOWED", deferred);
+function ensureCloudRequest(values) {
   if (values.input) throw new CloudCliError("INVALID_REQUEST", "--input no se usa con --source cloud.");
   if (values.write) throw new CloudCliError("INVALID_REQUEST", "--write sólo aplica al modo file; las escrituras cloud persisten en el calendario seleccionado.");
   if (!values.channel || !["stable", "beta"].includes(values.channel)) {
@@ -43,15 +38,10 @@ function ensureCloudRequest(operation, values) {
   }
 }
 
-function ensureFileRequest(operation, values) {
+function ensureFileRequest(values) {
   if (!values.input) throw new CloudCliError("INVALID_REQUEST", "Falta --input.");
   if (values.mine || values["calendar-id"] !== undefined) {
     throw new CloudCliError("INVALID_REQUEST", "--mine y --calendar-id solo aplican a --source cloud.");
-  }
-  if (operation === "backup.restore" || operation === "backup.merge") {
-    if (!values.source || values.source === "cloud" || values.source === "file") {
-      throw new CloudCliError("INVALID_REQUEST", "Esta operación requiere --source con la ruta de un respaldo.");
-    }
   }
 }
 
@@ -139,7 +129,7 @@ export async function runCli(argv, io = {}) {
     let auth = null;
     let config = null;
     if (sourceKind === "cloud") {
-      ensureCloudRequest(parsed.operation, values);
+      ensureCloudRequest(values);
       config = supabaseConfigFromEnv(io.env ?? process.env);
       auth = await makeAuth(io, config);
       const source = new CloudCalendarSource(config, {
@@ -153,7 +143,7 @@ export async function runCli(argv, io = {}) {
         mine: Boolean(values.mine)
       });
     } else {
-      ensureFileRequest(parsed.operation, values);
+      ensureFileRequest(values);
       input = await new FileCalendarSource(values.input).load();
     }
 
