@@ -23,7 +23,10 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
   guarda en los respaldos nuevos; es la fuente de versión que consume el
   runtime.
 
-Estas dos fuentes deben tener exactamente el mismo valor.
+Estas dos fuentes deben tener exactamente el mismo valor. En `0.18.0-beta.1`
+Web y CLI todavía comparten la versión del producto/release del repositorio.
+Es una limitación deliberadamente conservada; evaluar versiones y distribución
+independientes queda diferido. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
 
 ### Espejos y punteros
 
@@ -304,15 +307,19 @@ Para promover a estable, además:
 
 ## 11. Corte estable actual e historial
 
-En la promoción comprobada el 2026-09-20:
+La stable promovida el 2026-09-20 sigue en `v0.17.0`; el puntero
+`stable-version.txt` conserva ese tag normal. La promoción se mantiene como
+historial en el changelog.
 
-- `package.json`, `APP_VERSION` y `package-lock.json` declaran `0.17.0`;
-- `stable-version.txt` selecciona `v0.17.0` como tag normal para la fuente
-  estable del workflow;
-- `v0.17.0` apunta al commit integrado que pasó CI;
-- `CHANGELOG.md` conserva `0.17.0-beta.1` como historial y registra su
-  promoción a estable;
-- el canal beta queda pausado hasta autorizar una nueva línea prerelease.
+La siguiente línea de desarrollo es `0.18.0-beta.1`, preparada en
+`feat/cli-cloud-client` el 2026-09-29, todavía pendiente de PR e integración
+hacia `main`. Package, lock y APP_VERSION comparten esa versión, incluida la
+CLI de este release; separar versiones queda diferido. El delta incluye RPC
+atómico browser, transporte compartido y CLI cloud con lectura, escritura,
+restore/merge e identificación, con Supabase como única autoridad.
+Se conservan esquema 4 y contrato 1. El merge permitirá construir `/beta/`
+desde esta versión; no se afirma que Pages ya la sirva. El tag beta se crea
+sobre el commit integrado, después del merge; no se exige durante la preparación.
 
 Las versiones `0.14.0`, `0.14.1`, `0.15.0-beta.3` y las demás que aparecen en
 los ejemplos o en el changelog se conservan como historial. No deben leerse

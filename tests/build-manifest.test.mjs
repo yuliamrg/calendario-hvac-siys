@@ -19,11 +19,17 @@ test("el manifiesto cubre el grafo local de app.js y conserva el orden", async (
     "importer.js",
     "ui/activity-presentation.js",
     "ui/export-layout.js",
-    "application/import-commands.js"
+    "application/import-commands.js",
+    "supabase/transport.js"
   ]) {
     assert.equal(applicationModuleRelativePaths.includes(required), true, `Falta ${required}`);
   }
 
+  assert.ok(
+    applicationModuleRelativePaths.indexOf("supabase/transport.js") <
+      applicationModuleRelativePaths.indexOf("cloud.js"),
+    "supabase/transport.js debe preceder a cloud.js"
+  );
   assert.ok(
     applicationModuleRelativePaths.indexOf("ui/activity-presentation.js") <
       applicationModuleRelativePaths.indexOf("ui/export-layout.js")
@@ -36,6 +42,11 @@ test("el manifiesto cubre el grafo local de app.js y conserva el orden", async (
   const discovered = await discoverApplicationModules();
   assert.equal(discovered.modules.includes("ui/three-motion.js"), false);
   assert.equal(applicationModuleRelativePaths.includes("ui/three-motion.js"), true);
+  assert.equal(
+    discovered.modules.includes("supabase/transport.js"),
+    true,
+    "el grafo descubierto desde app.js debe incluir el transporte compartido"
+  );
 });
 
 test("la validacion detecta un modulo omitido sin marcar imports internos listados", async () => {

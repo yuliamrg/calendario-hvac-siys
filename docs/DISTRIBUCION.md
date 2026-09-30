@@ -22,23 +22,32 @@ PostgREST en los canales estable y beta. La clave publishable puede viajar en
 el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
 `dist/` contiene salidas generadas: una diferencia, una versión embebida o un
-archivo existente allí no cambia la autoridad de las fuentes. El `HEAD` local
-incluye `d27383a`, que regeneró las salidas después de la última frontera de
-imports. Eso no certifica que GitHub Pages esté sirviendo esos archivos.
+archivo existente allí no cambia la autoridad de las fuentes. La feature
+prepara `0.18.0-beta.1` antes del PR; el dist regenerado no certifica que
+GitHub Pages esté sirviendo esa versión.
 
 ## Canales
 
 | Canal | Fuente publicada | Versión |
 |---|---|---|
 | Estable, raíz | Tag normal indicado por `stable-version.txt` | `v0.17.0`, la versión promovida sin prerelease. |
-| Beta, /beta/ | `main` | `0.17.0` mientras la beta permanece pausada; conserva el canal y los datos beta separados. |
+| Beta, /beta/ | `main`; feature todavía no integrada | Objetivo de integración `0.18.0-beta.1`; el merge permitirá construir la nueva beta. |
 | Local | `dist/calendario-hvac-siys.html` | Artefacto generado; leer la versión visible sólo como verificación del artefacto. |
 
 `stable-version.txt` es un puntero de distribución, no la fuente de la versión
-de `main`. Tras la promoción apunta a `v0.17.0`; `/beta/` queda pausada sobre
-el mismo código hasta iniciar una nueva línea prerelease. El puntero y el código
+de `main`. La raíz stable sigue desde `stable-version.txt = v0.17.0`; `/beta/` se construye desde
+el código de `main` previo a la integración. La nueva línea `0.18.0-beta.1`
+se prepara en `feat/cli-cloud-client`; no se afirma que Pages ya la sirva. El puntero y el código
 local no demuestran por sí solos que las URLs públicas estén desplegadas o
 actualizadas.
+
+La distribución descrita aquí corresponde a SIYS Sync Web. Calendary CLI
+corre localmente bajo Node.js >=20 desde `bin/calendary.js`, habla por HTTPS
+con el mismo Supabase y no está incluida en el HTML ni servida por Pages.
+Actualmente se usa desde el repositorio / entorno Node, con `private: true`
+y sin canal independiente formal. Web y CLI comparten versión en esta release;
+separar versiones y elegir npm, Releases, instalador u otro mecanismo queda
+diferido. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo

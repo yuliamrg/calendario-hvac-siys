@@ -1,5 +1,39 @@
 # Historial de cambios
 
+## [0.18.0-beta.1] - 2026-09-29
+
+### Nuevas capacidades y arquitectura
+
+- Calendary CLI opera como cliente cloud de Supabase con lectura y mutaciones
+  mediante el contrato compartido, incluidos backup restore/merge y
+  `calendar.identify` cloud.
+- Supabase es la única autoridad de estado de la CLI; los archivos sólo son
+  operandos o salidas. Browser y CLI reutilizan el transporte Supabase.
+- Web y CLI son clientes distintos del mismo backend: Web corre en navegador
+  como HTML estático y CLI en Node local. La CLI no forma parte del HTML ni
+  de Pages; empaquetado y versionamiento independientes quedan diferidos.
+
+### Persistencia
+
+- El browser usa el RPC atómico `persist_calendar_document`: CAS por
+  `calendar_documents.revision`, documento, schema version y sincronización
+  de nombre/coordinador en una sola transacción.
+- La migración del RPC ya fue aplicada y certificada en el backend de
+  desarrollo durante el workstream previo; esta preparación no modifica Supabase.
+
+### Seguridad y operación
+
+- Auth normal, sin service role; los conflictos no se reaplican automáticamente
+  y la selección de calendarios debe ser inequívoca.
+
+### Compatibilidad y preparación
+
+- Se conservan `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y los respaldos.
+- Stable continúa en `v0.17.0`. El delta público y operativo posterior a
+  `0.17.0` abre la nueva línea beta `0.18.0`.
+- `0.18.0-beta.1` queda preparada en la feature, pendiente de PR e integración;
+  todavía no está etiquetada ni se acredita su despliegue.
+
 ## [0.17.0] - 2026-09-20
 
 ### Promoción a estable

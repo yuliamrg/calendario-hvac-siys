@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PassThrough } from "node:stream";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { resolve } from "node:path";
-import { createBackupEnvelope, createDefaultDocument } from "../src/core.js";
+import { createDefaultDocument } from "../src/core.js";
 import { executeCalendarOperation } from "../src/calendar-contract.js";
 import { createSupabaseAuthClient } from "../src/cli/cloud-auth.js";
-import { assertCloudReadMethod, CloudCalendarSource } from "../src/cli/cloud-read.js";
-import { FileCalendarSource } from "../src/cli/sources.js";
+import { assertCloudReadMethod, CloudCalendarSource, createSupabaseReadClient } from "../src/cli/cloud-read.js";
+import { SupabaseTransportError } from "../src/supabase/transport.js";
 import { runCli } from "../src/cli/main.js";
 
 const CONFIG = { url: "https://example.supabase.co", publishableKey: "sb_publishable_fixture" };
@@ -110,20 +107,39 @@ async function invokeCli(args, fixture, env = {}) {
   const err = [];
   stdout.on("data", (chunk) => out.push(chunk.toString()));
   stderr.on("data", (chunk) => err.push(chunk.toString()));
-  const status = await runCli(args, {
+  const io = {
     stdout,
     stderr,
     fetch: fixture?.fetchImpl,
     sessionStore: fixture?.store,
-    stdin: fixture?.stdin,
-    env: {
+    stdin: fixture?.stdin
+  };
+  if (env !== null) {
+    io.env = {
+      ...process.env,
       SIYS_SUPABASE_URL: CONFIG.url,
       SIYS_SUPABASE_PUBLISHABLE_KEY: CONFIG.publishableKey,
-      ...process.env,
       ...env
-    }
-  });
+    };
+  }
+  const status = await runCli(args, io);
   return { status, stdout: out.join(""), stderr: err.join("") };
+}
+
+async function withProcessEnv(values, run) {
+  const saved = new Map(Object.entries(values).map(([key]) => [key, process.env[key]]));
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    return await run();
+  } finally {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 }
 
 test("T1 stable mapea legacy_id correcto", async () => {
@@ -256,26 +272,19 @@ test("T17 filtro today/from/to correcto", async () => {
   }
 });
 
-test("T18 source=file continúa funcionando", async () => {
-  const directory = await mkdtemp(resolve(tmpdir(), "calendary-cloud-read-file-"));
-  try {
-    const path = resolve(directory, "input.json");
-    await writeFile(path, JSON.stringify(createBackupEnvelope(createDefaultDocument("2026-08-15", NOW), { channel: "local" })), "utf8");
-    const source = await new FileCalendarSource(path, { now: () => NOW }).load();
-    assert.equal(source.source.kind, "file");
-    const result = await invokeCli(["calendar", "inspect", "--input", path, "--output", "json"], null);
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(result.stdout).source.kind, "file");
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+test("T18 source=file fue retirado y falla antes de cualquier red", async () => {
+  const fixture = makeCloudFixture();
+  const result = await invokeCli(["calendar", "inspect", "--source", "file", "--output", "json"], fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+  assert.equal(fixture.calls.length, 0);
 });
 
-test("T19 operación write + cloud produce CLOUD_WRITE_NOT_ALLOWED antes de red", async () => {
+test("T19 --write + cloud produce INVALID_REQUEST antes de red", async () => {
   const fixture = makeCloudFixture();
   const result = await invokeCli(["activity", "create", "--source", "cloud", "--channel", "beta", "--calendar-id", CALENDAR_BETA, "--write", "never.json"], fixture);
-  assert.equal(result.status, 4);
-  assert.match(result.stderr, /CLOUD_WRITE_NOT_ALLOWED/);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /INVALID_REQUEST/);
   assert.equal(fixture.calls.length, 0);
 });
 
@@ -337,4 +346,201 @@ test("T27 cloud login acepta contraseña solo por stdin", async () => {
   assert.equal(output.loggedIn, true);
   assert.ok(!result.stdout.includes("fixture-access-token"));
   assert.equal(fixture.store.value.user.id, USER.id);
+});
+
+test("T28 configuración inyectada por io.env no depende de process.env", async () => {
+  await withProcessEnv({ SIYS_SUPABASE_URL: undefined, SIYS_SUPABASE_PUBLISHABLE_KEY: undefined }, async () => {
+    const fixture = makeCloudFixture();
+    const result = await invokeCli(["cloud", "calendars", "--channel", "beta", "--output", "json"], fixture);
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.calendars[0].calendarId, CALENDAR_BETA);
+    assert.equal(output.calendars[0].ownerName, "Usuario Fixture");
+  });
+});
+
+test("T29 configuración real de process.env sigue funcionando en el límite CLI", async () => {
+  await withProcessEnv({
+    SIYS_SUPABASE_URL: CONFIG.url,
+    SIYS_SUPABASE_PUBLISHABLE_KEY: CONFIG.publishableKey
+  }, async () => {
+    const fixture = makeCloudFixture();
+    const result = await invokeCli(["cloud", "calendars", "--channel", "beta", "--output", "json"], fixture, null);
+    assert.equal(result.status, 0, result.stderr);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.calendars[0].calendarId, CALENDAR_BETA);
+  });
+});
+
+test("T30 auth client traduce un fallo de red a NETWORK_ERROR de CLI con cause", async () => {
+  const failure = new TypeError("red caída");
+  const auth = createSupabaseAuthClient(CONFIG, {
+    sessionStore: sessionStore(null),
+    fetchImpl: async () => { throw failure; }
+  });
+  await assert.rejects(auth.signIn("fixture@example.com", "secret"), (error) => {
+    assert.equal(error.name, "CloudCliError");
+    assert.equal(error.code, "NETWORK_ERROR");
+    assert.equal(error instanceof SupabaseTransportError, false);
+    assert.equal(error.cause, failure);
+    assert.equal(error.message, "No fue posible conectar con Supabase durante token?grant_type=password.");
+    return true;
+  });
+});
+
+test("T31 auth client traduce un abort por timeout a TIMEOUT de CLI conservando el mensaje", async () => {
+  const auth = createSupabaseAuthClient(CONFIG, {
+    sessionStore: sessionStore(null),
+    timeoutMs: 10,
+    fetchImpl: (url, init) => new Promise((resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const abortError = new Error("aborted");
+        abortError.name = "AbortError";
+        reject(abortError);
+      });
+    })
+  });
+  await assert.rejects(auth.signIn("fixture@example.com", "secret"), (error) => {
+    assert.equal(error.code, "TIMEOUT");
+    assert.equal(error instanceof SupabaseTransportError, false);
+    assert.equal(error.cause?.name, "AbortError");
+    assert.equal(error.message, "No fue posible conectar con Supabase durante token?grant_type=password.");
+    return true;
+  });
+});
+
+test("T32 read client traduce un fallo de red a NETWORK_ERROR con cause", async () => {
+  const failure = new TypeError("red caída");
+  const auth = { accessToken: async () => "fixture-access-token" };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    fetchImpl: async () => { throw failure; }
+  });
+  await assert.rejects(client.get("/rest/v1/calendars?select=id", { operation: "listar calendarios" }), (error) => {
+    assert.equal(error.code, "NETWORK_ERROR");
+    assert.equal(error instanceof SupabaseTransportError, false);
+    assert.equal(error.cause, failure);
+    assert.equal(error.message, "No fue posible conectar con Supabase durante listar calendarios.");
+    return true;
+  });
+});
+
+test("T33 read client traduce un abort por timeout a TIMEOUT", async () => {
+  const auth = { accessToken: async () => "fixture-access-token" };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    timeoutMs: 10,
+    fetchImpl: (url, init) => new Promise((resolve, reject) => {
+      init.signal.addEventListener("abort", () => {
+        const abortError = new Error("aborted");
+        abortError.name = "AbortError";
+        reject(abortError);
+      });
+    })
+  });
+  await assert.rejects(client.get("/rest/v1/calendars?select=id", { operation: "listar calendarios" }), (error) => {
+    assert.equal(error.code, "TIMEOUT");
+    assert.equal(error.cause?.name, "AbortError");
+    assert.equal(error.message, "No fue posible conectar con Supabase durante listar calendarios.");
+    return true;
+  });
+});
+
+test("T34 REST 401 refresca y reintenta exactamente una vez y nunca entra en loop", async () => {
+  const calls = [];
+  let refreshCount = 0;
+  const auth = {
+    accessToken: async () => "fixture-access-token",
+    refreshSession: async () => { refreshCount += 1; return { access_token: "fixture-access-token" }; }
+  };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return response({ message: "expired" }, 401);
+    }
+  });
+  await assert.rejects(client.get("/rest/v1/calendars?select=id", { operation: "listar calendarios" }),
+    (error) => error.code === "AUTH_REQUIRED");
+  assert.equal(refreshCount, 1);
+  assert.equal(calls.length, 2);
+});
+
+test("T35 Auth sin body conserva Content-Type application/json", async () => {
+  const calls = [];
+  const store = sessionStore({
+    access_token: "fixture-access-token",
+    refresh_token: "fixture-refresh-token",
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: USER
+  });
+  const auth = createSupabaseAuthClient(CONFIG, {
+    sessionStore: store,
+    fetchImpl: async (url, init) => { calls.push({ url, init }); return response({}); }
+  });
+  await auth.logout();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `${CONFIG.url}/auth/v1/logout`);
+  assert.equal(calls[0].init.method, "POST");
+  assert.equal(calls[0].init.headers["Content-Type"], "application/json");
+  assert.equal(calls[0].init.body, undefined);
+});
+
+test("T36 REST GET incluye Accept y no añade Content-Type sin body", async () => {
+  const calls = [];
+  const auth = { accessToken: async () => "fixture-access-token" };
+  const client = createSupabaseReadClient(CONFIG, {
+    auth,
+    fetchImpl: async (url, init) => { calls.push({ url, init }); return response([]); }
+  });
+  const rows = await client.get("/rest/v1/calendars?select=id");
+  assert.deepEqual(rows, []);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, `${CONFIG.url}/rest/v1/calendars?select=id`);
+  assert.equal(calls[0].init.method, "GET");
+  assert.equal(calls[0].init.headers.Accept, "application/json");
+  assert.equal("Content-Type" in calls[0].init.headers, false);
+  assert.equal(calls[0].init.headers.apikey, CONFIG.publishableKey);
+  assert.equal(calls[0].init.headers.Authorization, "Bearer fixture-access-token");
+});
+
+test("T37 auth construction con fetchImpl null produce NETWORK_UNAVAILABLE de CLI", () => {
+  assert.throws(
+    () => createSupabaseAuthClient(CONFIG, { fetchImpl: null, sessionStore: sessionStore(null) }),
+    (error) => {
+      assert.equal(error.name, "CloudCliError");
+      assert.equal(error.code, "NETWORK_UNAVAILABLE");
+      assert.equal(error instanceof SupabaseTransportError, false);
+      assert.notEqual(error.code, "fetch_unavailable");
+      return true;
+    }
+  );
+});
+
+test("T38 read construction con fetchImpl null produce NETWORK_UNAVAILABLE de CLI", () => {
+  const auth = { accessToken: async () => "fixture-access-token" };
+  assert.throws(
+    () => createSupabaseReadClient(CONFIG, { auth, fetchImpl: null }),
+    (error) => {
+      assert.equal(error.name, "CloudCliError");
+      assert.equal(error.code, "NETWORK_UNAVAILABLE");
+      assert.equal(error instanceof SupabaseTransportError, false);
+      assert.notEqual(error.code, "fetch_unavailable");
+      return true;
+    }
+  );
+});
+
+test("T39 read construction con config incompleta produce CONFIG_INVALID de CLI", () => {
+  const auth = { accessToken: async () => "fixture-access-token" };
+  assert.throws(
+    () => createSupabaseReadClient({}, { auth, fetchImpl: async () => response([]) }),
+    (error) => {
+      assert.equal(error.name, "CloudCliError");
+      assert.equal(error.code, "CONFIG_INVALID");
+      assert.equal(error instanceof SupabaseTransportError, false);
+      assert.notEqual(error.code, "invalid_config");
+      return true;
+    }
+  );
 });

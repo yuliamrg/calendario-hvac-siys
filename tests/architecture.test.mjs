@@ -4,8 +4,10 @@ import assert from "node:assert/strict";
 import {
   checkArchitecture,
   classifyModule,
+  extractLocalImportSpecifiers,
   findForbiddenPackageReferences,
   findForbiddenSemanticReferences,
+  findForbiddenSupabaseRuntimeImports,
   formatArchitectureReport,
   validateArchitectureGraph
 } from "../scripts/architecture-check.mjs";
@@ -18,9 +20,14 @@ test("el grafo real de src respeta las fronteras y captura la CLI completa", asy
   assert.equal(classifyModule("app.js"), "composition");
   assert.equal(report.modules.includes("cli/main.js"), true);
   assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/files.js"),
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-read.js"),
     true,
-    "El grafo debe incluir el import() dinámico de la CLI"
+    "El grafo debe capturar la ruta de lectura cloud de la CLI"
+  );
+  assert.equal(
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-write.js"),
+    true,
+    "El grafo debe capturar la frontera de escritura cloud de la CLI"
   );
 });
 
@@ -56,9 +63,14 @@ test("el grafo real de src respeta las fronteras y captura la CLI completa", asy
   assert.equal(classifyModule("app.js"), "composition");
   assert.equal(report.modules.includes("cli/main.js"), true);
   assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/files.js"),
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-read.js"),
     true,
-    "El grafo debe incluir el import() dinámico de la CLI"
+    "El grafo debe capturar la ruta de lectura cloud de la CLI"
+  );
+  assert.equal(
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-write.js"),
+    true,
+    "El grafo debe capturar la frontera de escritura cloud de la CLI"
   );
 });
 
@@ -258,4 +270,205 @@ test("la validación semántica permite un módulo application limpio", async ()
     report.violations.some((item) => item.type === "forbidden-semantic-reference"),
     false
   );
+});
+
+test("la capa supabase clasifica el transporte compartido y respeta el grafo real", async () => {
+  const report = await checkArchitecture();
+
+  assert.equal(report.ok, true, formatArchitectureReport(report));
+  assert.deepEqual(report.violations, []);
+  assert.equal(classifyModule("supabase/transport.js"), "supabase");
+  assert.equal(report.modules.includes("supabase/transport.js"), true);
+});
+
+test("un módulo supabase no puede importar ninguna otra capa", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  const forbiddenTargets = [
+    { specifier: "../cli/main.js", relativePath: "cli/main.js", layer: "cli" },
+    { specifier: "../cloud.js", relativePath: "cloud.js", layer: "cloud" },
+    { specifier: "../ui/presentation.js", relativePath: "ui/presentation.js", layer: "ui" },
+    { specifier: "../persistence/json-preferences.js", relativePath: "persistence/json-preferences.js", layer: "persistence" },
+    { specifier: "../application/calendar-commands.js", relativePath: "application/calendar-commands.js", layer: "application" },
+    { specifier: "../core.js", relativePath: "core.js", layer: "core" },
+    { specifier: "../calendar-contract.js", relativePath: "calendar-contract.js", layer: "contract" },
+    { specifier: "../domain/dates.js", relativePath: "domain/dates.js", layer: "domain" }
+  ];
+  graph.set("supabase/synthetic-violation.js", forbiddenTargets.map(({ specifier, relativePath }) => ({
+    specifier,
+    relativePath
+  })));
+
+  const report = validateArchitectureGraph({
+    modules: [...actual.modules, "supabase/synthetic-violation.js"],
+    graph
+  });
+
+  assert.equal(report.ok, false);
+  for (const target of forbiddenTargets) {
+    assert.equal(
+      report.violations.some((item) => (
+        item.type === "forbidden-import"
+        && item.importer === "supabase/synthetic-violation.js"
+        && item.dependency === target.relativePath
+        && item.dependencyLayer === target.layer
+      )),
+      true,
+      `supabase no debe importar ${target.relativePath}`
+    );
+  }
+});
+
+test("cli puede importar la capa supabase", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  graph.set("cli/synthetic-supabase.js", [
+    { specifier: "../supabase/transport.js", relativePath: "supabase/transport.js" }
+  ]);
+
+  const report = validateArchitectureGraph({
+    modules: [...actual.modules, "cli/synthetic-supabase.js"],
+    graph
+  });
+
+  assert.equal(report.ok, true, formatArchitectureReport(report));
+  assert.equal(report.violations.length, 0);
+});
+
+test("cloud puede importar la capa supabase", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  graph.set("cloud.js", [
+    ...(actual.graph.get("cloud.js") ?? []),
+    { specifier: "./supabase/transport.js", relativePath: "supabase/transport.js" }
+  ]);
+
+  const report = validateArchitectureGraph({
+    modules: actual.modules,
+    graph
+  });
+
+  assert.equal(report.ok, true, formatArchitectureReport(report));
+  assert.equal(report.violations.length, 0);
+});
+
+test("extractLocalImportSpecifiers detecta imports locales estáticos y dinámicos", () => {
+  const source = [
+    'import { a } from "./estatico.js";',
+    'const dynamic = await import("./dinamico.js");',
+    'import { readFile } from "node:fs/promises";',
+    'import { b } from "../otro/path.js";'
+  ].join("\n");
+  assert.deepEqual(
+    extractLocalImportSpecifiers(source).sort(),
+    ["../otro/path.js", "./dinamico.js", "./estatico.js"]
+  );
+});
+
+test("findForbiddenSupabaseRuntimeImports detecta cualquier specifier node:", () => {
+  const source = [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";',
+    'import { join } from "node:path";',
+    'const stream = await import("node:stream");',
+    'import { createTransport } from "../transport.js";',
+    'import test from "node:test";'
+  ].join("\n");
+
+  assert.deepEqual(
+    findForbiddenSupabaseRuntimeImports(source).sort(),
+    ["node:fs/promises", "node:os", "node:path", "node:stream", "node:test"]
+  );
+  assert.deepEqual(findForbiddenSupabaseRuntimeImports('import x from "./local.js";'), []);
+});
+
+test("un módulo supabase no puede importar módulos runtime node:", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  graph.set("supabase/synthetic-runtime.js", []);
+  const sources = new Map(actual.sources);
+  sources.set("supabase/synthetic-runtime.js", [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";',
+    'export async function load() { return readFile(homedir(), "utf8"); }'
+  ].join("\n"));
+
+  const report = validateArchitectureGraph({
+    modules: [...actual.modules, "supabase/synthetic-runtime.js"],
+    graph,
+    sources
+  });
+
+  assert.equal(report.ok, false);
+  for (const specifier of ["node:fs/promises", "node:os"]) {
+    assert.equal(
+      report.violations.some((item) => (
+        item.type === "forbidden-supabase-runtime-import"
+        && item.module === "supabase/synthetic-runtime.js"
+        && item.specifier === specifier
+      )),
+      true,
+      `supabase no debe importar ${specifier}`
+    );
+  }
+  assert.match(formatArchitectureReport(report), /node:fs\/promises/);
+});
+
+test("la prohibición de node: no aplica a la capa cli", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  graph.set("cli/synthetic-runtime.js", []);
+  const sources = new Map(actual.sources);
+  sources.set("cli/synthetic-runtime.js", [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";'
+  ].join("\n"));
+
+  const report = validateArchitectureGraph({
+    modules: [...actual.modules, "cli/synthetic-runtime.js"],
+    graph,
+    sources
+  });
+
+  assert.equal(report.ok, true, formatArchitectureReport(report));
+  assert.equal(report.violations.length, 0);
+});
+
+test("domain, core, contract y application no pueden importar supabase", async () => {
+  const actual = await checkArchitecture();
+  const graph = new Map(actual.graph);
+  const syntheticModules = [
+    "domain/synthetic-supabase.js",
+    "application/synthetic-supabase.js"
+  ];
+  const supabaseDependency = [{ specifier: "../supabase/transport.js", relativePath: "supabase/transport.js" }];
+  graph.set("domain/synthetic-supabase.js", supabaseDependency);
+  graph.set("application/synthetic-supabase.js", supabaseDependency);
+  graph.set("core.js", [
+    ...(actual.graph.get("core.js") ?? []),
+    { specifier: "./supabase/transport.js", relativePath: "supabase/transport.js" }
+  ]);
+  graph.set("calendar-contract.js", [
+    ...(actual.graph.get("calendar-contract.js") ?? []),
+    { specifier: "./supabase/transport.js", relativePath: "supabase/transport.js" }
+  ]);
+
+  const report = validateArchitectureGraph({
+    modules: [...actual.modules, ...syntheticModules],
+    graph
+  });
+
+  assert.equal(report.ok, false);
+  for (const importer of [...syntheticModules, "core.js", "calendar-contract.js"]) {
+    assert.equal(
+      report.violations.some((item) => (
+        item.type === "forbidden-import"
+        && item.importer === importer
+        && item.dependency === "supabase/transport.js"
+        && item.dependencyLayer === "supabase"
+      )),
+      true,
+      `${importer} no debe importar supabase`
+    );
+  }
 });

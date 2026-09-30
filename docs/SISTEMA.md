@@ -1,6 +1,7 @@
 # Sistema actual: Calendary / SIYS Sync
 
-Estado de esta página: descripción del `main` local auditado el 2026-08-23.
+Estado de esta página: arquitectura de `feat/cli-cloud-client` revisada el
+2026-09-29 para preparar `0.18.0-beta.1`, pendiente de integración en `main`.
 Describe el sistema que está en el código y la configuración actuales; no
 certifica que `dist/` sea publicable ni que el Supabase remoto tenga exactamente
 las migraciones del repositorio.
@@ -13,9 +14,8 @@ las migraciones del repositorio.
 - **Pendiente**: una brecha, una verificación externa o una decisión que no se
   debe convertir en arquitectura futura por inferencia.
 
-Las rutas enlazadas son relativas a este archivo. El worktree ya tenía cambios
-locales en otros archivos al iniciar S-01; esos cambios no se atribuyen a este
-documento.
+Las rutas enlazadas son relativas a este archivo. El mapa de productos Web,
+CLI, código compartido y backend está en [ARQUITECTURA_PRODUCTOS.md](ARQUITECTURA_PRODUCTOS.md).
 
 ## 1. Propósito y límites
 
@@ -46,7 +46,8 @@ lista de exclusiones está en [docs/BASE_OPERATIVA.md](BASE_OPERATIVA.md).
 
 ### Decisiones vigentes
 
-- La interfaz estática es el producto; GitHub Pages no ejecuta un backend.
+- Web estática y CLI son clientes distintos del mismo backend Supabase;
+  GitHub Pages sirve sólo el HTML Web.
 - Local, estable y beta son superficies distintas. Una copia JSON es un
   mecanismo de traslado o recuperación, no una réplica automática.
 - El documento y el contrato de calendario se tratan como fronteras de
@@ -57,8 +58,8 @@ lista de exclusiones está en [docs/BASE_OPERATIVA.md](BASE_OPERATIVA.md).
 - No está documentada ni implementada una sincronización en tiempo real del
   documento abierto; el refresco cloud actual sólo actualiza la lista de
   cronogramas.
-- La CLI no soporta consultas históricas as-of, escrituras cloud ni
-  migraciones de datos; esos límites son intencionales en la fase actual.
+- La CLI no soporta consultas históricas as-of ni aplica migraciones de
+  backend; su calendario tiene autoridad exclusivamente en Supabase.
 
 ## 2. Actores y superficies
 
@@ -69,7 +70,7 @@ lista de exclusiones está en [docs/BASE_OPERATIVA.md](BASE_OPERATIVA.md).
 | GitHub Pages | Sirve el mismo tipo de HTML estático en la raíz estable y /beta/. | No contiene la base de datos. El workflow inyecta la configuración pública de Supabase durante el build. | [.github/workflows/pages.yml](../.github/workflows/pages.yml), [docs/DISTRIBUCION.md](DISTRIBUCION.md) |
 | Supabase Auth | Autentica la cuenta y emite la sesión usada por el navegador o la CLI. | Requiere cuenta autenticada en cloud. El token de acceso no sustituye las políticas RLS. | [src/cloud.js](../src/cloud.js), [src/cli/cloud-auth.js](../src/cli/cloud-auth.js) |
 | Supabase/PostgREST/PostgreSQL | Proporciona calendarios lógicos y conserva el documento cloud. | RLS permite lectura a cuentas autenticadas según la migración de lectura compartida; las escrituras del documento quedan restringidas al propietario. | [supabase/migrations/20260803200000_create_calendar_cloud_schema.sql](../supabase/migrations/20260803200000_create_calendar_cloud_schema.sql), [supabase/migrations/20260806120000_shared_calendar_read_access.sql](../supabase/migrations/20260806120000_shared_calendar_read_access.sql) |
-| CLI calendary | Inspecciona y consulta respaldos JSON; consulta snapshots cloud; escribe un archivo JSON nuevo en modo file. | No abre IndexedDB. source cloud sólo hace GET; una mutación cloud falla antes de escribir. | [bin/calendary.js](../bin/calendary.js), [src/cli/main.js](../src/cli/main.js), [docs/CLI.md](CLI.md) |
+| CLI calendary | Lee y muta el calendario cloud, incluidos restore/merge e identificación. | Node local; no abre IndexedDB. Usa Auth, GET PostgREST y RPC atómico por HTTPS; archivos sólo como operandos/salidas. | [bin/calendary.js](../bin/calendary.js), [src/cli/main.js](../src/cli/main.js), [docs/CLI.md](CLI.md) |
 | Excel / Base Operativa | Aporta catálogo y, mediante otra plantilla, filas de programación. | Es una fuente de entrada de importación; el libro no se modifica ni se vuelve una dependencia runtime. | [src/import/base-operativa.js](../src/import/base-operativa.js), [src/import/programming.js](../src/import/programming.js) |
 | Mantenedor y CI | Cambia fuentes, migraciones, tests y artefactos; CI verifica el resultado. | Debe distinguir fuentes, artefactos generados, canales y cambios locales. | [package.json](../package.json), [.github/workflows/ci.yml](../.github/workflows/ci.yml) |
 
@@ -103,9 +104,8 @@ lista de exclusiones está en [docs/BASE_OPERATIVA.md](BASE_OPERATIVA.md).
      |                                  calendar_documents
      |
  Excel ------------------> parser + preview ----------+
- JSON <------------------> UI de respaldos <---------> CLI file
-                                                  |
-                                           CLI cloud (GET)
+ JSON <------------------> UI de respaldos
+ JSON (operando/salida) <--> CLI Node -- HTTPS --> Supabase (GET + RPC)
 ~~~
 
 ### Diagrama textual de componentes
@@ -125,8 +125,8 @@ UI y eventos: src/app.js
         +--> persistencia cloud: src/cloud.js
 
 CLI: src/cli/* -> calendar-contract.js -> core.js/domain/*
-     file source -> JSON nuevo
-     cloud source -> Auth + GET PostgREST -> snapshot actual
+     cloud-only -> Auth + GET PostgREST -> contrato -> RPC atómico
+     archivos -> operandos/salidas, nunca autoridad del calendario
 
 Build: applicationModulePaths + styles + template + SheetJS + Three.js
        -> dos HTML autocontenidos
@@ -226,14 +226,17 @@ cambia.
 
 ### 5.5 Guardado cloud y conflicto
 
-createSupabasePersistence().write() mantiene la revisión de la fila remota:
+`createSupabasePersistence().write()` hace POST a
+`/rest/v1/rpc/persist_calendar_document` con `expected_revision`, documento y
+schema version:
 
-1. sin revisión conocida hace POST de un documento nuevo;
-2. con revisión conocida hace PATCH condicionado a calendar_id y revision
-   esperada;
-3. si el PATCH no devuelve filas, lanza SupabaseCloudConflictError;
-4. tras escribir el documento, actualiza calendars.name y
-   calendars.coordinator.
+1. el RPC realiza CAS sobre `calendar_documents.revision`;
+2. persiste documento y schema version y sincroniza `calendars.name` y
+   `calendars.coordinator` en una sola transacción;
+3. cero filas representa conflicto: el browser lanza
+   `SupabaseCloudConflictError`;
+4. el bootstrap admite `expected_revision: null` para crear el documento
+   inicial según el contrato actual; tras el éxito se conserva la revisión remota.
 
 La revisión de la fila calendar_documents y
 document.calendarMeta.revision son contadores distintos. Un conflicto no
@@ -268,13 +271,13 @@ escritura condicionada por revisión y la RLS del propietario.
 
 | Dato | Estado de trabajo | Fuente durable/autoridad actual | Copias o límites |
 | --- | --- | --- | --- |
-| Actividades y fechas | appDocument.activities | Local: registro IndexedDB current. Cloud: calendar_documents.document.activities. CLI file: archivo de entrada o salida explícita. | JSON de respaldo es copia; no se fusiona al guardar automáticamente. |
+| Actividades y fechas | appDocument.activities | Local: registro IndexedDB current. Cloud: calendar_documents.document.activities. CLI: Supabase como única autoridad; archivos sólo operandos/salidas. | JSON de respaldo es copia; no se fusiona al guardar automáticamente. |
 | Series y vínculos multifecha | appDocument.series y activity.seriesId | El mismo documento canónico del canal. | No existe tabla cloud normalizada equivalente. |
 | Clientes, sedes, ciudades y responsables | appDocument.catalog | Documento persistido del canal; una importación aceptada actualiza la copia del documento. | La Base Operativa es fuente externa de entrada, no un store runtime. Los registros manuales llevan source: manual. |
 | Festivos y excepciones | appDocument.holidayOverrides más reglas de [src/domain/holidays.js](../src/domain/holidays.js) | Documento para excepciones; código/regla HOLIDAY_RULESET_VERSION para la tabla de festivos. | Una migración de reglas queda anotada en audit. |
 | Ajustes operativos | appDocument.settings | Documento del canal, incluido currentDate, filtros y recordatorios. | Tema, movimiento y colapso del catálogo viven aparte en localStorage. |
 | Auditoría | appDocument.audit | Documento; se conservan como máximo 500 entradas. | No hay un historial cloud separado ni una bitácora as-of. |
-| Identidad/nombre/coordinador cloud | calendarMeta en el JSON y columnas calendars.name/coordinator | El documento es la fuente del contenido operativo; la tabla calendars es la fuente de selección/listado y se actualiza después de guardar. | Son dos representaciones que pueden quedar desalineadas si falla la segunda petición REST. |
+| Identidad/nombre/coordinador cloud | calendarMeta en el JSON y columnas calendars.name/coordinator | El documento es la fuente del contenido operativo; la tabla calendars es la fuente de selección/listado y se sincroniza en el mismo RPC que guarda el documento. | Documento y metadata se persisten atómicamente en una transacción. |
 | Propietario, membresías y roles | cloudPersistence.getCalendar() y estado Auth | Tablas profiles, calendars, calendar_members y auth.users, con RLS/migraciones. | El frontend etiqueta como solo lectura a quien no sea propietario. |
 | Revisión operativa | document.calendarMeta.revision | Documento canónico. | Es distinta de calendar_documents.revision, que controla el conflicto cloud. |
 | Revisión cloud y timestamps remotos | remoteRevision y respuesta REST | Fila public.calendar_documents (revision, updated_at, updated_by). | La CLI expone ambos contadores y advierte si difieren. |
@@ -307,7 +310,7 @@ escritura condicionada por revisión y la RLS del propietario.
   propietario.
 - **Importación**: la guía de Base Operativa limita explícitamente los campos
   personales y el código vuelve a sanear documentos al guardar/exportar.
-- **CLI**: la fuente cloud sólo ejecuta GET, no tiene fallback silencioso a un
+- **CLI**: la fuente cloud lee por GET y escribe por RPC atómico, sin fallback a un
   JSON local y no permite sobreescribir el archivo de entrada ni un destino ya
   existente.
 
@@ -318,8 +321,8 @@ escritura condicionada por revisión y la RLS del propietario.
   confidencialidad.
 - Un respaldo JSON descargado contiene datos operativos y queda bajo control de
   la carpeta donde el usuario lo guarde.
-- La escritura cloud del documento y la actualización de nombre/coordinador son
-  dos peticiones REST separadas; no se ve una transacción que cubra ambas.
+- Un conflicto CAS requiere revisar el estado remoto antes de volver a mutar;
+  la atomicidad del RPC no reconcilia automáticamente cambios concurrentes.
 
 ## 8. Responsabilidades de módulos
 
@@ -334,7 +337,7 @@ escritura condicionada por revisión y la RLS del propietario.
 | src/cloud.js | Auth browser, selección de calendario, lectura/escritura REST, revisión optimista y errores cloud. | Sólo usa configuración pública; la autorización final la aplica RLS. |
 | src/ui/ | Presentación del DOM, constantes, exportación visual, cálculo de filas de exportación, movimiento 3D y controlador de mutaciones. | No convertir presentación en fuente de verdad; el documento sigue en appDocument. |
 | src/app.js | Coordinador: runtime, bootstrap, eventos, diálogos, render, importación, persistencia, lock y recuperación. | Es el único lugar que conoce el DOM, el origen y la selección de canal juntos. |
-| src/cli/ y bin/calendary.js | Parseo de argumentos, Auth de Node, fuente file/cloud, contrato, salida y escritura atómica de JSON. | La fuente cloud es lectura; la fuente file no abre IndexedDB. |
+| src/cli/ y bin/calendary.js | Parseo de argumentos, Auth de Node, fuente cloud, contrato y salidas. | Cloud-only: lectura y escritura RPC; archivos como operandos/salidas, sin IndexedDB. |
 | scripts/ | Build autocontenido, comprobación de versión y auditoría de artefactos/red/secretos. | dist/ debe ser salida reproducible, no fuente manual. |
 | supabase/migrations/ | Tablas, triggers, funciones de bootstrap/provisión y políticas RLS. | Cambios remotos deben tener migración y verificación de despliegue. |
 
@@ -347,7 +350,7 @@ escritura condicionada por revisión y la RLS del propietario.
 | Escritura local fallida | Indicador de error, se marca el almacenamiento como no disponible y no se confirma el guardado. | Descargar copia y reabrir el origen; no asumir durabilidad por ver la UI. |
 | Sesión cloud ausente | Se abre Auth; una falla de autenticación impide completar el bootstrap cloud. | Iniciar sesión o crear cuenta; el sistema no cambia silenciosamente al documento local. |
 | Red/Auth cloud expirada | El adaptador intenta renovar sesión ante 401; si falla, devuelve error. | Reautenticar y volver a abrir el canal; revisar el indicador de persistencia. |
-| Conflicto de revisión cloud | El PATCH condicionado devuelve cero filas; se lee el documento remoto más reciente y se pide revisar. | Comparar con un respaldo local y editar después de confirmar; no existe merge automático de cambios concurrentes. |
+| Conflicto de revisión cloud | El RPC con CAS devuelve cero filas; se lee el documento remoto más reciente y se pide revisar. | Comparar con un respaldo local y editar después de confirmar; no existe merge automático de cambios concurrentes. |
 | Cronograma cloud ajeno | La UI y la CLI lo cargan en solo lectura; una escritura es rechazada por rol/RLS. | Seleccionar el cronograma propio o solicitar una membresía según la administración disponible. |
 | Pestaña local editora cerrada | El heartbeat deja de actualizarse. | Otra pestaña puede adquirir el lock después de aproximadamente 15 segundos o usar Tomar control. |
 | Restauración JSON | Se valida tamaño, formato, esquema y vista previa; backup.restore reemplaza el documento y guarda de inmediato. | En local queda recovery por la escritura normal; mantener el archivo original por fuera. |
@@ -393,19 +396,19 @@ Estas reglas describen las fronteras existentes; no proponen componentes nuevos.
     autoriza publicar, promover, regenerar artefactos, aplicar migraciones,
     hacer commit o hacer push.
 
-## 11. Inconsistencias conocidas y pendientes de verificación
+## 11. Evidencia actual y antecedentes de verificación
 
 | Estado | Evidencia actual | Impacto y siguiente dueño |
 | --- | --- | --- |
-| **Hecho verificado** | S-03 y los commits posteriores añadieron `application/calendar-commands.js`, `application/import-commands.js`, `ui/view-state.js`, `activity-presentation.js`, `export-layout.js`, `importer.js` y validación automática del manifiesto. | El manifiesto fuente contiene 30 módulos y el `HEAD` local incluye `d27383a`, que regeneró `dist/`. La integración debe repetir el gate antes de publicar. |
-| **Hecho verificado** | El worktree inicial tenía cambios en README, dist/, docs, src/, estilos y tests, además de nuevos módulos y planes. | La evidencia de esta página es local y mezclada; no debe presentarse como una release limpia. El maestro debe clasificar antes de integrar. |
-| **Hecho verificado** | package.json, package-lock.json, src/core.js y el APP_VERSION embebido en dist/ declaran 0.17.0; stable-version.txt contiene v0.17.0. | La promoción estable quedó alineada con el tag y Pages debe servir la raíz desde ese tag; el canal beta permanece pausado sobre main. |
+| **Antecedente histórico** | S-03 y los commits posteriores añadieron `application/calendar-commands.js`, `application/import-commands.js`, `ui/view-state.js`, `activity-presentation.js`, `export-layout.js`, `importer.js` y validación automática del manifiesto. | El manifiesto fuente contiene 30 módulos y el `HEAD` local incluye `d27383a`, que regeneró `dist/`. La integración debe repetir el gate antes de publicar. |
+| **Antecedente histórico** | El worktree inicial tenía cambios en README, dist/, docs, src/, estilos y tests, además de nuevos módulos y planes. | La evidencia de esta página es local y mezclada; no debe presentarse como una release limpia. El maestro debe clasificar antes de integrar. |
+| **Preparación actual** | Package, lock, APP_VERSION y dist declaran `0.18.0-beta.1`; `stable-version.txt` conserva `v0.17.0`. | Feature pendiente de integración; el merge permitirá construir `/beta/` desde la nueva versión. No acredita despliegue. |
 | **Hecho verificado** | [docs/DISTRIBUCION.md](DISTRIBUCION.md), [docs/OPERACION_RESPALDOS_JSON.md](OPERACION_RESPALDOS_JSON.md) y [docs/VERSIONAMIENTO.md](VERSIONAMIENTO.md) fueron sincronizados: las versiones antiguas quedaron marcadas como historia y el estado actual remite a las fuentes autoritativas. | Sigue pendiente validar el contenido remoto de GitHub Pages y Supabase; la documentación local ya no presenta esos ejemplos históricos como estado actual. |
-| **Hecho verificado** | [docs/ARQUITECTURA.md](ARQUITECTURA.md) registra el corte local actual: `app.js` 4.823 líneas, `core.js` 1.315, `importer.js` 11 y 190 pruebas. | Las métricas son descriptivas del corte, no límites de diseño; deben actualizarse sólo cuando cambie el corte verificable. |
-| **Hecho verificado** | calendar_documents.document y calendarMeta duplican el nombre/coordinador de calendars; cloud.js actualiza primero el documento y después la tabla de calendario mediante otra petición. | Puede existir una divergencia parcial si la segunda petición falla. No hay transacción REST visible que la evite. |
+| **Antecedente histórico** | [docs/ARQUITECTURA.md](ARQUITECTURA.md) registra el corte local actual: `app.js` 4.823 líneas, `core.js` 1.315, `importer.js` 11 y 190 pruebas. | Las métricas son descriptivas del corte, no límites de diseño; deben actualizarse sólo cuando cambie el corte verificable. |
+| **Hecho verificado** | `cloud.js` persiste mediante `persist_calendar_document`: CAS por revisión de fila, documento y metadata en una transacción. | La migración fue aplicada y certificada en desarrollo en el workstream previo; esta fase no modifica el backend. |
 | **Hecho verificado** | La lista cloud se refresca cada 30 s, al foco, al volver a la pestaña y manualmente; no existe Realtime ni lectura periódica del documento abierto. | La interfaz no ofrece sincronización inmediata de cambios externos; sólo el conflicto de revisión fuerza una recarga del documento. |
 | **Hecho verificado / pendiente** | README identifica el proyecto lógico remoto como `calendario-hvac-siys-dev` con referencia `toxeasjfwxbniuuwfimz`; `supabase/config.toml` usa el `project_id` local `calendario-hvac-siys` y `.temp/project-ref` conserva la referencia remota. | La diferencia de nombre puede ser local frente a remoto; no se debe aplicar una migración hasta comprobar el proyecto enlazado y sus políticas. |
-| **Hecho verificado** | `migration list --linked` muestra las cuatro migraciones locales/remotas alineadas y `db push --linked --dry-run` informa que la base remota está actualizada. | No hay migraciones pendientes en este corte; esto no sustituye el smoke autenticado ni la verificación de Pages. |
+| **Antecedente histórico** | La promoción `0.17.0` verificó cuatro migraciones alineadas. El workstream cloud posterior certificó además el RPC atómico en desarrollo. | La evidencia previa no equivale a una nueva comprobación del backend en esta fase ni a despliegue de Pages. |
 | **Hecho verificado / pendiente** | Los gates locales previos a la publicación pasan; el smoke autenticado cloud requiere una cuenta de prueba autorizada que no está disponible en las variables locales. | Debe repetirse `npm run goal:check` después del commit de release y completar el smoke autenticado antes de promover el PR. |
 
 ## 12. Evidencia y documentos relacionados

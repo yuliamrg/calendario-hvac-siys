@@ -17,9 +17,12 @@ de OneDrive exista.
 ## Estado y alcance
 
 La línea actual del repositorio incluye `bin/calendary.js`, el contrato
-compartido y las pruebas de la CLI. La CLI opera únicamente sobre copias JSON y no accede
-directamente a IndexedDB ni a Supabase. La interfaz y la CLI usan la misma
-frontera de escritura.
+compartido y las pruebas de la CLI. Para operar el calendario la CLI exige
+`--source cloud`: Supabase es la única autoridad y no accede directamente a
+IndexedDB. Los archivos JSON sólo entran como operando (`--backup-file`,
+`--payload-file`) o salida (`--csv-output`); nunca como documento actual ni
+destino de mutaciones. La interfaz y la CLI usan la misma frontera de
+escritura del contrato.
 
 Una **actividad de calendario** no es una orden real creada en SIYS.net. Si se
 necesita crear una orden en SIYS, debe usarse el flujo y contrato de SIYS
@@ -40,7 +43,9 @@ Reglas de la carpeta:
 - El resultado restaurado se descarga nuevamente en la misma carpeta.
 - Los archivos `.tmp`, incompletos o con tamaño todavía cambiante no se usan.
 - La CLI no debe incrustar esta ruta en el contrato; la ruta es una convención
-  operativa de este equipo y puede recibirse mediante `--input` y `--write`.
+  operativa de este equipo. Cuando se usa la CLI, el respaldo entra por
+  `--backup-file` y la modificación se persiste en el calendario cloud
+  seleccionado con `--source cloud`.
 
 Convención recomendada:
 
@@ -145,34 +150,39 @@ $raw = Get-Content -Raw -LiteralPath $source | ConvertFrom-Json
 Se espera `format: calendario-hvac-siys-backup`, `formatVersion: 1`, un
 `document` válido y un `schemaVersion` soportado por la aplicación.
 
-La inspección se realiza además con:
+La inspección del calendario cloud se realiza con el contrato y `--source
+cloud`; los archivos JSON locales se validan con PowerShell, ya que la CLI
+retiró `--input`:
 
 ```powershell
-node bin/calendary.js calendar inspect --input $source --output json
+node bin/calendary.js calendar inspect --source cloud --channel beta `
+  --calendar-id <uuid> --output json
 ```
 
-La inspección es de sólo lectura y debe conservarse junto con el registro de
-la operación.
+Ambas inspecciones son de sólo lectura y deben conservarse junto con el
+registro de la operación.
 
 ### 4. Modificar mediante el contrato
 
 La modificación se hace con la CLI y el contrato, nunca editando el JSON a
-mano. El origen y el destino deben ser archivos diferentes:
+mano. Para trabajar sobre el documento actual, la persistencia ocurre en el
+calendario cloud seleccionado con `--source cloud`; el JSON del respaldo sólo
+entra como operando `--backup-file` para `backup restore|merge`:
 
 ```powershell
 $modified = Join-Path $backupRoot 'YYYY-MM-DD_HH-mm-ss_cli-<accion>_<cliente>-<sede>.json'
 
 node bin/calendary.js activity create `
-  --input $source `
-  --write $modified `
+  --source cloud --channel beta --calendar-id <uuid> `
   --payload '<objeto JSON definido por el contrato>' `
   --output json
 ```
 
-Antes de la escritura definitiva se ejecuta `--dry-run` cuando la operación lo
-permita y se revisan `changed`, `revision`, IDs creados, advertencias y
-conteos. No se usa `--yes` para ocultar una confirmación que requiera criterio
-operativo.
+Para conservar una copia JSON del estado resultante se descarga desde la
+interfaz del navegador. Antes de la escritura definitiva se ejecuta
+`--dry-run` cuando la operación lo permita y se revisan `changed`, `revision`,
+IDs creados, advertencias y conteos. No se usa `--yes` para ocultar una
+confirmación que requiera criterio operativo.
 
 Reglas del payload:
 
@@ -200,6 +210,24 @@ En la misma sesión de Chrome:
 Una restauración no debe ejecutarse si, después de descargar el origen, el
 cronograma actual cambió. En ese caso se descarga otro respaldo y se repite el
 flujo desde el preflight.
+
+La restauración y combinación también pueden hacerse con la CLI, siempre
+sobre el documento cloud con `--source cloud`. El respaldo se indica con
+`--backup-file`; `backup restore` sigue siendo destructivo y en modo no
+interactivo requiere `--yes`, mientras que `backup merge` no pide confirmación.
+`--dry-run` lee y valida sin persistir:
+
+```powershell
+node bin/calendary.js backup merge --source cloud --channel beta `
+  --calendar-id <uuid> --backup-file $modified
+
+node bin/calendary.js backup restore --source cloud --channel beta `
+  --calendar-id <uuid> --backup-file $source --yes
+```
+
+`--source` sólo admite `cloud`: `backup restore --source <ruta>`, `--source
+file`, `--input` y `--write` fueron retirados y fallan de forma explícita antes
+de cualquier red o archivo.
 
 La automatización con Chrome adjunto puede rechazar la carga directa con
 `DOM.setFileInputFiles: Not allowed`. No se debe desactivar la seguridad ni
@@ -267,7 +295,8 @@ archivo, logs o payloads de prueba.
 - [ ] `channel`, `appVersion`, `schemaVersion` y revisión fueron inspeccionados.
 - [ ] Se usaron IDs de catálogo exactos.
 - [ ] El archivo original no fue sobrescrito.
-- [ ] La CLI produjo un destino nuevo y una salida estructurada.
+- [ ] La CLI (si se usó) persistió por el RPC atómico con `--source cloud` y
+      devolvió una salida estructurada con la revisión cloud.
 - [ ] La vista previa de restauración coincidió con lo esperado.
 - [ ] La restauración se hizo en el mismo canal y perfil.
 - [ ] Se verificó la tarjeta y se descargó el respaldo final.

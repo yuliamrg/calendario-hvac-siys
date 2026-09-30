@@ -1,10 +1,17 @@
 # CLI `calendary`
 
-La CLI es una capa local y portable sobre el mismo contrato de la interfaz. La
-fuente `file` (predeterminada) no usa red ni abre IndexedDB: lee una copia JSON
-y, para cambios, crea otra copia JSON. La fuente `cloud` solo lee el documento
-actual de Supabase; no implementa escrituras cloud, migraciones, backfill ni
-historial as-of.
+La CLI es una capa local y portable sobre el mismo contrato de la interfaz.
+Supabase es la única autoridad del calendario: la CLI autentica, lee el
+documento actual del calendario seleccionado, ejecuta el contrato y, cuando hay
+cambios, persiste por la operación atómica de Supabase. No implementa
+migraciones, backfill ni historial as-of. No existe modo file: un archivo JSON
+nunca actúa como documento actual, autoridad ni destino de mutaciones.
+
+Los únicos archivos que la CLI acepta son operandos o salidas explícitas:
+
+- `--backup-file`: respaldo JSON para `backup restore|merge`;
+- `--payload-file`: objeto exacto de una operación;
+- `--csv-output`: destino de `calendar export-csv|export-quarantine-csv`.
 
 El flujo operativo completo —incluida la carpeta canónica de respaldos, la
 separación estable/beta y la restauración verificada— está en
@@ -12,36 +19,43 @@ separación estable/beta y la restauración verificada— está en
 
 ## Inicio rápido
 
-Requiere Node.js 20 o superior. Desde el repositorio:
+Requiere Node.js 20 o superior, `SIYS_SUPABASE_URL`,
+`SIYS_SUPABASE_PUBLISHABLE_KEY` y una sesión autenticada. Desde el repositorio:
 
 ```powershell
 npm run cli -- --help
-npm run cli -- calendar inspect --input .\cronograma.json --output json
-npm run cli -- activity list --input .\cronograma.json --from 2026-08-01 --to 2026-08-31
-npm run cli -- activity extend-range --input .\cronograma.json --dry-run `
-  --payload '{"activityId":"actividad_123","fromDate":"2026-08-03","toDate":"2026-08-14","mode":"extend"}'
+npm run cli -- cloud login --email coordinador@example.com
+npm run cli -- cloud whoami --output json
+npm run cli -- cloud calendars --channel beta --output json
 ```
 
-## Lectura cloud actual
+Para operar el calendario, la selección cloud debe ser explícita y segura. Si
+falta `--source cloud` la CLI falla con `INVALID_REQUEST` antes de cualquier
+red; tampoco se acepta `--source file`:
 
-La fuente cloud requiere `SIYS_SUPABASE_URL`,
-`SIYS_SUPABASE_PUBLISHABLE_KEY` y una sesión autenticada. Stable y beta usan
-el mismo proyecto Supabase, pero sus `legacy_id` son distintos:
+```text
+calendary activity list \
+  --source cloud \
+  --channel beta \
+  --calendar-id <uuid>
+```
+
+Stable y beta usan el mismo proyecto Supabase, pero sus `legacy_id` son
+distintos:
 
 ```text
 stable → calendario-hvac-siys
 beta   → calendario-hvac-siys-beta
 ```
 
-La contraseña nunca se pasa por argv. Puede iniciar sesión de forma
-interactiva o mediante stdin:
+La contraseña nunca se pasa por argv. La sesión se inicia de forma interactiva
+o mediante stdin:
 
 ```powershell
-npm run cli -- cloud login --email coordinador@example.com
-npm run cli -- cloud whoami --output json
-npm run cli -- cloud calendars --channel beta --output json
 npm run cli -- cloud logout
 ```
+
+## Lectura cloud actual
 
 Para consultar un calendario actual la selección debe ser inequívoca. Si hay
 varios candidatos, la CLI devuelve `CALENDAR_AMBIGUOUS`; no elige el más
@@ -52,6 +66,9 @@ npm run cli -- activity list --source cloud --channel beta `
   --calendar-id 00000000-0000-0000-0000-000000000000 `
   --from 2026-08-15 --to 2026-08-15 --output json
 ```
+
+`--mine` restringe la selección a `created_by` del usuario autenticado y no
+puede combinarse con `--calendar-id`.
 
 Cada resultado cloud incluye `source.kind`, `channel`, `calendarId`,
 `legacyId`, `calendarName`, `createdBy`, `cloudRevision`,
@@ -65,39 +82,91 @@ la lectura ni presentar el documento como corrupto. `observedAt` es el momento d
 soportado y falla con `HISTORICAL_QUERY_UNSUPPORTED`.
 
 Las operaciones de lectura cloud sólo realizan GET sobre `calendars`,
-`calendar_documents` y, cuando está disponible, `profiles`. El inicio y cierre
-de sesión usan las operaciones de autenticación correspondientes. Los errores
-de autenticación, RLS o red no hacen fallback silencioso al JSON local. Las operaciones de mutación con
-`--source cloud` fallan antes de realizar una petición con
-`CLOUD_WRITE_NOT_ALLOWED`.
+`calendar_documents` y, cuando está disponible, `profiles`. Las mutaciones
+ejecutan el contrato local y persisten por el RPC transaccional
+`persist_calendar_document`: hace CAS sobre `calendar_documents.revision` y
+sincroniza `calendars.name`/`coordinator` desde el mismo documento en una sola
+transacción. El inicio y cierre de sesión usan las operaciones de autenticación
+correspondientes. Los errores de autenticación, RLS o red no hacen fallback
+silencioso a JSON local. Si `calendar_documents.revision` cambió en el
+servidor, la operación falla con `CONFLICT` sin recargar ni reaplicar.
 
-Una escritura nunca sobrescribe la entrada ni un destino existente:
+## Mutaciones
 
-```powershell
-npm run cli -- activity move `
-  --input .\cronograma.json `
-  --write .\cronograma-movido.json `
-  --activity-ids actividad_123 `
-  --target-date 2026-08-10
-```
-
-Para automatización, `--payload` acepta directamente el objeto definido en el
-[contrato](CONTRATO_CALENDARIO.md):
+Todas las operaciones mutantes del contrato pasan por el mismo camino:
+autenticación, `CloudCalendarSource`, contrato y, si `changed === true` y no es
+`--dry-run`, `CloudCalendarWriter`. Un no-op (`changed === false`) no emite RPC
+y no avanza la revisión cloud.
 
 ```powershell
 npm run cli -- activity create `
-  --input .\cronograma.json `
-  --write .\cronograma-nuevo.json `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
   --payload '{"date":"2026-08-03","serviceType":"administrative","status":"scheduled","observations":"Planeación"}' `
   --output json
 ```
 
-Use `--dry-run` para validar sin generar archivo. Las operaciones destructivas
-`activity delete`, `holiday delete` y `backup restore` solicitan confirmación;
-en procesos no interactivos requieren `--yes`. Las fechas dominicales o
-festivas requieren `--allow-non-working` cuando la operación tiene ese control.
-Para normalizar texto visible o ampliar rangos se recomienda usar `--payload`
-con el objeto exacto del contrato.
+Para automatización, `--payload` acepta directamente el objeto definido en el
+[contrato](CONTRATO_CALENDARIO.md); `--payload-file` lee ese objeto desde un
+archivo como operando, nunca como estado:
+
+```powershell
+npm run cli -- activity create `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --payload-file .\payload.json `
+  --output json
+```
+
+Use `--dry-run` para autenticar, leer el documento real y validar el contrato
+sin persistir. Las operaciones destructivas `activity delete`, `holiday delete`
+y `backup restore` solicitan confirmación; en procesos no interactivos
+requieren `--yes`. Las fechas dominicales o festivas requieren
+`--allow-non-working` cuando la operación tiene ese control. Para normalizar
+texto visible o ampliar rangos se recomienda usar `--payload` con el objeto
+exacto del contrato.
+
+## Respaldos (`backup restore` / `backup merge`)
+
+El respaldo JSON es un operando independiente que se indica con
+`--backup-file` y nunca determina el target. El documento actual se lee del
+calendario cloud seleccionado y el respaldo sólo entra por `--backup-file`.
+
+Cloud restore (`--yes` confirma la operación destructiva en modo no
+interactivo):
+
+```powershell
+npm run cli -- backup restore `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --backup-file .\respaldo.json `
+  --yes
+```
+
+Cloud merge:
+
+```powershell
+npm run cli -- backup merge `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --backup-file .\respaldo.json
+```
+
+Cloud dry-run (lee el documento real, valida el respaldo y ejecuta el contrato,
+sin persistir):
+
+```powershell
+npm run cli -- backup restore `
+  --source cloud --channel beta `
+  --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --backup-file .\respaldo.json `
+  --dry-run --yes
+```
+
+`--backup-file` sólo se admite en `backup restore|merge`; en cualquier otra
+operación se rechaza con `INVALID_REQUEST`. Las sintaxis históricas
+`--source file`, `--input` y `--write` fueron retiradas y fallan de forma
+explícita antes de cualquier red o archivo.
 
 ## Salidas y códigos
 
@@ -105,8 +174,9 @@ con el objeto exacto del contrato.
 stdout. Los errores van a stderr. Códigos: `0` éxito, `1` error interno/IO, `2`
 entrada o validación, `3` no encontrado y `4` conflicto o confirmación faltante.
 
-`calendar export-csv` imprime CSV en stdout o lo crea con `--csv-output`. CSV
-es la única exportación tabular de la CLI MVP; Excel y PNG permanecen en la UI.
+`calendar export-csv` y `calendar export-quarantine-csv` imprimen CSV en stdout
+o lo crean con `--csv-output`. CSV es la única exportación tabular de la CLI;
+Excel y PNG permanecen en la UI.
 
 ## Verificación
 
@@ -118,6 +188,9 @@ npm run goal:check
 ```
 
 La ruta lógica y la matriz completa están en
-[PRUEBAS_CLI.md](PRUEBAS_CLI.md). La prueba e2e usa una copia sintética
-temporal, encadena cada operación sobre el respaldo anterior y comprueba que
-las operaciones públicas del contrato sean invocables desde la CLI.
+[PRUEBAS_CLI.md](PRUEBAS_CLI.md). La prueba e2e ejecuta la CLI in-process
+contra un fake Supabase stateful (Auth, PostgREST y el RPC
+`persist_calendar_document`), encadena cada operación sobre el documento
+remoto actualizado tras cada RPC y comprueba que las operaciones públicas del
+contrato sean invocables desde la CLI. Los archivos temporales se usan
+únicamente como `--backup-file` o `--csv-output`.

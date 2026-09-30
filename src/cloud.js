@@ -1,3 +1,5 @@
+import { createSupabaseTransport, SupabaseTransportError } from "./supabase/transport.js";
+
 const SESSION_KEY_PREFIX = "siys-sync-supabase-session";
 const STABLE_CALENDAR_KEY = "calendario-hvac-siys";
 const BETA_CALENDAR_KEY = "calendario-hvac-siys-beta";
@@ -81,6 +83,33 @@ export class SupabaseCloudAuthRequiredError extends SupabaseCloudError {
   }
 }
 
+function transportToCloudError(error) {
+  if (!(error instanceof SupabaseTransportError)) return error;
+  const cause = error.cause ?? error;
+  return new SupabaseCloudError(`No fue posible conectar con Supabase: ${cause?.message ?? error.message}`, {
+    code: "network_error",
+    details: cause
+  });
+}
+
+function createCloudTransport(normalized, fetchImpl) {
+  try {
+    return createSupabaseTransport(normalized, { fetchImpl });
+  } catch (error) {
+    if (error instanceof SupabaseTransportError && error.code === "invalid_config") {
+      throw new SupabaseCloudError("La configuración de Supabase está incompleta.", {
+        code: "invalid_config"
+      });
+    }
+    if (error instanceof SupabaseTransportError && error.code === "fetch_unavailable") {
+      throw new SupabaseCloudError("Este navegador no permite conexiones a Supabase.", {
+        code: "fetch_unavailable"
+      });
+    }
+    throw error;
+  }
+}
+
 function sessionFromAuthPayload(payload) {
   const candidate = payload?.session ?? payload;
   if (!candidate?.access_token) return null;
@@ -120,6 +149,8 @@ export function createSupabasePersistence(config, {
       code: "fetch_unavailable"
     });
   }
+
+  const transport = createCloudTransport(normalized, fetchImpl);
 
   const sessionKey = SESSION_KEY_PREFIX;
   const legacySessionKeys = [
@@ -172,21 +203,17 @@ export function createSupabasePersistence(config, {
   async function authRequest(path, { method = "POST", body, headers = {} } = {}) {
     let response;
     try {
-      response = await fetchImpl(`${normalized.url}/auth/v1/${path}`, {
+      response = await transport.authRequest(path, {
         method,
+        body,
         headers: {
-          apikey: normalized.publishableKey,
           "Content-Type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
           ...headers
         },
-        body: body === undefined ? undefined : JSON.stringify(body)
+        accessToken: session?.access_token
       });
     } catch (error) {
-      throw new SupabaseCloudError(`No fue posible conectar con Supabase: ${error.message}`, {
-        code: "network_error",
-        details: error
-      });
+      throw transportToCloudError(error);
     }
     return parseResponse(response);
   }
@@ -230,21 +257,17 @@ export function createSupabasePersistence(config, {
     if (!session?.access_token) throw new SupabaseCloudAuthRequiredError();
     let response;
     try {
-      response = await fetchImpl(`${normalized.url}${path}`, {
+      response = await transport.restRequest(path, {
         method,
+        body,
         headers: {
-          apikey: normalized.publishableKey,
-          Authorization: `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
           ...headers
         },
-        body: body === undefined ? undefined : JSON.stringify(body)
+        accessToken: session.access_token
       });
     } catch (error) {
-      throw new SupabaseCloudError(`No fue posible conectar con Supabase: ${error.message}`, {
-        code: "network_error",
-        details: error
-      });
+      throw transportToCloudError(error);
     }
     if (response.status === 401 && retry && session.refresh_token) {
       const refreshed = await refreshSession();
@@ -406,38 +429,21 @@ export function createSupabasePersistence(config, {
         status: 403
       });
     }
-    const nextRevision = remoteRevision === null ? 0 : remoteRevision + 1;
-    const payload = {
-      document: documentSnapshot,
-      revision: nextRevision,
-      schema_version: Number(documentSnapshot?.schemaVersion) || 4
-    };
-    let rows;
-    if (remoteRevision === null) {
-      rows = await restRequest("/rest/v1/calendar_documents?select=document,revision,updated_at,updated_by", {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: [{ calendar_id: calendar.id, ...payload }]
-      });
-    } else {
-      const query = `/rest/v1/calendar_documents?calendar_id=eq.${encodeURIComponent(calendar.id)}&revision=eq.${encodeURIComponent(String(remoteRevision))}&select=document,revision,updated_at,updated_by`;
-      rows = await restRequest(query, {
-        method: "PATCH",
-        headers: { Prefer: "return=representation" },
-        body: payload
-      });
-      if (!rows.length) throw new SupabaseCloudConflictError();
-    }
-    const record = rows[0];
-    remoteRevision = Number(record?.revision ?? nextRevision);
-    await restRequest(`/rest/v1/calendars?id=eq.${encodeURIComponent(calendar.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
+    // One server-side transaction performs the CAS on calendar_documents.revision
+    // and synchronizes calendars.name/coordinator from the same document. A null
+    // expected_revision requests initial document creation.
+    const rows = await restRequest("/rest/v1/rpc/persist_calendar_document", {
+      method: "POST",
       body: {
-        name: String(documentSnapshot?.calendarMeta?.name || calendar.name).trim() || calendar.name,
-        coordinator: String(documentSnapshot?.calendarMeta?.coordinator || "").trim()
+        target_calendar_id: calendar.id,
+        expected_revision: remoteRevision,
+        next_document: documentSnapshot,
+        next_schema_version: Number(documentSnapshot?.schemaVersion) || 4
       }
     });
+    if (!Array.isArray(rows) || !rows.length) throw new SupabaseCloudConflictError();
+    const record = rows[0];
+    remoteRevision = Number(record?.revision);
     return { revision: remoteRevision, updatedAt: record?.updated_at ?? null };
   }
 

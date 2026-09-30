@@ -1,5 +1,6 @@
 import { CloudCliError } from "./cloud-errors.js";
 import { createSupabaseAuthClient, supabaseConfigFromEnv } from "./cloud-auth.js";
+import { createSupabaseRestClient } from "./cloud-rest.js";
 import { documentHash, documentRevision } from "./source-metadata.js";
 
 export const CLOUD_CHANNEL_KEYS = Object.freeze({
@@ -20,40 +21,11 @@ export function assertCloudReadMethod(method = "GET") {
   }
 }
 
-function compactMessage(value, fallback) {
-  if (typeof value === "string" && value.trim()) return value.trim();
-  if (value && typeof value === "object") {
-    for (const key of ["message", "msg", "hint", "details", "error"]) {
-      if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
-    }
-  }
-  return fallback;
-}
-
 function defaultFetch() {
   if (typeof globalThis.fetch !== "function") {
     throw new CloudCliError("NETWORK_UNAVAILABLE", "Node no dispone de fetch para consultar Supabase.");
   }
   return globalThis.fetch.bind(globalThis);
-}
-
-async function parseResponse(response, operation) {
-  const text = await response.text();
-  let payload = null;
-  if (text) {
-    try { payload = JSON.parse(text); }
-    catch (error) {
-      throw new CloudCliError("REMOTE_INVALID", `Supabase devolvió JSON inválido durante ${operation}.`, { status: response.status, cause: error });
-    }
-  }
-  if (!response.ok) {
-    const code = response.status === 401 ? "AUTH_REQUIRED" : response.status === 403 ? "RLS_DENIED" : response.status >= 500 ? "REMOTE_UNAVAILABLE" : "REMOTE_ERROR";
-    throw new CloudCliError(code, compactMessage(payload, `Supabase respondió ${response.status} durante ${operation}.`), {
-      status: response.status,
-      details: { operation, status: response.status }
-    });
-  }
-  return payload;
 }
 
 function validateRows(payload, operation) {
@@ -69,43 +41,12 @@ function safeCalendarId(value) {
   return id;
 }
 
-export function createSupabaseReadClient(config, {
-  auth,
-  fetchImpl = defaultFetch(),
-  timeoutMs = 15_000
-} = {}) {
-  const normalized = config ?? supabaseConfigFromEnv();
-  const authClient = auth ?? createSupabaseAuthClient(normalized, { fetchImpl, timeoutMs });
+export function createSupabaseReadClient(config, options = {}) {
+  const rest = createSupabaseRestClient(config, options);
 
   async function get(path, { operation = "consulta cloud", retry = true } = {}) {
     assertCloudReadMethod("GET");
-    const token = await authClient.accessToken();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    let response;
-    try {
-      try {
-        response = await fetchImpl(`${normalized.url}${path}`, {
-          method: "GET",
-          headers: {
-            apikey: normalized.publishableKey,
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json"
-          },
-          signal: controller.signal
-        });
-      } catch (error) {
-        const code = error?.name === "AbortError" ? "TIMEOUT" : "NETWORK_ERROR";
-        throw new CloudCliError(code, `No fue posible conectar con Supabase durante ${operation}.`, { cause: error });
-      }
-      if (response.status === 401 && retry) {
-        await authClient.refreshSession();
-        return get(path, { operation, retry: false });
-      }
-      return await parseResponse(response, operation);
-    } finally {
-      clearTimeout(timer);
-    }
+    return rest.request(path, { method: "GET", headers: { Accept: "application/json" }, operation, retry });
   }
 
   return Object.freeze({ get });

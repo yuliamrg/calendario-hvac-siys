@@ -2,21 +2,20 @@
 
 ## Alcance y corte verificado
 
-Este documento describe el estado comprobable de la rama local de release,
-derivada del `main`, después de la ola de refactorización, documentación y
-preparación de publicación (corte auditado el 2026-08-23). El trabajo aún está
-pendiente de integración en el remoto. Documenta el flujo que existe hoy; no
-prueba por sí solo que las URLs remotas estén actualizadas.
+Este documento describe la preparación de `0.18.0-beta.1` en
+`feat/cli-cloud-client` el 2026-09-29, todavía pendiente de PR e integración
+en `main`. Stable sigue en `v0.17.0`. El merge permitirá construir `/beta/`
+desde la nueva versión; no se afirma un despliegue remoto actual.
 
 ## Fuentes autoritativas
 
 | Dato | Fuente autoritativa | Hecho verificado |
 | --- | --- | --- |
-| Versión de la aplicación y de la CLI | `package.json`, campo `version` | `0.17.0` |
-| Versión visible y de respaldos nuevos | `src/core.js`, `APP_VERSION` | `0.17.0`, igual a `package.json` |
-| Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.17.0` |
+| Versión de la aplicación y de la CLI | `package.json`, campo `version` | `0.18.0-beta.1` |
+| Versión visible y de respaldos nuevos | `src/core.js`, `APP_VERSION` | `0.18.0-beta.1`, igual a `package.json` |
+| Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.18.0-beta.1` |
 | Puntero estable | `stable-version.txt` | `v0.17.0`, tag normal promovido |
-| Historial de cambios | `CHANGELOG.md` | La entrada actual es `0.17.0` y conserva la beta como historial |
+| Historial de cambios | `CHANGELOG.md` | La entrada actual prepara `0.18.0-beta.1`; conserva la promoción estable como historial |
 | Manifiesto y algoritmo de empaquetado | `scripts/build.mjs` | La lista se expresa relativa a `src/` y se valida contra el grafo de `src/app.js` |
 | Fuente de ejecución web | `src/app.js` y sus módulos locales | Se concatena en un HTML; los imports locales se eliminan después de incluir los módulos |
 
@@ -28,7 +27,7 @@ festivos se identifica por `HOLIDAY_RULESET_VERSION`. No son sustitutos de
 ## Manifiesto de la aplicación
 
 El punto de entrada es `src/app.js`. `scripts/build.mjs` mantiene un orden
-dependencia-primero para los 30 módulos de producción. Las entradas, siempre
+dependencia-primero para los 31 módulos del navegador. Las entradas, siempre
 relativas a `src/`, son:
 
 - dominio: `domain/text.js`, `domain/responsible-ranking.js`,
@@ -37,7 +36,8 @@ relativas a `src/`, son:
   `domain/backup-merge.js`, `domain/csv-export.js`, `domain/holidays.js`;
 - importación: `import/xlsx-table.js`, `import/workbook-table.js`,
   `import/programming.js`, `import/base-operativa.js`, `importer.js`;
-- persistencia: `persistence/indexed-document-store.js`,
+- persistencia y transporte: `supabase/transport.js`,
+  `persistence/indexed-document-store.js`,
   `persistence/json-preferences.js`;
 - aplicación: `application/calendar-commands.js`,
   `application/import-commands.js`;
@@ -96,7 +96,7 @@ deben repetirse después de integrar.
 | --- | --- | --- |
 | Local | `dist/calendario-hvac-siys.html` | Archivo descargable; `file:`, localhost y servidores locales conservan la ruta local |
 | Stable | Tag normal indicado por `stable-version.txt` (`v0.17.0`) | Raíz de GitHub Pages |
-| Beta | `main` (`0.17.0`, beta pausada) | `/beta/` de GitHub Pages; conserva el canal separado |
+| Beta | Se construye desde `main`; feature aún no integrada, objetivo `0.18.0-beta.1` | Tras el merge, Pages podrá construir `/beta/` desde la nueva versión |
 
 `.github/workflows/pages.yml` comprueba `stable-version.txt`, obtiene ese tag
 en `stable-src`, verifica stable y beta por separado, y copia
@@ -128,8 +128,10 @@ npm run build
 npm run version:check
 npm run audit
 npm run verify
-npm run release:check -- --require-current-tag
 ```
+
+`release:check -- --require-current-tag` corresponde después de integrar y
+crear el tag sobre el commit integrado; no es un gate de esta preparación.
 
 `npm run verify` combina pruebas, `architecture:check`, build, comprobación de
 versión y auditoría.
@@ -145,9 +147,9 @@ build, `version:check`, `audit` y verifica que el build no deje diferencias en
   commit integrado que pasó CI.
 - `stable-version.txt` apunta a `v0.17.0`; Pages usa ese tag para la raíz
   estable.
-- El canal beta queda pausado sobre el mismo código estable hasta que se
-  autorice una nueva línea `0.18.0-beta.1`; no se copian ni mezclan datos entre
-  los calendarios lógicos.
+- La siguiente beta `0.18.0-beta.1` se prepara en la feature; todavía no está
+  integrada ni etiquetada. El merge a `main` permitirá construir `/beta/`;
+  stable raíz sigue desde `stable-version.txt = v0.17.0`.
 - El gate de publicación se verificó con pruebas de navegador, smoke
   autenticado, Pages, Supabase y migraciones.
 - Los módulos de aplicación deben recibir sus dependencias por argumentos y
@@ -157,3 +159,11 @@ build, `version:check`, `audit` y verifica que el build no deje diferencias en
   los importadores conservan las secuencias que deben ser atómicas. El criterio
   de cierre es que sus funciones internas tengan una responsabilidad legible,
   no imponer un límite artificial de líneas al archivo coordinador.
+
+## Frontera CLI y versión conjunta
+
+La CLI corre localmente bajo Node.js >=20 desde `bin/calendary.js`;
+`src/cli/*` queda fuera del manifiesto HTML. `package.json` sigue privado y
+sin workspaces. Web y CLI comparten versión del repositorio en esta beta;
+versionamiento y distribución independientes se evaluarán después. Véase
+[arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).

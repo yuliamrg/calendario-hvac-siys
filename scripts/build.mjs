@@ -34,6 +34,7 @@ export const applicationModuleRelativePaths = Object.freeze([
   "import/base-operativa.js",
   "importer.js",
   "calendar-contract.js",
+  "supabase/transport.js",
   "cloud.js",
   "app.js"
 ]);

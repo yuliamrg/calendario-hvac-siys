@@ -2,7 +2,11 @@
 
 ## Propósito y restricciones
 
-Calendary es una aplicación web estática, sin framework, que debe funcionar de
+Este documento describe las capas de SIYS Sync Web y las fronteras compartidas
+con Calendary CLI. El mapa canónico de los dos clientes, shared code y backend
+está en [ARQUITECTURA_PRODUCTOS.md](ARQUITECTURA_PRODUCTOS.md).
+
+La Web es estática, sin framework, y debe funcionar de
 dos maneras sin divergencias:
 
 - como módulos ES durante desarrollo y pruebas;
@@ -36,9 +40,11 @@ importar código de interfaz, persistencia ni CLI.
    IndexedDB, bloqueo de edición y adaptador REST de Supabase.
 7. **Presentación (`src/ui/` y `src/app.js`)**: formato visible, DOM, eventos,
    diálogos y coordinación del estado de la página.
-8. **CLI (`src/cli/`)**: adaptación entre argumentos, fuentes `FileCalendarSource`/
-   `CloudCalendarSource` y contrato. La fuente cloud es solo lectura; autenticación
-   y lectura PostgREST están separadas del dominio.
+8. **CLI (`src/cli/`)**: adaptación entre argumentos, `CloudCalendarSource` y
+   contrato. Supabase es la única autoridad del calendario: la CLI lee y
+   persiste por el RPC atómico compartido; autenticación y transporte PostgREST
+   están separados del dominio. Los archivos JSON sólo entran como operando
+   (`--backup-file`, `--payload-file`) o salida (`--csv-output`).
 9. **Distribución (`scripts/build.mjs`)**: valida el manifiesto y la sintaxis,
    concatena los módulos en orden de dependencia e inserta código, estilos,
    icono, SheetJS, Three.js y sus avisos de licencia en el HTML final.
@@ -52,8 +58,7 @@ interfaz ----> aplicación --------^           ^
     +----> persistencia       +-----------+
     +----> presentación -----> dominio
 
-CLI source=file  ────────────┘
-CLI source=cloud ── GET Supabase → documento → contrato
+CLI source=cloud ── GET Supabase → documento → contrato → RPC atómico (CAS + metadata)
 
 build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 ```

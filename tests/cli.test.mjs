@@ -1,62 +1,96 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { createBackupEnvelope, createDefaultDocument } from "../src/core.js";
 
 const root = resolve(import.meta.dirname, "..");
 const bin = resolve(root, "bin", "calendary.js");
 
 function cli(args) {
-  return spawnSync(process.execPath, [bin, ...args], { cwd: root, encoding: "utf8" });
+  const env = { ...process.env };
+  delete env.SIYS_SUPABASE_URL;
+  delete env.SIYS_SUPABASE_PUBLISHABLE_KEY;
+  delete env.CALENDARY_SESSION_FILE;
+  return spawnSync(process.execPath, [bin, ...args], { cwd: root, encoding: "utf8", windowsHide: true, env });
 }
 
-async function fixture() {
-  const directory = await mkdtemp(resolve(tmpdir(), "calendary-cli-"));
-  const input = resolve(directory, "input.json");
-  const document = createDefaultDocument("2026-08-03", "2026-08-03T00:00:00.000Z");
-  await writeFile(input, JSON.stringify(createBackupEnvelope(document, { channel: "local" })), "utf8");
-  return { directory, input };
-}
-
-test("la ayuda enumera grupos, contrato y medidas de seguridad", () => {
+test("la ayuda describe una CLI cloud-only con operando y salidas seguras", () => {
   const result = cli(["--help"]);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /activity\s+list \| get \| create/);
   assert.match(result.stdout, /--dry-run/);
+  assert.match(result.stdout, /--source cloud/);
+  assert.match(result.stdout, /--backup-file/);
+  assert.match(result.stdout, /--payload-file/);
+  assert.match(result.stdout, /--csv-output/);
+  assert.doesNotMatch(result.stdout, /--source file\|cloud/);
+  assert.doesNotMatch(result.stdout, /--input archivo/);
+  assert.doesNotMatch(result.stdout, /--write archivo/);
 });
 
-test("inspect entrega JSON limpio por stdout", async () => {
-  const { input } = await fixture();
-  const result = cli(["calendar", "inspect", "--input", input, "--output", "json"]);
-  assert.equal(result.status, 0, result.stderr);
-  const output = JSON.parse(result.stdout);
-  assert.equal(output.operation, "calendar.inspect");
-  assert.equal(output.result.counts.activities, 0);
+test("--version imprime la versión del paquete", () => {
+  const result = cli(["--version"]);
+  assert.equal(result.status, 0);
+  const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  assert.equal(result.stdout.trim(), packageJson.version);
 });
 
-test("una escritura exige destino nuevo y genera un respaldo compatible", async () => {
-  const { directory, input } = await fixture();
-  const output = resolve(directory, "created.json");
-  const payload = JSON.stringify({
-    date: "2026-08-03", serviceType: "administrative", status: "scheduled",
-    observations: "Planeación semanal"
-  });
-  const result = cli(["activity", "create", "--input", input, "--write", output, "--payload", payload, "--output", "json"]);
-  assert.equal(result.status, 0, result.stderr);
-  const stored = JSON.parse(await readFile(output, "utf8"));
-  assert.equal(stored.document.activities.length, 1);
-  const repeated = cli(["activity", "create", "--input", input, "--write", output, "--payload", payload]);
-  assert.equal(repeated.status, 4);
-  assert.match(repeated.stderr, /OUTPUT_EXISTS/);
+test("--source file retirado se rechaza antes de cualquier red", () => {
+  const result = cli(["activity", "list", "--source", "file", "--channel", "beta", "--output", "json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+  assert.match(result.stderr, /única autoridad/);
 });
 
-test("delete requiere confirmación explícita fuera de una terminal", async () => {
-  const { directory, input } = await fixture();
-  const output = resolve(directory, "deleted.json");
-  const result = cli(["activity", "delete", "--input", input, "--write", output, "--activity-ids", "missing"]);
-  assert.equal(result.status, 4);
-  assert.match(result.stderr, /CONFIRMATION_REQUIRED/);
+test("--input retirado se rechaza", () => {
+  const result = cli(["calendar", "inspect", "--input", "cronograma.json", "--output", "json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+});
+
+test("--write retirado se rechaza", () => {
+  const result = cli(["activity", "create", "--write", "salida.json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+});
+
+test("falta --source cloud y se rechaza con mensaje de autoridad", () => {
+  const result = cli(["calendar", "inspect", "--channel", "beta", "--output", "json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+  assert.match(result.stderr, /--source cloud/);
+});
+
+test("--source cloud sin --channel falla cerrado antes de la red", () => {
+  const result = cli(["calendar", "inspect", "--source", "cloud", "--output", "json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /CHANNEL_INVALID/);
+});
+
+test("--backup-file fuera de backup restore|merge se rechaza", () => {
+  const result = cli(["activity", "list", "--source", "cloud", "--channel", "beta", "--backup-file", "respaldo.json", "--output", "json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+  assert.match(result.stderr, /--backup-file/);
+});
+
+test("backup restore sin --source cloud se rechaza y sugiere --backup-file", () => {
+  const result = cli(["backup", "restore", "--backup-file", "respaldo.json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /--source cloud/);
+  assert.match(result.stderr, /--backup-file/);
+});
+
+test("--source distinto de cloud se rechaza antes de la red", () => {
+  const result = cli(["activity", "list", "--source", "bogus", "--output", "json"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+  assert.match(result.stderr, /sólo admite cloud/);
+});
+
+test("operación desconocida se rechaza", () => {
+  const result = cli(["activity", "explode", "--source", "cloud", "--channel", "beta"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /INVALID_REQUEST/);
 });
