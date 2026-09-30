@@ -1,5 +1,22 @@
 # Operación de respaldos JSON
 
+Corte Workstream 1: `WEB_VERSION` (`src/ui/web-version.js`) y `CLI_VERSION`
+(`src/cli/version.js`) son técnicamente independientes y hoy ambas valen
+`0.18.0-beta.1`. Package raíz sigue representando Web/repositorio; layout físico
+sin cambios, tags `v...` temporalmente autoritativos y distribución CLI propia
+pendiente del Workstream 3. Stable conserva `v0.17.0`.
+
+`document.appVersion` es metadato legado opaco: no determina compatibilidad,
+backend, productor o último escritor. Se conserva saneado; ausente/inválido
+queda `""`, sin rechazar un respaldo por ese campo. La compatibilidad depende
+de `document.schemaVersion = 4`; la envoltura depende de `formatVersion = 1`.
+El contrato sigue en 1. El envelope `backup.appVersion` describe al ejecutable
+Web exportador, pasado explícitamente como `exporterVersion: WEB_VERSION`.
+Puede contener un documento con versión histórica distinta. Restore conserva
+el metadato del respaldo; merge conserva el del actual; mutaciones e
+importaciones ordinarias no lo sellan con versiones Web/CLI.
+Los registros de promociones previas de esta guía son evidencia histórica.
+
 Este documento define el procedimiento seguro para trasladar un cronograma
 entre la interfaz web y una CLI que opere sobre el contrato del calendario.
 La operación es local y portable: el JSON es el artefacto de intercambio, no
@@ -287,7 +304,7 @@ archivo, logs o payloads de prueba.
 ## Checklist de aceptación
 
 - [ ] Canal, URL, perfil y versión fueron confirmados.
-- [ ] `package.json`, `APP_VERSION`, `package-lock.json` y
+- [ ] `package.json`, `WEB_VERSION`, `package-lock.json` y
       `stable-version.txt` fueron contrastados según el canal; `dist/` no se
       usó como fuente de versión.
 - [ ] Se descargó un respaldo nuevo en `$backupRoot`.

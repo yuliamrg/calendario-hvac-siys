@@ -22,7 +22,6 @@ function fixture({ importAdapter = (source, payload) => ({ ...structuredClone(so
       document: { ...structuredClone(source), value: 9 }
     }),
     appendAudit: (action, detail) => document.audit.push({ action, detail }),
-    appVersion: "current",
     schemaVersion: 4,
     holidayRuleSetVersion: "rules",
     render: () => events.push("render"),
@@ -38,12 +37,13 @@ test("el controlador aplica metadatos y conserva una reversión", () => {
   const { controller, events, getDocument } = fixture();
   controller.mutate("changed", "Cambio", () => { getDocument().value = 2; });
   assert.equal(getDocument().value, 2);
-  assert.equal(getDocument().appVersion, "current");
+  assert.equal(getDocument().appVersion, "old");
   assert.equal(getDocument().schemaVersion, 4);
   assert.equal(getDocument().calendarMeta.revision, 3);
   assert.equal(controller.hasUndo(), true);
   controller.undo();
   assert.equal(getDocument().value, 1);
+  assert.equal(getDocument().appVersion, "old");
   assert.deepEqual(events.slice(-4), ["afterUndo", "render", "save", ["Se deshizo: Cambio", undefined]]);
 });
 
@@ -54,6 +54,7 @@ test("el controlador restaura el documento si falla una mutación directa", () =
     throw new Error("falló");
   }), /falló/);
   assert.equal(getDocument().value, 1);
+  assert.equal(getDocument().appVersion, "old");
 });
 
 test("las operaciones del contrato comparten render, guardado y undo", () => {
@@ -61,6 +62,7 @@ test("las operaciones del contrato comparten render, guardado y undo", () => {
   const outcome = controller.mutateWithContract("activity.edit", {}, "Edición");
   assert.equal(outcome.changed, true);
   assert.equal(getDocument().value, 9);
+  assert.equal(getDocument().appVersion, "old");
   assert.equal(controller.hasUndo(), true);
 });
 
@@ -82,13 +84,14 @@ test("las importaciones usan la fachada, conservan metadatos y permiten undo", (
   assert.equal(outcome.changed, true);
   assert.equal(receivedKind, "base-operativa");
   assert.equal(getDocument().value, 7);
-  assert.equal(getDocument().appVersion, "current");
+  assert.equal(getDocument().appVersion, "old");
   assert.equal(getDocument().schemaVersion, 4);
   assert.equal(getDocument().calendarMeta.revision, 3);
   assert.equal(getDocument().audit.at(-1).action, "base_imported");
   assert.deepEqual(events.slice(-2), ["save", ["Base importada", { undo: true }]]);
   controller.undo();
   assert.equal(getDocument().value, 1);
+  assert.equal(getDocument().appVersion, "old");
 });
 
 test("una importación fallida revierte y no renderiza ni guarda", () => {
@@ -104,6 +107,7 @@ test("una importación fallida revierte y no renderiza ni guarda", () => {
     /importación inválida/
   );
   assert.equal(getDocument().value, 1);
+  assert.equal(getDocument().appVersion, "old");
   assert.deepEqual(events, []);
   assert.equal(controller.hasUndo(), false);
 });

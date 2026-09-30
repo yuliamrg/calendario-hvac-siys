@@ -37,7 +37,7 @@ function sessionStore() {
 }
 
 function documentWithActivity(cloudRevision) {
-  const document = createDefaultDocument("2026-09-01", NOW);
+  const document = createDefaultDocument("2026-09-01", NOW, { appVersion: "0.6.0" });
   document.calendarMeta.id = "calendar-meta-fixture";
   document.calendarMeta.revision = cloudRevision;
   document.catalog.clients.push({ id: "client-1", name: "Cliente Fixture", active: true });
@@ -137,6 +137,7 @@ test("C1 activity.create cloud carga rev 12, ejecuta contrato y emite un único 
   assert.equal(body.target_calendar_id, CALENDAR_ID);
   assert.equal(body.expected_revision, 12);
   assert.equal(body.next_document.calendarMeta.revision, 13);
+  assert.equal(body.next_document.appVersion, "0.6.0", "CLI mutation preserves legacy metadata");
   assert.ok(body.next_document.calendarMeta.name, "la metadata viaja dentro del documento");
 });
 

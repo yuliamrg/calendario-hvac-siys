@@ -1,5 +1,10 @@
 # Arquitectura de Calendary
 
+Workstream 1 de Platform Architecture V2 separa identidades sin mover archivos.
+`package.json.version` sigue la release Web/repositorio; la distribución CLI
+independiente queda pendiente del Workstream 3. El layout futuro pertenece al
+Workstream 2. Los tags históricos `v...` siguen vigentes, sin nueva publicación.
+
 ## Propósito y restricciones
 
 Este documento describe las capas de SIYS Sync Web y las fronteras compartidas
@@ -71,8 +76,16 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 - `src/application/` puede depender del contrato, núcleo y dominio; no puede
   depender de UI, persistencia, cloud, CLI ni composición. La UI puede usar
   sus comandos sin conocer cómo se persiste el documento.
-- `APP_VERSION`, `SCHEMA_VERSION` y `CONTRACT_VERSION` tienen significados
-  distintos y no se actualizan por una refactorización interna.
+- `WEB_VERSION` vive en `src/ui/web-version.js` y `CLI_VERSION` en
+  `src/cli/version.js`; actualmente ambas son `0.18.0-beta.1`, independientes
+  de `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y backup `formatVersion = 1`.
+- Las reglas por capa prohíben imports de UI/CLI desde dominio, núcleo y
+  contrato; CLI no puede importar UI y `app.js` no puede importar CLI.
+  La guardia también rechaza constantes de release en capas compartidas.
+- `document.appVersion` es metadato legado opaco: mutaciones e importaciones
+  lo conservan, restore usa el del respaldo y merge conserva el actual.
+  `createDefaultDocument(today, now, { appVersion })` acepta un valor explícito;
+  sin valor usa `""`. El núcleo no decide la release de ningún cliente.
 - Stable y beta comparten autenticación de Supabase, pero usan calendarios
   lógicos separados.
 - El build debe seguir sin dependencias de red y producir dos HTML idénticos:

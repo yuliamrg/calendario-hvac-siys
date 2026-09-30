@@ -16,9 +16,11 @@ executeCalendarOperation(document, {
 Todas las operaciones retornan `{ contractVersion, operation, changed,
 document, result, warnings, auditEntry }`. Las escrituras son atómicas: se
 sanea y clona la entrada, y un error nunca altera el objeto recibido. Un cambio
-real incrementa una sola vez `calendarMeta.revision`, actualiza versiones y
-añade auditoría; una operación idéntica devuelve `changed: false` sin revisión
-ni auditoría.
+real incrementa una sola vez `calendarMeta.revision`, conserva el metadato
+legado `document.appVersion`, actualiza esquema y reglas de festivos y añade
+auditoría; una operación idéntica devuelve `changed: false` sin revisión ni
+auditoría. Restore conserva el metadato del respaldo; merge conserva el del
+documento actual. El contrato no necesita identidad Web/CLI para mutar.
 
 Los errores exponen `CalendarContractError.code`: `INVALID_REQUEST`,
 `INVALID_DOCUMENT`, `UNSUPPORTED_SCHEMA`, `VALIDATION_FAILED`, `NOT_FOUND`,

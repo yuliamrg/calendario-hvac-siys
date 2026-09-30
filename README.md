@@ -1,5 +1,16 @@
 # SIYS Sync
 
+Platform Architecture V2, Workstream 1: las versiones son técnicamente
+independientes. `src/ui/web-version.js > WEB_VERSION` identifica SIYS Sync Web;
+`src/cli/version.js > CLI_VERSION` identifica Calendary CLI. Actualmente ambas
+valen `0.18.0-beta.1` por transición, sin obligación de igualdad. La versión
+raíz de `package.json` sigue representando la release Web/repositorio.
+El layout físico sigue igual, sin workspaces ni distribución CLI independiente.
+El modelo de tags `v...` sigue siendo autoritativo temporalmente; los tags
+certificados `v0.17.0` y `v0.18.0-beta.1` se conservan.
+`document.appVersion` es metadato legado opaco; la compatibilidad del documento
+la determina `schemaVersion` y la del respaldo, `formatVersion`.
+
 Herramienta para programar servicios HVAC en un calendario mensual. El
 entregable listo para usar es:
 

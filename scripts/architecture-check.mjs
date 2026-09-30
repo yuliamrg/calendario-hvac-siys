@@ -19,7 +19,7 @@ export const ARCHITECTURE_RULES = Object.freeze({
   cloud: Object.freeze(["ui", "cli", "composition"]),
   ui: Object.freeze(["persistence", "cli", "cloud", "composition", "supabase"]),
   cli: Object.freeze(["ui", "persistence", "cloud", "composition"]),
-  composition: Object.freeze([]),
+  composition: Object.freeze(["cli"]),
   supabase: Object.freeze([
     "domain",
     "core",
@@ -270,6 +270,14 @@ export function validateArchitectureGraph({ modules, graph, sources }) {
       const layer = classifyModule(modulePath);
       const source = sources.get(modulePath);
       if (typeof source !== "string") continue;
+      if (["domain", "core", "contract", "application", "import", "supabase"].includes(layer)) {
+        const code = stripCommentsAndStringLiterals(source);
+        for (const token of ["APP_VERSION", "WEB_VERSION", "CLI_VERSION"]) {
+          if (new RegExp(`\\b${token}\\b`).test(code)) {
+            violations.push(violation("shared-product-version", { module: modulePath, token }));
+          }
+        }
+      }
       if (layer === "application") {
         for (const token of findForbiddenSemanticReferences(source)) {
           violations.push(violation("forbidden-semantic-reference", { module: modulePath, token }));
@@ -314,6 +322,8 @@ function formatViolation(item) {
       return `import local no resuelto: ${item.importer} -> ${item.specifier} (${item.dependency})`;
     case "forbidden-import":
       return `${item.importer} [${item.importerLayer}] no puede importar ${item.dependency} [${item.dependencyLayer}]`;
+    case "shared-product-version":
+      return `módulo compartido ${item.module} referencia la identidad de producto ${item.token}`;
     case "forbidden-semantic-reference":
       return `módulo application ${item.module} referencia el token prohibido '${item.token}'`;
     case "forbidden-application-package":

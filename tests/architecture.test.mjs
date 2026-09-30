@@ -472,3 +472,30 @@ test("domain, core, contract y application no pueden importar supabase", async (
     );
   }
 });
+
+test("product boundaries reject shared-to-client and cross-client version imports without filename-specific rules", async () => {
+  const actual = await checkArchitecture();
+  for (const importer of ["domain/dates.js", "core.js", "calendar-contract.js", "application/calendar-commands.js", "cli/main.js", "app.js"]) {
+    const targets = importer === "cli/main.js" ? ["ui/future-identity.js"]
+      : importer === "app.js" ? ["cli/future-identity.js"]
+        : ["ui/future-identity.js", "cli/future-identity.js"];
+    for (const dependency of targets) {
+      const graph = new Map(actual.graph);
+      graph.set(importer, [{ specifier: `./${dependency}`, relativePath: dependency }]);
+      const report = validateArchitectureGraph({ modules: [...actual.modules, dependency], graph });
+      assert.ok(report.violations.some((item) => item.type === "forbidden-import" && item.importer === importer && item.dependency === dependency));
+    }
+  }
+});
+
+test("shared modules cannot reintroduce product release ownership", async () => {
+  const actual = await checkArchitecture();
+  for (const module of ["core.js", "calendar-contract.js", "domain/dates.js", "application/calendar-commands.js"]) {
+    for (const token of ["APP_VERSION", "WEB_VERSION", "CLI_VERSION"]) {
+      const sources = new Map(actual.sources);
+      sources.set(module, `export const ${token} = "9.8.7";`);
+      const report = validateArchitectureGraph({ ...actual, sources });
+      assert.ok(report.violations.some((item) => item.type === "shared-product-version" && item.module === module && item.token === token));
+    }
+  }
+});

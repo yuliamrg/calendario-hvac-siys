@@ -13,6 +13,7 @@ export const applicationModuleRelativePaths = Object.freeze([
   "domain/activity-order.js",
   "domain/activity-filters.js",
   "ui/three-motion.js",
+  "ui/web-version.js",
   "domain/import-merge.js",
   "domain/backup-merge.js",
   "domain/csv-export.js",

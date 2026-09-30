@@ -218,7 +218,8 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
     "Semantic Versioning",
     "package.json",
     "package-lock.json",
-    "APP_VERSION",
+    "WEB_VERSION",
+    "CLI_VERSION",
     "0.14.0-beta.1",
     "0.14.0-beta.2",
     "0.14.0",
@@ -237,16 +238,16 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
   }
 });
 
-test("la versión de release está sincronizada entre package, lock, núcleo y estable", () => {
+test("la versión de release está sincronizada entre package, lock, Web y puntero estable", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const packageLock = JSON.parse(readFileSync(resolve(root, "package-lock.json"), "utf8"));
-  const core = readFileSync(resolve(root, "src", "core.js"), "utf8");
+  const web = readFileSync(resolve(root, "src", "ui", "web-version.js"), "utf8");
   const stableTag = readFileSync(resolve(root, "stable-version.txt"), "utf8").trim();
   assert.match(packageJson.version, /^0\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/);
   assert.match(stableTag, /^v\d+\.\d+\.\d+$/);
   assert.equal(packageLock.version, packageJson.version);
   assert.equal(packageLock.packages[""].version, packageJson.version);
-  assert.match(core, new RegExp('APP_VERSION = "' + packageJson.version.replace(/[.]/g, "\\.") + '"'));
+  assert.match(web, new RegExp('WEB_VERSION = "' + packageJson.version.replace(/[.]/g, "\\.") + '"'));
 });
 
 test("el contrato visual promovido se aplica a beta y estable", () => {

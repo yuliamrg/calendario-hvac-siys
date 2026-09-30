@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ACTIVITY_STATUSES,
-  APP_VERSION,
   SCHEMA_VERSION,
   activityMatchesFilters,
   addDaysISO,
@@ -520,9 +519,10 @@ test("el respaldo versionado conserva metadatos y admite el formato heredado", (
   const envelope = createBackupEnvelope(doc, {
     exportedAt: "2026-07-30T12:00:00.000Z",
     origin: "archivo local",
-    channel: "beta"
+    channel: "beta",
+    exporterVersion: "exporter-fixture"
   });
-  assert.equal(envelope.appVersion, APP_VERSION);
+  assert.equal(envelope.appVersion, "exporter-fixture");
   assert.equal(envelope.revision, 7);
   assert.equal(envelope.document.calendarMeta.name, "Cronograma Eje Cafetero");
   assert.equal(envelope.channel, "beta");

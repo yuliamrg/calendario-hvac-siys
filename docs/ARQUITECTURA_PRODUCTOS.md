@@ -1,10 +1,10 @@
 # Arquitectura de productos
 
-Decisión vigente para la preparación de `0.18.0-beta.1`: SIYS Sync Web y
+Decisión vigente de Platform Architecture V2, Workstream 1: SIYS Sync Web y
 Calendary CLI son dos clientes ejecutables distintos en el mismo monorepo.
 Ambos reutilizan lógica compartida y se comunican directamente por HTTPS con
-el mismo backend Supabase. Esta fase documenta las fronteras existentes y no
-reorganiza archivos ni cambia comportamiento.
+el mismo backend Supabase. Este workstream separa las identidades de versión
+y conserva las fronteras físicas existentes.
 
 ```text
                      Shared calendar code
@@ -58,37 +58,53 @@ Supabase aporta Auth, PostgREST, RPC y PostgreSQL. Las migraciones viven bajo
 con CAS y sincroniza metadata en una transacción. El backend es común a ambos
 clientes; Web stable y beta conservan calendarios lógicos separados.
 
-## Versión conjunta actual
+## Identidades independientes, transición actual
 
-`package.json > version` y `src/core.js > APP_VERSION` versionan conjuntamente
-el producto/release del repositorio y, por extensión, la CLI incluida. Esta
-asociación es una limitación actual deliberadamente conservada para
-`0.18.0-beta.1`. Se mantienen `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`
-y los respaldos. Stable sigue apuntando a `v0.17.0`.
+- Web: `src/ui/web-version.js > WEB_VERSION = "0.18.0-beta.1"`.
+- CLI: `src/cli/version.js > CLI_VERSION = "0.18.0-beta.1"`.
+- `package.json.version` sigue representando la release Web/repositorio y debe
+  coincidir con `WEB_VERSION`; `package-lock.json` conserva su espejo.
 
-## Dirección futura diferida
+La igualdad actual Web/CLI es coincidental y transitoria. Las pruebas cambian
+la fuente CLI en una copia temporal y comprueban `--version` y los gates Web,
+sin exigir igualdad. No se selecciona una primera release CLI independiente.
+El núcleo compartido no exporta `APP_VERSION` ni posee una release de producto.
+Se mantienen `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`, backup
+`formatVersion = 1` y `stable-version.txt = v0.17.0`.
 
-Mantener el monorepo es correcto. Una posible evolución, aún no implementada
-ni obligatoria de inmediato, es:
+## Semántica del documento y del respaldo
 
-```text
-apps/web
-apps/cli
-packages/calendar
-packages/supabase
-supabase/
-```
+`document.appVersion` es metadato legado opaco, conservado por compatibilidad
+histórica. No determina compatibilidad de documento o backend, productor ni
+último escritor. `document.schemaVersion` sigue siendo la autoridad para leer
+el documento; `formatVersion` lo es para la envoltura JSON.
 
-Se evaluarán versiones Web y CLI independientes, y distribución CLI mediante
-npm privado/público, GitHub Releases, instalador u otro mecanismo que se decida
-posteriormente. No se elige un canal ahora. La compatibilidad se expresará
-principalmente mediante `SCHEMA_VERSION`, `CONTRACT_VERSION` y el contrato
-backend. El desacoplamiento de versiones, packages y workspaces queda diferido.
+Web pasa su versión explícitamente al crear documentos nuevos. Construcción
+neutral y sanitización de un valor ausente/inválido usan `""`, sin inventar una
+identidad. Las mutaciones normales Web/CLI, importaciones, undo y traslado local
+a cloud conservan el valor. Restore conserva el del respaldo; merge conserva
+el del documento actual. No hay migración ni nuevo campo.
 
-## Preparación y publicación
+El `appVersion` superior de un backup describe al ejecutable Web exportador:
+Web pasa `exporterVersion: WEB_VERSION` a `createBackupEnvelope`. La utilidad
+compartida no obtiene versiones de clientes; sin exportador explícito usa `""`.
+Un envelope Web actual puede contener un documento con `appVersion` antiguo.
 
-La feature `feat/cli-cloud-client` prepara `0.18.0-beta.1` antes del PR.
-Su integración en `main` permitirá a Pages construir `/beta/` desde esa
-versión. Esta preparación no acredita despliegue ni crea el tag beta; el tag
-se crea después de integrar el PR. La raíz stable continúa desde
-`stable-version.txt = v0.17.0`.
+## Workstreams pendientes
+
+Workstream 2 implementará la estructura física futura. No se crean `apps/`,
+`packages/`, workspaces ni otro `package.json` en Workstream 1.
+
+Workstream 3 definirá distribución/releases CLI independientes y los namespaces
+`web-v...` / `cli-v...`. Actualmente la CLI se usa desde el repositorio Node,
+sin distribución independiente. No se crea ZIP, npm release ni GitHub Release.
+
+## Tags y publicación vigentes
+
+El modelo histórico `v<version>` sigue siendo temporalmente autoritativo para
+Web/repositorio. Los tags certificados `v0.17.0` y `v0.18.0-beta.1` permanecen
+intactos. Este refactor no modifica ni republica las versiones certificadas.
+`release:check` conserva los gates del tag estable y del tag Web actual
+sobre HEAD cuando se solicita `--require-current-tag`; una rama de refactor no
+es un nuevo tag de release. Pages mantiene sus triggers y stable conserva
+el puntero `v0.17.0`. No se modifica Supabase ni la topología CI.

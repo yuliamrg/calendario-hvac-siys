@@ -52,11 +52,12 @@ const gitRevision = (ref) => {
 
 const localTagExists = (tag) => Boolean(gitRevision("refs/tags/" + tag));
 
-const [packageSource, lockSource, coreSource, stableSource, namedDist, pagesDist] =
+const [packageSource, lockSource, webSource, cliSource, stableSource, namedDist, pagesDist] =
   await Promise.all([
     readText("package.json"),
     readText("package-lock.json"),
-    readText("src/core.js"),
+    readText("src/ui/web-version.js"),
+    readText("src/cli/version.js"),
     readText("stable-version.txt"),
     readFile(resolve(root, "dist", "calendario-hvac-siys.html")),
     readFile(resolve(root, "dist", "index.html"))
@@ -77,13 +78,18 @@ try {
 
 const packageVersion = packageJson?.version;
 const parsedPackage = parseVersion(packageVersion, "package.json > version");
-const coreMatch = coreSource.match(/export const APP_VERSION = "([^"]+)";/);
-const coreVersion = coreMatch?.[1];
-if (!coreMatch) failures.push("src/core.js no declara APP_VERSION con el formato esperado.");
-parseVersion(coreVersion, "src/core.js > APP_VERSION");
+const webMatch = webSource.match(/export const WEB_VERSION = "([^"]+)";/);
+const webVersion = webMatch?.[1];
+if (!webMatch) failures.push("src/ui/web-version.js no declara WEB_VERSION con el formato esperado.");
+parseVersion(webVersion, "src/ui/web-version.js > WEB_VERSION");
 
-if (packageVersion && coreVersion && packageVersion !== coreVersion) {
-  failures.push("package.json (" + packageVersion + ") y APP_VERSION (" + coreVersion + ") no coinciden.");
+const cliMatch = cliSource.match(/export const CLI_VERSION = "([^"]+)";/);
+const cliVersion = cliMatch?.[1];
+if (!cliMatch) failures.push("src/cli/version.js no declara CLI_VERSION con el formato esperado.");
+parseVersion(cliVersion, "src/cli/version.js > CLI_VERSION");
+
+if (packageVersion && webVersion && packageVersion !== webVersion) {
+  failures.push("package.json (" + packageVersion + ") y WEB_VERSION (" + webVersion + ") no coinciden.");
 }
 if (lockJson?.version !== undefined && lockJson.version !== packageVersion) {
   failures.push("package-lock.json > version (" + lockJson.version + ") no coincide con package.json (" + packageVersion + ").");
@@ -115,8 +121,8 @@ if (!skipDist) {
   distEqual = namedDist.equals(pagesDist);
   if (!distEqual) failures.push("Los dos artefactos de dist/ no son idénticos.");
   const distText = namedDist.toString("utf8");
-  if (packageVersion && !distText.includes('APP_VERSION = "' + packageVersion + '"')) {
-    failures.push("dist/ no contiene APP_VERSION " + packageVersion + "; regenere con npm run build.");
+  if (packageVersion && !distText.includes('WEB_VERSION = "' + packageVersion + '"')) {
+    failures.push("dist/ no contiene WEB_VERSION " + packageVersion + "; regenere con npm run build.");
   }
   distSha256 = createHash("sha256").update(namedDist).digest("hex");
 }
@@ -146,6 +152,8 @@ if (args.has("--require-current-tag") && !currentTagPresent) {
 const result = {
   status: failures.length ? "error" : "ok",
   version: packageVersion ?? null,
+  webVersion: webVersion ?? null,
+  cliVersion: cliVersion ?? null,
   channel: parsedPackage?.prerelease ? "beta" : "stable",
   stableTag,
   stableTagPresent,

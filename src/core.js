@@ -75,7 +75,6 @@ export { buildMonthlyCsv, buildQuarantineCsv } from "./domain/csv-export.js";
 export { activityMatchesFilters, normalizeFilterArray } from "./domain/activity-filters.js";
 export { importDiff, mergeImportedItems } from "./domain/import-merge.js";
 
-export const APP_VERSION = "0.18.0-beta.1";
 export const SCHEMA_VERSION = 4;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -99,10 +98,11 @@ export function makeId(prefix = "id", idFactory = () => crypto.randomUUID()) {
   return `${prefix}_${idFactory()}`;
 }
 
-export function createDefaultDocument(today = todayInBogota(), now = new Date().toISOString()) {
+// appVersion is opaque legacy metadata; an empty value claims no product identity.
+export function createDefaultDocument(today = todayInBogota(), now = new Date().toISOString(), { appVersion = "" } = {}) {
   return {
     schemaVersion: SCHEMA_VERSION,
-    appVersion: APP_VERSION,
+    appVersion: typeof appVersion === "string" ? safeText(appVersion, 30) : "",
     calendarMeta: {
       id: "calendario_principal",
       name: "Cronograma HVAC",
@@ -923,17 +923,19 @@ export function deleteActivities(document, activityIds) {
   return found;
 }
 
+// Envelope appVersion describes an explicitly supplied exporter, not the document.
 export function createBackupEnvelope(document, {
   exportedAt = new Date().toISOString(),
   origin = "local",
-  channel = "local"
+  channel = "local",
+  exporterVersion = ""
 } = {}) {
   const clean = sanitizeDocument(document);
   return {
     format: "calendario-hvac-siys-backup",
     formatVersion: 1,
     exportedAt,
-    appVersion: APP_VERSION,
+    appVersion: typeof exporterVersion === "string" ? safeText(exporterVersion, 30) : "",
     origin: safeText(origin, 120) || "local",
     channel: ["local", "stable", "beta"].includes(channel) ? channel : "local",
     revision: clean.calendarMeta.revision,
@@ -1245,7 +1247,7 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
   const result = {
     ...base,
     schemaVersion: SCHEMA_VERSION,
-    appVersion: safeText(raw.appVersion, 30) || APP_VERSION,
+    appVersion: typeof raw.appVersion === "string" ? safeText(raw.appVersion, 30) : "",
     calendarMeta: {
       id: safeText(raw.calendarMeta?.id, 120) || base.calendarMeta.id,
       name: safeText(raw.calendarMeta?.name, 160) || base.calendarMeta.name,
@@ -1309,7 +1311,6 @@ export function mergeBackupDocument(currentRaw, incomingRaw, options = {}) {
     sanitizeDocument,
     validateActivity,
     makeId,
-    schemaVersion: SCHEMA_VERSION,
-    appVersion: APP_VERSION
+    schemaVersion: SCHEMA_VERSION
   });
 }

@@ -84934,6 +84934,10 @@ const calendaryThreeMotion = (() => {
 globalThis.calendaryThreeMotion = calendaryThreeMotion;
 
 
+// SIYS Sync Web executable identity; independent of Calendary CLI and document schema.
+export const WEB_VERSION = "0.18.0-beta.1";
+
+
 export function importDiff(existing, incoming, fields) {
   const seenIncomingKeys = new Set();
   for (const item of incoming) {
@@ -85044,8 +85048,7 @@ export function mergeBackupDocuments(
     sanitizeDocument,
     validateActivity,
     makeId,
-    schemaVersion,
-    appVersion
+    schemaVersion
   }
 ) {
   const current = sanitizeDocument(currentRaw);
@@ -85241,7 +85244,6 @@ export function mergeBackupDocuments(
   const usedSeries = new Set(document.activities.map((item) => item.seriesId).filter(Boolean));
   document.series = document.series.filter((item) => usedSeries.has(item.id));
   document.schemaVersion = schemaVersion;
-  document.appVersion = appVersion;
   document.calendarMeta = structuredClone(current.calendarMeta);
   document.settings = structuredClone(current.settings);
   document.importMetadata = structuredClone(current.importMetadata);
@@ -86463,7 +86465,6 @@ export function createMutationController({
   cloneDocument = structuredClone,
   executeOperation,
   appendAudit,
-  appVersion,
   schemaVersion,
   holidayRuleSetVersion,
   render,
@@ -86503,7 +86504,6 @@ export function createMutationController({
     try {
       callback();
       const document = getDocument();
-      document.appVersion = appVersion;
       document.schemaVersion = schemaVersion;
       document.calendarMeta.revision += 1;
       document.calendarMeta.updatedAt = new Date().toISOString();
@@ -86543,7 +86543,6 @@ export function createMutationController({
         return outcome;
       }
       const document = getDocument();
-      document.appVersion = appVersion;
       document.schemaVersion = schemaVersion;
       document.calendarMeta.revision += 1;
       document.calendarMeta.updatedAt = new Date().toISOString();
@@ -86615,7 +86614,6 @@ export function applyViewClasses(body, classes) {
 }
 
 
-export const APP_VERSION = "0.18.0-beta.1";
 export const SCHEMA_VERSION = 4;
 export const HOLIDAY_RULESET_VERSION = "CO-NATIONAL-2026-06-02";
 
@@ -86639,10 +86637,11 @@ export function makeId(prefix = "id", idFactory = () => crypto.randomUUID()) {
   return `${prefix}_${idFactory()}`;
 }
 
-export function createDefaultDocument(today = todayInBogota(), now = new Date().toISOString()) {
+// appVersion is opaque legacy metadata; an empty value claims no product identity.
+export function createDefaultDocument(today = todayInBogota(), now = new Date().toISOString(), { appVersion = "" } = {}) {
   return {
     schemaVersion: SCHEMA_VERSION,
-    appVersion: APP_VERSION,
+    appVersion: typeof appVersion === "string" ? safeText(appVersion, 30) : "",
     calendarMeta: {
       id: "calendario_principal",
       name: "Cronograma HVAC",
@@ -87463,17 +87462,19 @@ export function deleteActivities(document, activityIds) {
   return found;
 }
 
+// Envelope appVersion describes an explicitly supplied exporter, not the document.
 export function createBackupEnvelope(document, {
   exportedAt = new Date().toISOString(),
   origin = "local",
-  channel = "local"
+  channel = "local",
+  exporterVersion = ""
 } = {}) {
   const clean = sanitizeDocument(document);
   return {
     format: "calendario-hvac-siys-backup",
     formatVersion: 1,
     exportedAt,
-    appVersion: APP_VERSION,
+    appVersion: typeof exporterVersion === "string" ? safeText(exporterVersion, 30) : "",
     origin: safeText(origin, 120) || "local",
     channel: ["local", "stable", "beta"].includes(channel) ? channel : "local",
     revision: clean.calendarMeta.revision,
@@ -87785,7 +87786,7 @@ export function sanitizeDocument(raw, today = todayInBogota()) {
   const result = {
     ...base,
     schemaVersion: SCHEMA_VERSION,
-    appVersion: safeText(raw.appVersion, 30) || APP_VERSION,
+    appVersion: typeof raw.appVersion === "string" ? safeText(raw.appVersion, 30) : "",
     calendarMeta: {
       id: safeText(raw.calendarMeta?.id, 120) || base.calendarMeta.id,
       name: safeText(raw.calendarMeta?.name, 160) || base.calendarMeta.name,
@@ -87849,8 +87850,7 @@ export function mergeBackupDocument(currentRaw, incomingRaw, options = {}) {
     sanitizeDocument,
     validateActivity,
     makeId,
-    schemaVersion: SCHEMA_VERSION,
-    appVersion: APP_VERSION
+    schemaVersion: SCHEMA_VERSION
   });
 }
 
@@ -89217,7 +89217,7 @@ function appendContractAudit(document, entry) {
   if (document.audit.length > 500) document.audit.splice(0, document.audit.length - 500);
 }
 
-function finalizeMutation(source, draft, { operation, now, result, warnings, audit, revisionPolicy, appVersion }) {
+function finalizeMutation(source, draft, { operation, now, result, warnings, audit, revisionPolicy }) {
   const changed = JSON.stringify(source) !== JSON.stringify(draft);
   if (!changed) {
     return {
@@ -89232,7 +89232,6 @@ function finalizeMutation(source, draft, { operation, now, result, warnings, aud
   }
 
   if (revisionPolicy !== "preserve") {
-    draft.appVersion = appVersion ?? APP_VERSION;
     draft.schemaVersion = SCHEMA_VERSION;
     draft.calendarMeta.revision = source.calendarMeta.revision + 1;
     draft.calendarMeta.updatedAt = now;
@@ -90087,8 +90086,7 @@ export function executeCalendarOperation(document, request, options = {}) {
       result: outcome.result,
       warnings: outcome.warnings,
       audit: outcome.audit,
-      revisionPolicy: outcome.revisionPolicy,
-      appVersion: options.appVersion
+      revisionPolicy: outcome.revisionPolicy
     });
   } catch (error) {
     if (error instanceof CalendarContractError) throw error;
@@ -90742,7 +90740,7 @@ const dom = Object.fromEntries(
   [...document.querySelectorAll("[id]")].map((element) => [element.id, element])
 );
 
-let appDocument = createDefaultDocument();
+let appDocument = createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
 let database = null;
 let saveTimer = null;
 let saveChain = Promise.resolve();
@@ -91218,7 +91216,7 @@ async function handleCloudCalendarChange(event) {
     await flushSave();
     await cloudPersistence.selectCalendar(nextCalendarId);
     const current = await cloudPersistence.read();
-    appDocument = current?.document ? sanitizeDocument(current.document) : createDefaultDocument();
+    appDocument = current?.document ? sanitizeDocument(current.document) : createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
     selectedActivityIds.clear();
     mutationController.clearUndo();
     activeDrawer = null;
@@ -91294,7 +91292,7 @@ async function initializeEditLock() {
     if (event.data?.type === "data-reset" && event.data.ownerId !== tabId) {
       readStoredDocument("current")
         .then((stored) => {
-          appDocument = stored ? sanitizeDocument(stored) : createDefaultDocument();
+          appDocument = stored ? sanitizeDocument(stored) : createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
           selectedActivityIds.clear();
           activeDrawer = null;
           closeDrawer();
@@ -91457,7 +91455,6 @@ mutationController = createMutationController({
   cloneDocument: clone,
   executeOperation: executeCalendarOperation,
   appendAudit,
-  appVersion: APP_VERSION,
   schemaVersion: SCHEMA_VERSION,
   holidayRuleSetVersion: HOLIDAY_RULESET_VERSION,
   render: renderAll,
@@ -94189,7 +94186,8 @@ async function createBackup() {
   const envelope = createBackupEnvelope(appDocument, {
     exportedAt: appDocument.settings.lastBackupAt,
     origin: `${runtimeMode()} · ${location.origin}`,
-    channel: RUNTIME_CHANNEL
+    channel: RUNTIME_CHANNEL,
+    exporterVersion: WEB_VERSION
   });
   downloadBlob(
     JSON.stringify(envelope, null, 2),
@@ -94219,8 +94217,7 @@ async function handleResetDataSubmit(event) {
     await createBackup();
     await flushSave();
     await clearStoredDocuments();
-    appDocument = createDefaultDocument();
-    appDocument.appVersion = APP_VERSION;
+    appDocument = createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
     mutationController.clearUndo();
     selectedActivityIds.clear();
     activeDrawer = null;
@@ -94993,7 +94990,7 @@ function initializeStaticOptions() {
       .filter(([value]) => value !== "to_schedule")
       .map(([value, label]) => option(value, label))
   );
-  dom.versionLabel.textContent = `Versión ${APP_VERSION} · festivos ${HOLIDAY_RULESET_VERSION}`;
+  dom.versionLabel.textContent = `Versión ${WEB_VERSION} · festivos ${HOLIDAY_RULESET_VERSION}`;
   dom.betaBadge.hidden = RUNTIME_CHANNEL !== "beta";
 }
 
@@ -95336,14 +95333,14 @@ async function loadInitialDocument() {
       if (!restored) await waitForCloudAuthentication();
       const legacyLocalDocument = await readLegacyStableDocument();
       const initial = legacyLocalDocument
-        ? { ...legacyLocalDocument, appVersion: APP_VERSION }
-        : createDefaultDocument();
+        ? { ...legacyLocalDocument }
+        : createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
       const current = await cloudPersistence.initialize({ initialDocument: initial });
       let document = current?.document ? sanitizeDocument(current.document) : initial;
       const shouldMigrate = legacyLocalDocument && !current?.initializedFromInitial &&
         shouldMigrateLocalDocument(legacyLocalDocument, document);
       if (shouldMigrate) {
-        const migratedDocument = { ...legacyLocalDocument, appVersion: APP_VERSION };
+        const migratedDocument = { ...legacyLocalDocument };
         await cloudPersistence.write(migratedDocument);
         document = sanitizeDocument(migratedDocument);
         cloudMigrationNotice = "Se trasladaron los datos locales de la stable anterior a Supabase. La copia local se conservó.";
@@ -95385,7 +95382,7 @@ async function loadInitialDocument() {
         throw currentError;
       }
     }
-    return createDefaultDocument();
+    return createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
   } catch (error) {
     storageAvailable = false;
     setSaveIndicator("error", "Sin guardado local");
@@ -95393,7 +95390,7 @@ async function loadInitialDocument() {
       `El navegador no permitió abrir el almacenamiento local. Trabaja sólo si vas a descargar un respaldo: ${error.message}`,
       { type: "error", duration: 12000 }
     );
-    return createDefaultDocument();
+    return createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
   }
 }
 
