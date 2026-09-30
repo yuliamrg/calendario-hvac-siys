@@ -8,7 +8,6 @@ export function createMutationController({
   cloneDocument = structuredClone,
   executeOperation,
   appendAudit,
-  appVersion,
   schemaVersion,
   holidayRuleSetVersion,
   render,
@@ -48,7 +47,6 @@ export function createMutationController({
     try {
       callback();
       const document = getDocument();
-      document.appVersion = appVersion;
       document.schemaVersion = schemaVersion;
       document.calendarMeta.revision += 1;
       document.calendarMeta.updatedAt = new Date().toISOString();
@@ -88,7 +86,6 @@ export function createMutationController({
         return outcome;
       }
       const document = getDocument();
-      document.appVersion = appVersion;
       document.schemaVersion = schemaVersion;
       document.calendarMeta.revision += 1;
       document.calendarMeta.updatedAt = new Date().toISOString();

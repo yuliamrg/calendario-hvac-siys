@@ -22,32 +22,37 @@ PostgREST en los canales estable y beta. La clave publishable puede viajar en
 el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
 `dist/` contiene salidas generadas: una diferencia, una versión embebida o un
-archivo existente allí no cambia la autoridad de las fuentes. La feature
-prepara `0.18.0-beta.1` antes del PR; el dist regenerado no certifica que
-GitHub Pages esté sirviendo esa versión.
+archivo existente allí no cambia la autoridad de las fuentes. Integrar
+Workstream 1 en `main` publica Web `0.18.0-beta.2` en `/beta/`, porque Pages
+se ejecuta con cada push a `main`. El tag `v0.18.0-beta.1` permanece como
+snapshot histórico inmutable y Calendary CLI continúa en `0.18.0-beta.1`.
 
 ## Canales
 
 | Canal | Fuente publicada | Versión |
 |---|---|---|
 | Estable, raíz | Tag normal indicado por `stable-version.txt` | `v0.17.0`, la versión promovida sin prerelease. |
-| Beta, /beta/ | `main`; feature todavía no integrada | Objetivo de integración `0.18.0-beta.1`; el merge permitirá construir la nueva beta. |
+| Beta, /beta/ | `main` | Web `0.18.0-beta.2` tras integrar Workstream 1. |
 | Local | `dist/calendario-hvac-siys.html` | Artefacto generado; leer la versión visible sólo como verificación del artefacto. |
 
 `stable-version.txt` es un puntero de distribución, no la fuente de la versión
-de `main`. La raíz stable sigue desde `stable-version.txt = v0.17.0`; `/beta/` se construye desde
-el código de `main` previo a la integración. La nueva línea `0.18.0-beta.1`
-se prepara en `feat/cli-cloud-client`; no se afirma que Pages ya la sirva. El puntero y el código
-local no demuestran por sí solos que las URLs públicas estén desplegadas o
-actualizadas.
+de `main`. La raíz stable sigue desde `stable-version.txt = v0.17.0`; `/beta/`
+se construye desde el código de `main` con Web `0.18.0-beta.2` al integrar
+Workstream 1. `v0.18.0-beta.1` sigue apuntando a su snapshot certificado
+anterior. La CLI continúa en `0.18.0-beta.1`. El puntero y el código local no
+demuestran por sí solos que las URLs públicas estén desplegadas o actualizadas.
 
 La distribución descrita aquí corresponde a SIYS Sync Web. Calendary CLI
 corre localmente bajo Node.js >=20 desde `bin/calendary.js`, habla por HTTPS
 con el mismo Supabase y no está incluida en el HTML ni servida por Pages.
 Actualmente se usa desde el repositorio / entorno Node, con `private: true`
-y sin canal independiente formal. Web y CLI comparten versión en esta release;
-separar versiones y elegir npm, Releases, instalador u otro mecanismo queda
-diferido. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
+y sin canal independiente formal. Web usa `WEB_VERSION` en
+`src/ui/web-version.js`; CLI usa `CLI_VERSION` en `src/cli/version.js`.
+Son técnicamente independientes: Web vale `0.18.0-beta.2` y CLI
+`0.18.0-beta.1`.
+`package.json.version` representa Web/repositorio; el layout sigue igual.
+Workstream 2 reorganizará archivos y Workstream 3 elegirá distribución y tags
+independientes. El modelo `v...` sigue siendo temporalmente autoritativo. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo
@@ -86,7 +91,7 @@ pendientes de integración tampoco equivalen a una publicación.
 ## Publicación de una beta
 
 1. Clasificar el cambio y elegir la versión según VERSIONAMIENTO.md.
-2. Actualizar package.json, package-lock.json y APP_VERSION.
+2. Actualizar package.json, package-lock.json y WEB_VERSION.
 3. Actualizar CHANGELOG.md, documentación y pruebas del contrato.
 4. Ejecutar:
 
@@ -114,7 +119,7 @@ estable separada:
 
 1. Seleccionar el commit beta aceptado.
 2. Crear un commit de promoción que quite `-beta.N` de la versión objetivo en
-   package.json, package-lock.json y APP_VERSION.
+   package.json, package-lock.json y WEB_VERSION.
 3. Regenerar dist/ y ejecutar las pruebas de estable.
 4. Crear `v<version>` sobre ese commit estable.
 5. Actualizar stable-version.txt al tag normal promovido mediante un PR hacia

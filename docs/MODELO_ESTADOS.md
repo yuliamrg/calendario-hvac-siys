@@ -1,5 +1,18 @@
 # Modelo de datos y estados — esquema 4
 
+Workstream 1: Web y CLI tienen identidades independientes, `WEB_VERSION` y
+`CLI_VERSION`, actualmente `0.18.0-beta.2` y `0.18.0-beta.1`. Package raíz
+sigue representando Web/repositorio, con layout sin cambios, tags `v...`
+vigentes y sin distribución CLI independiente todavía. Integrar el workstream
+en `main` publica la nueva beta Web en `/beta/`.
+
+El `appVersion` superior del envelope describe al Web exportador explícito
+(`exporterVersion: WEB_VERSION`), separado de `document.appVersion` legado.
+Backup `formatVersion = 1` y contrato `CONTRACT_VERSION = 1` no cambian.
+Mutaciones, importaciones y undo preservan el metadato del documento; restore
+conserva el valor del respaldo y merge el del actual, incluso si es vacío.
+No hay migración ni campos nuevos.
+
 Estado: documento de S-02, construido sobre el código local actual.
 
 Este documento describe el documento canónico que produce sanitizeDocument cuando
@@ -67,8 +80,14 @@ calendarMeta contiene únicamente:
 | createdAt | Marca de creación conservada como texto. |
 | updatedAt | Marca de última actualización del calendario; el contrato la actualiza en una mutación real salvo restauración con política preserve. |
 
-El valor inicial de revision es 0. El valor de appVersion inicial lo aporta
-APP_VERSION; en el código leído es 0.17.0. El valor de
+El valor inicial de revision es 0. `document.appVersion` es metadato legado
+opaco, no compatibilidad de documento/backend, productor ni último escritor.
+`createDefaultDocument(today, now, { appVersion })` acepta un valor explícito;
+Web aporta `WEB_VERSION = "0.18.0-beta.2"` para documentos nuevos. Sin valor,
+o con metadato histórico ausente/inválido al sanear, se conserva la forma con
+`appVersion: ""`, sin inventar una release. Valores históricos válidos se sanean
+y conservan. La compatibilidad depende de `schemaVersion = 4`.
+El valor de
 settings.holidayRuleSetVersion se fuerza al HOLIDAY_RULESET_VERSION vigente
 del código, que actualmente es CO-NATIONAL-2026-06-02.
 
@@ -418,7 +437,7 @@ executeCalendarOperation sanea y clona el documento antes de entregar el
 draft al handler. Si falla una validación, el objeto de entrada no cambia. Si
 el resultado saneado difiere del origen:
 
-1. se actualizan schemaVersion, appVersion,
+1. se conserva appVersion y se actualizan schemaVersion,
    calendarMeta.updatedAt y settings.holidayRuleSetVersion;
 2. se incrementa calendarMeta.revision exactamente una vez;
 3. se agrega la entrada global audit correspondiente y se conserva como

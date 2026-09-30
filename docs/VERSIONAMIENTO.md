@@ -17,16 +17,18 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 
 ### Fuentes autoritativas
 
-- **package.json > version**: identificador de la release de código y de la
-  CLI; es la fuente de versión de la línea que se desarrolla en `main`.
-- **src/core.js > APP_VERSION**: versión que aparece en la interfaz y que se
-  guarda en los respaldos nuevos; es la fuente de versión que consume el
-  runtime.
+- **package.json > version**: identidad de release Web/repositorio durante
+  esta transición; no es la autoridad de versión CLI.
+- **src/ui/web-version.js > WEB_VERSION**: versión del ejecutable Web, visible
+  en la interfaz y pasada explícitamente al envelope de nuevos respaldos.
+- **src/cli/version.js > CLI_VERSION**: identidad del ejecutable Calendary CLI,
+  usada por `calendary --version`, sin importar código Web.
 
-Estas dos fuentes deben tener exactamente el mismo valor. En `0.18.0-beta.1`
-Web y CLI todavía comparten la versión del producto/release del repositorio.
-Es una limitación deliberadamente conservada; evaluar versiones y distribución
-independientes queda diferido. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
+Package y Web deben coincidir. Web y CLI son independientes y actualmente
+identifican Web como `0.18.0-beta.2` y CLI como `0.18.0-beta.1`. La integración
+en `main` publica la beta Web porque Pages se ejecuta con cada push a `main`.
+El layout raíz sigue igual. La distribución CLI independiente queda pendiente
+del Workstream 3. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
 
 ### Espejos y punteros
 
@@ -36,7 +38,7 @@ independientes queda diferido. Véase [arquitectura de productos](ARQUITECTURA_P
   estable de la raíz de GitHub Pages. No es la versión de `main` y no tiene que
   coincidir con la beta en desarrollo.
 - **dist/index.html** y **dist/calendario-hvac-siys.html**: salidas generadas
-  por `npm run build`. Pueden contener una copia embebida de `APP_VERSION`, pero
+  por `npm run build`. Pueden contener una copia embebida de `WEB_VERSION`, pero
   no son fuente ni autoridad; no se editan manualmente.
 - **Tags Git**: identifican releases inmutables y usan el formato
   v<version>, por ejemplo v0.14.0-beta.1 o v0.14.0.
@@ -175,7 +177,7 @@ rama propia. No se trabaja directamente sobre `main`:
 Los commits de documentación, pruebas, build, CI y refactorización interna
 mantienen la versión mientras no cambien el alcance público de la release. Se
 identifican con mensajes Conventional Commits, por ejemplo `docs:`, `test:`,
-`build:`, `ci:`, `refactor:` o `fix:`. No se incrementa `APP_VERSION` por el
+`build:`, `ci:`, `refactor:` o `fix:`. No se incrementa `WEB_VERSION` por el
 mero hecho de crear un commit ni se edita `dist/` manualmente.
 
 Un commit de release es distinto: actualiza de forma coordinada
@@ -211,7 +213,9 @@ primero como beta.
 
 | Identificador | Qué versiona | Cuándo aumenta |
 |---|---|---|
-| APP_VERSION | Release de la aplicación | Cada publicación beta o estable. |
+| WEB_VERSION | Release de SIYS Sync Web | Cada publicación Web beta o estable. |
+| CLI_VERSION | Release de Calendary CLI | Independiente de Web; primera distribución propia pendiente. |
+| document.appVersion | Metadato legado opaco | No se incrementa con mutaciones ni se usa como compatibilidad, productor o último escritor. |
 | SCHEMA_VERSION | Formato persistido del calendario | Cuando cambia el formato o las reglas necesarias para leer/escribir documentos; debe existir migración o bloqueo explícito. |
 | CONTRACT_VERSION | Respuesta e invariantes de la frontera de operaciones | Cuando cambia de forma incompatible la API de src/calendar-contract.js o la CLI. |
 | formatVersion | Envoltura del respaldo JSON | Cuando cambia la estructura del envelope del respaldo. |
@@ -234,8 +238,10 @@ dentro del mismo proyecto. Estas versiones no describen el corte actual.
   el tag indicado por stable-version.txt.
 - Supabase se activa en estable y beta cuando Pages inyecta la configuración
   pública; el archivo local conserva IndexedDB sin autenticación.
-- Los respaldos se validan por URL, canal, versión visible, appVersion,
-  schemaVersion, revision y perfil de navegador antes de restaurarse.
+- URL, canal, versión visible, revision y perfil ayudan a verificar la operación.
+  La compatibilidad se valida por `document.schemaVersion` y backup
+  `formatVersion`; `document.appVersion` no acepta ni rechaza un documento.
+  El envelope `backup.appVersion` identifica al Web exportador explícito.
 
 Las rutas públicas documentadas son referencias de configuración. Sólo una
 verificación explícita de Pages y del smoke autenticado puede demostrar un
@@ -246,7 +252,7 @@ no lo demuestra.
 
 1. Clasificar el cambio con la matriz de la sección 2 y redactar su alcance.
 2. Elegir la versión objetivo. Una nueva línea comienza en beta.1.
-3. Actualizar package.json, package-lock.json y APP_VERSION.
+3. Actualizar package.json, package-lock.json y WEB_VERSION.
 4. Actualizar CHANGELOG.md, documentación y pruebas que describan el contrato.
 5. Ejecutar npm run goal:check y las pruebas de navegador requeridas. goal:check
    incluye build, version:check, auditoría, pruebas de código y pruebas de CLI.
@@ -270,7 +276,7 @@ La promoción es una publicación separada de la beta:
 
 1. Seleccionar el commit beta aceptado y congelar su alcance.
 2. Crear un commit de promoción con la versión normal, sin sufijo beta, en
-   package.json, package-lock.json y APP_VERSION.
+   package.json, package-lock.json y WEB_VERSION.
 3. Regenerar dist/ y ejecutar todas las validaciones de estable.
 4. Crear el tag estable sobre ese commit: `v<version>` sin prerelease.
 5. Actualizar stable-version.txt al tag normal promovido mediante un PR hacia
@@ -279,14 +285,15 @@ La promoción es una publicación separada de la beta:
 7. Si el canal beta continúa, iniciar en `main` la siguiente línea MINOR que
    corresponda a su alcance. Si se pausa, documentar explícitamente la pausa.
 
-El tag estable no debe apuntar a un commit cuyo APP_VERSION aún tenga
+El tag estable no debe apuntar a un commit cuyo WEB_VERSION aún tenga
 el sufijo beta.
 
 ## 10. Puertas mínimas
 
 Para cualquier publicación:
 
-- package.json, package-lock.json y APP_VERSION coinciden;
+- package.json, package-lock.json y WEB_VERSION coinciden; CLI_VERSION se valida
+  por separado como SemVer, sin exigir igualdad con Web;
 - stable-version.txt tiene un tag normal vMAJOR.MINOR.PATCH;
 - npm run version:check pasa;
 - npm run verify pasa;
@@ -311,15 +318,15 @@ La stable promovida el 2026-09-20 sigue en `v0.17.0`; el puntero
 `stable-version.txt` conserva ese tag normal. La promoción se mantiene como
 historial en el changelog.
 
-La siguiente línea de desarrollo es `0.18.0-beta.1`, preparada en
-`feat/cli-cloud-client` el 2026-09-29, todavía pendiente de PR e integración
-hacia `main`. Package, lock y APP_VERSION comparten esa versión, incluida la
-CLI de este release; separar versiones queda diferido. El delta incluye RPC
-atómico browser, transporte compartido y CLI cloud con lectura, escritura,
-restore/merge e identificación, con Supabase como única autoridad.
-Se conservan esquema 4 y contrato 1. El merge permitirá construir `/beta/`
-desde esta versión; no se afirma que Pages ya la sirva. El tag beta se crea
-sobre el commit integrado, después del merge; no se exige durante la preparación.
+El baseline certificado de este workstream es
+`40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`, con beta histórica
+`v0.18.0-beta.1` y stable `v0.17.0` ya certificadas. Workstream 1 desacopla
+las fuentes Web/CLI; Web avanza a `0.18.0-beta.2` porque al integrar en `main`
+Pages publica `/beta/`. CLI permanece en `0.18.0-beta.1`; el tag beta.1 queda
+inmutable y `v0.18.0-beta.2` se crea sobre el commit integrado. El modelo
+`v...` sigue autoritativo temporalmente y `release:check` conserva sus verificaciones.
+Workstream 2 reorganizará archivos; Workstream 3 definirá distribución CLI y
+tags `web-v...` / `cli-v...`. Ninguno se implementa aquí.
 
 Las versiones `0.14.0`, `0.14.1`, `0.15.0-beta.3` y las demás que aparecen en
 los ejemplos o en el changelog se conservan como historial. No deben leerse

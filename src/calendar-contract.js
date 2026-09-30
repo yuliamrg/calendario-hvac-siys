@@ -1,6 +1,5 @@
 import {
   ACTIVITY_STATUSES,
-  APP_VERSION,
   BULK_EDIT_FIELDS,
   HOLIDAY_RULESET_VERSION,
   PLANNING_BUCKETS,
@@ -349,7 +348,7 @@ function appendContractAudit(document, entry) {
   if (document.audit.length > 500) document.audit.splice(0, document.audit.length - 500);
 }
 
-function finalizeMutation(source, draft, { operation, now, result, warnings, audit, revisionPolicy, appVersion }) {
+function finalizeMutation(source, draft, { operation, now, result, warnings, audit, revisionPolicy }) {
   const changed = JSON.stringify(source) !== JSON.stringify(draft);
   if (!changed) {
     return {
@@ -364,7 +363,6 @@ function finalizeMutation(source, draft, { operation, now, result, warnings, aud
   }
 
   if (revisionPolicy !== "preserve") {
-    draft.appVersion = appVersion ?? APP_VERSION;
     draft.schemaVersion = SCHEMA_VERSION;
     draft.calendarMeta.revision = source.calendarMeta.revision + 1;
     draft.calendarMeta.updatedAt = now;
@@ -1219,8 +1217,7 @@ export function executeCalendarOperation(document, request, options = {}) {
       result: outcome.result,
       warnings: outcome.warnings,
       audit: outcome.audit,
-      revisionPolicy: outcome.revisionPolicy,
-      appVersion: options.appVersion
+      revisionPolicy: outcome.revisionPolicy
     });
   } catch (error) {
     if (error instanceof CalendarContractError) throw error;

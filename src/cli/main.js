@@ -1,6 +1,6 @@
 import { stdin as defaultStdin, stdout as defaultStdout, stderr as defaultStderr } from "node:process";
 import { CALENDAR_OPERATIONS, CalendarContractError, executeCalendarOperation } from "../calendar-contract.js";
-import { APP_VERSION } from "../core.js";
+import { CLI_VERSION } from "./version.js";
 import { CLOUD_COMMANDS, HELP, buildPayload, parseCli } from "./arguments.js";
 import { createSupabaseAuthClient, supabaseConfigFromEnv } from "./cloud-auth.js";
 import { CloudCliError } from "./cloud-errors.js";
@@ -109,7 +109,7 @@ export async function runCli(argv, io = {}) {
   try {
     const parsed = parseCli(argv);
     values = parsed.values;
-    if (parsed.version) { stdout.write(`${APP_VERSION}\n`); return 0; }
+    if (parsed.version) { stdout.write(`${CLI_VERSION}\n`); return 0; }
     if (parsed.help) { stdout.write(HELP); return 0; }
     if (values["as-of"] !== undefined) throw new CloudCliError("HISTORICAL_QUERY_UNSUPPORTED", "La CLI solo soporta current cloud state; no admite consultas históricas as-of.");
     if (CLOUD_COMMANDS.has(parsed.operation)) return await runCloudCommand(parsed.operation, values, { ...io, stdin }, stdout, stderr);
@@ -136,9 +136,7 @@ export async function runCli(argv, io = {}) {
     if (!["human", "json"].includes(values.output)) throw new CloudCliError("INVALID_REQUEST", "--output debe ser human o json.");
     await confirmDestructive(operation, values, stdin, stdout);
     const payload = await buildPayload(operation, values);
-    const outcome = executeCalendarOperation(input.document, { operation, payload }, {
-      appVersion: input.document.appVersion
-    });
+    const outcome = executeCalendarOperation(input.document, { operation, payload });
     if (operation === "calendar.export-csv" || operation === "calendar.export-quarantine-csv") {
       if (values["csv-output"]) await writeNewTextFile(values["csv-output"], outcome.result.content);
       else stdout.write(outcome.result.content);

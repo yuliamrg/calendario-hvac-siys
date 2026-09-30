@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { CLI_VERSION } from "../src/cli/version.js";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -29,11 +29,10 @@ test("la ayuda describe una CLI cloud-only con operando y salidas seguras", () =
   assert.doesNotMatch(result.stdout, /--write archivo/);
 });
 
-test("--version imprime la versión del paquete", () => {
+test("--version imprime la identidad CLI independiente", () => {
   const result = cli(["--version"]);
   assert.equal(result.status, 0);
-  const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
-  assert.equal(result.stdout.trim(), packageJson.version);
+  assert.equal(result.stdout.trim(), CLI_VERSION);
 });
 
 test("--source file retirado se rechaza antes de cualquier red", () => {

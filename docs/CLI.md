@@ -1,5 +1,19 @@
 # CLI `calendary`
 
+`calendary --version` usa `src/cli/version.js > CLI_VERSION`, hoy
+`0.18.0-beta.1`, independiente de `WEB_VERSION` (hoy también `0.18.0-beta.1`).
+La igualdad es transitoria: el chequeo Web no requiere que CLI coincida.
+La CLI no importa versión Web ni pasa `document.appVersion` al contrato para
+sellar mutaciones. Ese campo es metadato legado opaco, no compatibilidad ni
+identidad del último escritor. Las mutaciones lo conservan; restore toma el
+del respaldo y merge conserva el actual. Schema sigue en 4, contrato en 1 y
+formato de respaldo en 1.
+
+El layout físico raíz no cambia y `package.json.version` sigue representando
+Web/repositorio. No hay distribución CLI independiente todavía; se definirá en
+Workstream 3, junto con su primer número y tags propios. El modelo histórico
+`v...` sigue temporalmente autoritativo. Workstream 2 reorganizará archivos.
+
 La CLI es una capa local y portable sobre el mismo contrato de la interfaz.
 Supabase es la única autoridad del calendario: la CLI autentica, lee el
 documento actual del calendario seleccionado, ejecuta el contrato y, cuando hay

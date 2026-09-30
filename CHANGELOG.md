@@ -1,5 +1,22 @@
 # Historial de cambios
 
+## [0.18.0-beta.2] - 2026-09-29
+
+### Identidades independientes de producto
+
+- El código compartido deja de poseer una versión de producto; Web y Calendary
+  CLI declaran identidades independientes.
+- Web avanza a `0.18.0-beta.2` porque integrar en `main` vuelve a publicar
+  `/beta/`; Calendary CLI conserva `0.18.0-beta.1`.
+- `document.appVersion` queda como metadato legado preservado. El exportador
+  Web pasa su versión explícitamente al envelope del respaldo.
+- Se conservan `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y
+  `formatVersion = 1`; no hay cambios de backend ni reorganización física del
+  monorepo en Workstream 1.
+- El tag histórico `v0.18.0-beta.1` permanece inmutable; el tag Web
+  `v0.18.0-beta.2` se crea después de integrar el commit que pasa CI y Pages.
+  Stable continúa en `v0.17.0`.
+
 ## [0.18.0-beta.1] - 2026-09-29
 
 ### Nuevas capacidades y arquitectura

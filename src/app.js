@@ -1,6 +1,6 @@
+import { WEB_VERSION } from "./ui/web-version.js";
 import {
   ACTIVITY_STATUSES,
-  APP_VERSION,
   BULK_EDIT_FIELDS,
   HOLIDAY_RULESET_VERSION,
   PLANNING_BUCKETS,
@@ -128,7 +128,7 @@ const dom = Object.fromEntries(
   [...document.querySelectorAll("[id]")].map((element) => [element.id, element])
 );
 
-let appDocument = createDefaultDocument();
+let appDocument = createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
 let database = null;
 let saveTimer = null;
 let saveChain = Promise.resolve();
@@ -604,7 +604,7 @@ async function handleCloudCalendarChange(event) {
     await flushSave();
     await cloudPersistence.selectCalendar(nextCalendarId);
     const current = await cloudPersistence.read();
-    appDocument = current?.document ? sanitizeDocument(current.document) : createDefaultDocument();
+    appDocument = current?.document ? sanitizeDocument(current.document) : createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
     selectedActivityIds.clear();
     mutationController.clearUndo();
     activeDrawer = null;
@@ -680,7 +680,7 @@ async function initializeEditLock() {
     if (event.data?.type === "data-reset" && event.data.ownerId !== tabId) {
       readStoredDocument("current")
         .then((stored) => {
-          appDocument = stored ? sanitizeDocument(stored) : createDefaultDocument();
+          appDocument = stored ? sanitizeDocument(stored) : createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
           selectedActivityIds.clear();
           activeDrawer = null;
           closeDrawer();
@@ -843,7 +843,6 @@ mutationController = createMutationController({
   cloneDocument: clone,
   executeOperation: executeCalendarOperation,
   appendAudit,
-  appVersion: APP_VERSION,
   schemaVersion: SCHEMA_VERSION,
   holidayRuleSetVersion: HOLIDAY_RULESET_VERSION,
   render: renderAll,
@@ -3575,7 +3574,8 @@ async function createBackup() {
   const envelope = createBackupEnvelope(appDocument, {
     exportedAt: appDocument.settings.lastBackupAt,
     origin: `${runtimeMode()} · ${location.origin}`,
-    channel: RUNTIME_CHANNEL
+    channel: RUNTIME_CHANNEL,
+    exporterVersion: WEB_VERSION
   });
   downloadBlob(
     JSON.stringify(envelope, null, 2),
@@ -3605,8 +3605,7 @@ async function handleResetDataSubmit(event) {
     await createBackup();
     await flushSave();
     await clearStoredDocuments();
-    appDocument = createDefaultDocument();
-    appDocument.appVersion = APP_VERSION;
+    appDocument = createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
     mutationController.clearUndo();
     selectedActivityIds.clear();
     activeDrawer = null;
@@ -4379,7 +4378,7 @@ function initializeStaticOptions() {
       .filter(([value]) => value !== "to_schedule")
       .map(([value, label]) => option(value, label))
   );
-  dom.versionLabel.textContent = `Versión ${APP_VERSION} · festivos ${HOLIDAY_RULESET_VERSION}`;
+  dom.versionLabel.textContent = `Versión ${WEB_VERSION} · festivos ${HOLIDAY_RULESET_VERSION}`;
   dom.betaBadge.hidden = RUNTIME_CHANNEL !== "beta";
 }
 
@@ -4722,14 +4721,14 @@ async function loadInitialDocument() {
       if (!restored) await waitForCloudAuthentication();
       const legacyLocalDocument = await readLegacyStableDocument();
       const initial = legacyLocalDocument
-        ? { ...legacyLocalDocument, appVersion: APP_VERSION }
-        : createDefaultDocument();
+        ? { ...legacyLocalDocument }
+        : createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
       const current = await cloudPersistence.initialize({ initialDocument: initial });
       let document = current?.document ? sanitizeDocument(current.document) : initial;
       const shouldMigrate = legacyLocalDocument && !current?.initializedFromInitial &&
         shouldMigrateLocalDocument(legacyLocalDocument, document);
       if (shouldMigrate) {
-        const migratedDocument = { ...legacyLocalDocument, appVersion: APP_VERSION };
+        const migratedDocument = { ...legacyLocalDocument };
         await cloudPersistence.write(migratedDocument);
         document = sanitizeDocument(migratedDocument);
         cloudMigrationNotice = "Se trasladaron los datos locales de la stable anterior a Supabase. La copia local se conservó.";
@@ -4771,7 +4770,7 @@ async function loadInitialDocument() {
         throw currentError;
       }
     }
-    return createDefaultDocument();
+    return createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
   } catch (error) {
     storageAvailable = false;
     setSaveIndicator("error", "Sin guardado local");
@@ -4779,7 +4778,7 @@ async function loadInitialDocument() {
       `El navegador no permitió abrir el almacenamiento local. Trabaja sólo si vas a descargar un respaldo: ${error.message}`,
       { type: "error", duration: 12000 }
     );
-    return createDefaultDocument();
+    return createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
   }
 }
 

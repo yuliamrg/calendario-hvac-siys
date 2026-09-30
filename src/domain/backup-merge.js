@@ -55,8 +55,7 @@ export function mergeBackupDocuments(
     sanitizeDocument,
     validateActivity,
     makeId,
-    schemaVersion,
-    appVersion
+    schemaVersion
   }
 ) {
   const current = sanitizeDocument(currentRaw);
@@ -252,7 +251,6 @@ export function mergeBackupDocuments(
   const usedSeries = new Set(document.activities.map((item) => item.seriesId).filter(Boolean));
   document.series = document.series.filter((item) => usedSeries.has(item.id));
   document.schemaVersion = schemaVersion;
-  document.appVersion = appVersion;
   document.calendarMeta = structuredClone(current.calendarMeta);
   document.settings = structuredClone(current.settings);
   document.importMetadata = structuredClone(current.importMetadata);

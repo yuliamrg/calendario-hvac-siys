@@ -98,7 +98,6 @@ test("el controlador conserva undo, metadatos y restauración al usar la fachada
     canEdit: () => true,
     executeOperation: (source) => ({ changed: true, document: { ...structuredClone(source), value: 9 } }),
     appendAudit: (action, detail) => document.audit.push({ action, detail }),
-    appVersion: "current",
     schemaVersion: 4,
     holidayRuleSetVersion: "rules",
     render: () => events.push("render"),
@@ -120,7 +119,7 @@ test("el controlador conserva undo, metadatos y restauración al usar la fachada
   controller.clearUndo();
   controller.mutate("meta", "Cambio directo", () => { document.value = 5; });
   assert.equal(document.value, 5);
-  assert.equal(document.appVersion, "current");
+  assert.equal(document.appVersion, "old");
   assert.equal(document.schemaVersion, 4);
   assert.equal(document.calendarMeta.revision, 3);
   assert.equal(controller.hasUndo(), true);
