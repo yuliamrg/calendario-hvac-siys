@@ -16,9 +16,13 @@ const makeDocument = (appVersion = "0.6.0") => core.createDefaultDocument("2026-
 const operate = (document, operation, payload) => executeCalendarOperation(document, { operation, payload }, { now: NOW });
 
 test("Web and CLI expose explicit transitional identities; shared core owns no release", async () => {
-  assert.equal(WEB_VERSION, "0.18.0-beta.1");
+  assert.equal(WEB_VERSION, "0.18.0-beta.2");
   assert.equal(CLI_VERSION, "0.18.0-beta.1");
-  assert.equal((await import("../package.json", { with: { type: "json" } })).default.version, WEB_VERSION);
+  const packageVersion = (await import("../package.json", { with: { type: "json" } })).default.version;
+  assert.equal(packageVersion, WEB_VERSION);
+  assert.equal(WEB_VERSION, "0.18.0-beta.2");
+  assert.equal(CLI_VERSION, "0.18.0-beta.1");
+  assert.notEqual(WEB_VERSION, CLI_VERSION);
   for (const symbol of ["APP_VERSION", "WEB_VERSION", "CLI_VERSION"]) assert.equal(symbol in core, false);
   assert.equal(core.SCHEMA_VERSION, 4);
   assert.equal(CONTRACT_VERSION, 1);

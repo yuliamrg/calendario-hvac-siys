@@ -2,21 +2,22 @@
 
 ## Alcance y corte verificado
 
-Este documento describe la transición del Workstream 1 de Platform
-Architecture V2 desde el main certificado `40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`.
-Web y CLI conservan `0.18.0-beta.1` con identidades independientes. Stable sigue
-en `v0.17.0`; ambas releases certificadas se conservan sin republicación.
+Este documento describe el cierre de Workstream 1 de Platform Architecture V2
+desde el main certificado `40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`. Web
+publica `0.18.0-beta.2` al integrar en `main`, porque Pages despliega con cada
+push; CLI conserva `0.18.0-beta.1`. Stable sigue en `v0.17.0` y
+`v0.18.0-beta.1` conserva su snapshot certificado histórico.
 
 ## Fuentes autoritativas
 
 | Dato | Fuente autoritativa | Hecho verificado |
 | --- | --- | --- |
-| Release Web/repositorio | `package.json`, campo `version` | `0.18.0-beta.1`; no versiona CLI |
+| Release Web/repositorio | `package.json`, campo `version` | `0.18.0-beta.2`; no versiona CLI |
 | Versión de Calendary CLI | `src/cli/version.js`, `CLI_VERSION` | `0.18.0-beta.1`, independiente de Web |
-| Versión Web visible y del exportador de respaldos | `src/ui/web-version.js`, `WEB_VERSION` | `0.18.0-beta.1`, igual a `package.json` |
-| Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.18.0-beta.1` |
+| Versión Web visible y del exportador de respaldos | `src/ui/web-version.js`, `WEB_VERSION` | `0.18.0-beta.2`, igual a `package.json` |
+| Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.18.0-beta.2` |
 | Puntero estable | `stable-version.txt` | `v0.17.0`, tag normal promovido |
-| Historial de cambios | `CHANGELOG.md` | La entrada actual prepara `0.18.0-beta.1`; conserva la promoción estable como historial |
+| Historial de cambios | `CHANGELOG.md` | La entrada actual prepara `0.18.0-beta.2`; conserva beta.1 y la promoción estable como historial |
 | Manifiesto y algoritmo de empaquetado | `scripts/build.mjs` | La lista se expresa relativa a `src/` y se valida contra el grafo de `src/app.js` |
 | Fuente de ejecución web | `src/app.js` y sus módulos locales | Se concatena en un HTML; los imports locales se eliminan después de incluir los módulos |
 
@@ -97,7 +98,7 @@ deben repetirse después de integrar.
 | --- | --- | --- |
 | Local | `dist/calendario-hvac-siys.html` | Archivo descargable; `file:`, localhost y servidores locales conservan la ruta local |
 | Stable | Tag normal indicado por `stable-version.txt` (`v0.17.0`) | Raíz de GitHub Pages |
-| Beta | Se construye desde `main`, versión Web `0.18.0-beta.1` | `/beta/`; este refactor no cambia versión ni triggers |
+| Beta | Se construye desde `main`, versión Web `0.18.0-beta.2` | `/beta/`; integrar Workstream 1 activa Pages por push a `main` |
 
 `.github/workflows/pages.yml` comprueba `stable-version.txt`, obtiene ese tag
 en `stable-src`, verifica stable y beta por separado, y copia
@@ -148,8 +149,10 @@ build, `version:check`, `audit` y verifica que el build no deje diferencias en
   commit integrado que pasó CI.
 - `stable-version.txt` apunta a `v0.17.0`; Pages usa ese tag para la raíz
   estable.
-- Beta `v0.18.0-beta.1` ya está certificada. Workstream 1 conserva ese tag
-  y el puntero stable `v0.17.0`; no crea releases ni tags.
+- Beta `v0.18.0-beta.1` ya está certificada y permanece inmutable. La
+  integración de Workstream 1 publica Web `0.18.0-beta.2`; su tag
+  `v0.18.0-beta.2` se crea después de integrar y verificar CI, Pages y la URL
+  pública. CLI conserva `0.18.0-beta.1` y stable conserva `v0.17.0`.
 - El gate de publicación se verificó con pruebas de navegador, smoke
   autenticado, Pages, Supabase y migraciones.
 - Los módulos de aplicación deben recibir sus dependencias por argumentos y
@@ -164,8 +167,8 @@ build, `version:check`, `audit` y verifica que el build no deje diferencias en
 
 La CLI corre localmente bajo Node.js >=20 desde `bin/calendary.js`;
 `src/cli/*` queda fuera del manifiesto HTML. `package.json` sigue privado y
-sin workspaces y sin reorganización física. Las versiones son técnicamente
-independientes aunque hoy ambas valen `0.18.0-beta.1`. La distribución CLI
+sin workspaces y sin reorganización física. Web usa `0.18.0-beta.2` y CLI
+`0.18.0-beta.1`, como prueba concreta de identidades independientes. La distribución CLI
 independiente queda para Workstream 3; la estructura física, para Workstream 2.
 El modelo antiguo de tags `v...` sigue temporalmente autoritativo.
 `document.appVersion` es metadato legado, conservado en mutaciones; la

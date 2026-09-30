@@ -60,14 +60,15 @@ clientes; Web stable y beta conservan calendarios lógicos separados.
 
 ## Identidades independientes, transición actual
 
-- Web: `src/ui/web-version.js > WEB_VERSION = "0.18.0-beta.1"`.
+- Web: `src/ui/web-version.js > WEB_VERSION = "0.18.0-beta.2"`.
 - CLI: `src/cli/version.js > CLI_VERSION = "0.18.0-beta.1"`.
 - `package.json.version` sigue representando la release Web/repositorio y debe
   coincidir con `WEB_VERSION`; `package-lock.json` conserva su espejo.
 
-La igualdad actual Web/CLI es coincidental y transitoria. Las pruebas cambian
-la fuente CLI en una copia temporal y comprueban `--version` y los gates Web,
-sin exigir igualdad. No se selecciona una primera release CLI independiente.
+Web y CLI ya tienen valores distintos: esta es la primera prueba real de
+identidades independientes. Las pruebas también conservan un caso temporal
+hipotético para comprobar `--version` y los gates Web. No se selecciona una
+primera release CLI independiente.
 El núcleo compartido no exporta `APP_VERSION` ni posee una release de producto.
 Se mantienen `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`, backup
 `formatVersion = 1` y `stable-version.txt = v0.17.0`.
@@ -102,9 +103,13 @@ sin distribución independiente. No se crea ZIP, npm release ni GitHub Release.
 ## Tags y publicación vigentes
 
 El modelo histórico `v<version>` sigue siendo temporalmente autoritativo para
-Web/repositorio. Los tags certificados `v0.17.0` y `v0.18.0-beta.1` permanecen
-intactos. Este refactor no modifica ni republica las versiones certificadas.
+Web/repositorio. `v0.18.0-beta.1` permanece como snapshot histórico inmutable;
+la integración de Workstream 1 publica Web `0.18.0-beta.2` porque Pages se
+despliega con cada push a `main`. El tag `v0.18.0-beta.2` se crea después de
+integrar, sobre el commit integrado. Calendary CLI permanece en
+`0.18.0-beta.1`.
 `release:check` conserva los gates del tag estable y del tag Web actual
 sobre HEAD cuando se solicita `--require-current-tag`; una rama de refactor no
 es un nuevo tag de release. Pages mantiene sus triggers y stable conserva
-el puntero `v0.17.0`. No se modifica Supabase ni la topología CI.
+el puntero `v0.17.0`. No se modifica Supabase ni la topología CI. Workstream 2
+y Workstream 3 siguen pendientes.

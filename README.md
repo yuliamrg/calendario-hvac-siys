@@ -1,13 +1,16 @@
 # SIYS Sync
 
-Platform Architecture V2, Workstream 1: las versiones son técnicamente
-independientes. `src/ui/web-version.js > WEB_VERSION` identifica SIYS Sync Web;
-`src/cli/version.js > CLI_VERSION` identifica Calendary CLI. Actualmente ambas
-valen `0.18.0-beta.1` por transición, sin obligación de igualdad. La versión
-raíz de `package.json` sigue representando la release Web/repositorio.
+Platform Architecture V2, Workstream 1: SIYS Sync Web usa
+`0.18.0-beta.2` y Calendary CLI conserva `0.18.0-beta.1`. Sus identidades son
+independientes: `src/ui/web-version.js > WEB_VERSION` identifica Web y
+`src/cli/version.js > CLI_VERSION` identifica CLI. La versión raíz de
+`package.json` sigue representando la release Web/repositorio. Integrar este
+workstream en `main` publica el Web beta en `/beta/` mediante Pages.
 El layout físico sigue igual, sin workspaces ni distribución CLI independiente.
-El modelo de tags `v...` sigue siendo autoritativo temporalmente; los tags
-certificados `v0.17.0` y `v0.18.0-beta.1` se conservan.
+El modelo de tags `v...` sigue siendo autoritativo temporalmente;
+`v0.18.0-beta.1` permanece como snapshot histórico inmutable, el tag
+`v0.18.0-beta.2` se crea sobre el commit integrado y stable conserva
+`v0.17.0`.
 `document.appVersion` es metadato legado opaco; la compatibilidad del documento
 la determina `schemaVersion` y la del respaldo, `formatVersion`.
 

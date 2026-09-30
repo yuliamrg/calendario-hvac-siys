@@ -24,10 +24,11 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 - **src/cli/version.js > CLI_VERSION**: identidad del ejecutable Calendary CLI,
   usada por `calendary --version`, sin importar código Web.
 
-Package y Web deben coincidir. Web y CLI son técnicamente independientes:
-actualmente ambas valen `0.18.0-beta.1` por transición y sus pruebas permiten
-valores distintos. El layout raíz sigue igual. La distribución CLI independiente
-y su primer número de release quedan pendientes del Workstream 3. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
+Package y Web deben coincidir. Web y CLI son independientes y actualmente
+identifican Web como `0.18.0-beta.2` y CLI como `0.18.0-beta.1`. La integración
+en `main` publica la beta Web porque Pages se ejecuta con cada push a `main`.
+El layout raíz sigue igual. La distribución CLI independiente queda pendiente
+del Workstream 3. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
 
 ### Espejos y punteros
 
@@ -318,10 +319,12 @@ La stable promovida el 2026-09-20 sigue en `v0.17.0`; el puntero
 historial en el changelog.
 
 El baseline certificado de este workstream es
-`40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`, con beta `v0.18.0-beta.1`
-y stable `v0.17.0` ya certificadas. Workstream 1 desacopla las fuentes Web/CLI
-sin cambiar los valores actuales ni republicar estos tags. El modelo `v...`
-sigue autoritativo temporalmente y `release:check` conserva sus verificaciones.
+`40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`, con beta histórica
+`v0.18.0-beta.1` y stable `v0.17.0` ya certificadas. Workstream 1 desacopla
+las fuentes Web/CLI; Web avanza a `0.18.0-beta.2` porque al integrar en `main`
+Pages publica `/beta/`. CLI permanece en `0.18.0-beta.1`; el tag beta.1 queda
+inmutable y `v0.18.0-beta.2` se crea sobre el commit integrado. El modelo
+`v...` sigue autoritativo temporalmente y `release:check` conserva sus verificaciones.
 Workstream 2 reorganizará archivos; Workstream 3 definirá distribución CLI y
 tags `web-v...` / `cli-v...`. Ninguno se implementa aquí.
 

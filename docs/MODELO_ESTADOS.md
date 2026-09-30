@@ -1,9 +1,10 @@
 # Modelo de datos y estados — esquema 4
 
-Workstream 1: Web y CLI tienen identidades técnicamente independientes,
-`WEB_VERSION` y `CLI_VERSION`, hoy ambas `0.18.0-beta.1`. Package raíz sigue
-representando Web/repositorio, con layout sin cambios, tags `v...` vigentes y
-sin distribución CLI independiente todavía.
+Workstream 1: Web y CLI tienen identidades independientes, `WEB_VERSION` y
+`CLI_VERSION`, actualmente `0.18.0-beta.2` y `0.18.0-beta.1`. Package raíz
+sigue representando Web/repositorio, con layout sin cambios, tags `v...`
+vigentes y sin distribución CLI independiente todavía. Integrar el workstream
+en `main` publica la nueva beta Web en `/beta/`.
 
 El `appVersion` superior del envelope describe al Web exportador explícito
 (`exporterVersion: WEB_VERSION`), separado de `document.appVersion` legado.
@@ -82,7 +83,7 @@ calendarMeta contiene únicamente:
 El valor inicial de revision es 0. `document.appVersion` es metadato legado
 opaco, no compatibilidad de documento/backend, productor ni último escritor.
 `createDefaultDocument(today, now, { appVersion })` acepta un valor explícito;
-Web aporta `WEB_VERSION = "0.18.0-beta.1"` para documentos nuevos. Sin valor,
+Web aporta `WEB_VERSION = "0.18.0-beta.2"` para documentos nuevos. Sin valor,
 o con metadato histórico ausente/inválido al sanear, se conserva la forma con
 `appVersion: ""`, sin inventar una release. Valores históricos válidos se sanean
 y conservan. La compatibilidad depende de `schemaVersion = 4`.

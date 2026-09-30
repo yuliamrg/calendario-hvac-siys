@@ -1,8 +1,9 @@
 # Operación de respaldos JSON
 
 Corte Workstream 1: `WEB_VERSION` (`src/ui/web-version.js`) y `CLI_VERSION`
-(`src/cli/version.js`) son técnicamente independientes y hoy ambas valen
-`0.18.0-beta.1`. Package raíz sigue representando Web/repositorio; layout físico
+(`src/cli/version.js`) son independientes y actualmente valen
+`0.18.0-beta.2` y `0.18.0-beta.1`. Integrar Workstream 1 en `main` publica la
+nueva beta Web en `/beta/`. Package raíz sigue representando Web/repositorio; layout físico
 sin cambios, tags `v...` temporalmente autoritativos y distribución CLI propia
 pendiente del Workstream 3. Stable conserva `v0.17.0`.
 
