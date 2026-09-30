@@ -15,10 +15,12 @@ El HTML servido en `localhost`, `127.0.0.1` o `::1` también se identifica como
 canal local: conserva IndexedDB y hereda la interfaz visual aprobada de la beta.
 Sólo las rutas pública estable y beta activan Supabase.
 
-El repositorio también incluye la CLI `calendary` para inspeccionar y modificar
-copias JSON sin acceder directamente a IndexedDB, y para leer o mutar el
-documento cloud mediante la misma operación atómica de persistencia. Consulte
-la [guía de la CLI](docs/CLI.md), el
+El repositorio también incluye la CLI `calendary`. Para operar el calendario
+exige `--source cloud`: Supabase es la única autoridad y la CLI lee o muta el
+documento cloud mediante la misma operación atómica de persistencia, sin
+acceder directamente a IndexedDB. Los archivos JSON sólo entran como operando
+(`--backup-file`, `--payload-file`) o salida (`--csv-output`). Consulte la
+[guía de la CLI](docs/CLI.md), el
 [contrato compartido](docs/CONTRATO_CALENDARIO.md) y el
 [runbook de respaldos](docs/OPERACION_RESPALDOS_JSON.md).
 

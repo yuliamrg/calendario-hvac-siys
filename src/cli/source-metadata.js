@@ -21,21 +21,3 @@ export function documentRevision(document) {
   if (revision === undefined || revision === null || revision === "") return null;
   return Number.isInteger(Number(revision)) && Number(revision) >= 0 ? Number(revision) : null;
 }
-
-export function fileSourceMetadata(document, envelope = {}, observedAt = new Date().toISOString()) {
-  return {
-    kind: "file",
-    channel: envelope.channel ?? null,
-    calendarId: document?.calendarMeta?.id ?? null,
-    legacyId: null,
-    calendarName: document?.calendarMeta?.name ?? null,
-    createdBy: null,
-    ownerName: null,
-    cloudRevision: null,
-    documentRevision: documentRevision(document),
-    documentUpdatedAt: document?.calendarMeta?.updatedAt ?? null,
-    observedAt,
-    documentHash: documentHash(document),
-    warnings: []
-  };
-}

@@ -2,52 +2,52 @@ import { parseArgs } from "node:util";
 import { CALENDAR_OPERATIONS } from "../calendar-contract.js";
 import { readCalendarFile } from "./files.js";
 
-export const HELP = `calendary — calendario HVAC local por archivos JSON o cloud (lectura y mutaciones habilitadas)
+export const HELP = `calendary — calendario HVAC SI&S con Supabase como única autoridad
 
 Uso:
   calendary <grupo> <acción> [opciones]
 
 Grupos y acciones:
-  calendar  inspect | export-csv | export-quarantine-csv
-  activity  list | get | create | edit | move | quarantine | assign-date | duplicate | extend | extend-range | status | bulk-edit | delete
+  calendar  inspect | identify | export-csv | export-quarantine-csv
+  activity  list | get | create | edit | move | reorder | quarantine | assign-date | duplicate | extend | extend-range | status | bulk-edit | delete
   catalog   list | upsert
   holiday   list | add | delete
   backup    restore | merge
   document  normalize-text
   cloud     login | whoami | logout | calendars
 
+Selección del calendario cloud (obligatoria):
+  --source cloud           Supabase es la única autoridad del calendario. No existe modo file.
+  --channel stable|beta    Canal Supabase explícito
+  --calendar-id UUID       Calendario cloud inequívoco
+  --mine                   Restringe la selección a created_by del usuario autenticado
+  Sin --source cloud la CLI falla con INVALID_REQUEST antes de cualquier red.
+
 Contrato de entrada:
   --payload '<json>'       Objeto exacto de la operación (recomendado para automatización)
-  --payload-file archivo   Objeto exacto de la operación en un archivo JSON
+  --payload-file archivo   Objeto exacto de la operación en un archivo JSON (operando, no estado)
   También se aceptan opciones de primer nivel: --activity-id, --activity-ids,
   --target-date, --date, --end-date, --from-date, --to-date, --status, --scope, --type, --id,
   --year, --month, --from, --to, --field, --value, --mode y --values.
 
 Archivos y seguridad:
-  --source file|cloud      Autoridad/target del calendario (file por defecto)
-  --backup-file archivo    Respaldo JSON para backup restore|merge (sólo operando)
-  --input archivo          Documento actual; obligatorio con --source file
-  --write archivo          Nuevo documento; sólo aplica al modo file
-  --dry-run                Valida y muestra el resultado sin escribir ni persistir en cloud
+  --backup-file archivo    Respaldo JSON para backup restore|merge (sólo operando; no es autoridad)
+  --csv-output archivo     Destino de calendar export-csv|export-quarantine-csv (sólo salida)
+  --dry-run                Autentica, lee el documento real y ejecuta el contrato sin persistir
   --yes                    Confirma delete y restore sin preguntar
   --allow-non-working      Autoriza domingos o festivos
 
 Cloud:
-  --channel stable|beta    Canal Supabase explícito
-  --calendar-id UUID       Calendario cloud inequívoco
-  --mine                   Restringe la selección a created_by del usuario autenticado
   --as-of valor            No soportado: falla con HISTORICAL_QUERY_UNSUPPORTED
   --email correo           Email para cloud login (la contraseña nunca va en argv)
   --password-stdin         Lee la contraseña desde stdin sin mostrarla
-  cloud soporta lectura y las mutaciones de calendar.identify, activity, catalog,
-  holiday, document, backup.restore y backup.merge. cloud no admite --write ni
-  --input; para restore/merge el respaldo se indica con --backup-file y persiste
-  en el calendario seleccionado con una escritura atómica de documento y metadata.
-  --dry-run no persiste.
+  Las mutaciones persisten por el RPC atómico persist_calendar_document con CAS
+  sobre calendar_documents.revision y sincronizan name/coordinator en una sola
+  transacción. backup restore|merge usan --backup-file y persisten en el
+  calendario seleccionado. --dry-run no persiste.
 
 Salida:
   --output human|json      Formato de consola (predeterminado: human)
-  --csv-output archivo     Destino de calendar export-csv
   --quiet                  No imprime éxito de escrituras
   --debug                  Incluye la causa técnica de errores
   --help                   Muestra esta ayuda
@@ -55,7 +55,7 @@ Salida:
 `;
 
 const VALUE_OPTIONS = [
-  "input", "write", "source", "backup-file", "payload", "payload-file", "output", "csv-output",
+  "source", "backup-file", "payload", "payload-file", "output", "csv-output",
   "activity-id", "activity-ids", "target-date", "date", "end-date", "from-date", "to-date", "status", "scope",
   "common-scope", "status-scope", "type", "id", "override-id", "year", "month", "from", "to",
   "field", "value", "mode", "values", "client-id", "site-id", "city", "responsible-ids",
@@ -104,7 +104,7 @@ export async function buildPayload(operation, values) {
     "planning-bucket": "planningBucket"
   };
   for (const key of VALUE_OPTIONS) {
-    if (values[key] === undefined || ["input", "write", "source", "backup-file", "payload", "payload-file", "output", "csv-output", "channel", "calendar-id", "as-of", "email"].includes(key)) continue;
+    if (values[key] === undefined || ["source", "backup-file", "payload", "payload-file", "output", "csv-output", "channel", "calendar-id", "as-of", "email"].includes(key)) continue;
     let value = values[key];
     if (["activity-ids", "responsible-ids", "responsible-names"].includes(key)) value = split(value);
     if (["year", "month"].includes(key)) value = Number(value);

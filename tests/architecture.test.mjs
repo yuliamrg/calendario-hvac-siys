@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   checkArchitecture,
   classifyModule,
+  extractLocalImportSpecifiers,
   findForbiddenPackageReferences,
   findForbiddenSemanticReferences,
   findForbiddenSupabaseRuntimeImports,
@@ -19,9 +20,14 @@ test("el grafo real de src respeta las fronteras y captura la CLI completa", asy
   assert.equal(classifyModule("app.js"), "composition");
   assert.equal(report.modules.includes("cli/main.js"), true);
   assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/files.js"),
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-read.js"),
     true,
-    "El grafo debe incluir el import() dinámico de la CLI"
+    "El grafo debe capturar la ruta de lectura cloud de la CLI"
+  );
+  assert.equal(
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-write.js"),
+    true,
+    "El grafo debe capturar la frontera de escritura cloud de la CLI"
   );
 });
 
@@ -57,9 +63,14 @@ test("el grafo real de src respeta las fronteras y captura la CLI completa", asy
   assert.equal(classifyModule("app.js"), "composition");
   assert.equal(report.modules.includes("cli/main.js"), true);
   assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/files.js"),
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-read.js"),
     true,
-    "El grafo debe incluir el import() dinámico de la CLI"
+    "El grafo debe capturar la ruta de lectura cloud de la CLI"
+  );
+  assert.equal(
+    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-write.js"),
+    true,
+    "El grafo debe capturar la frontera de escritura cloud de la CLI"
   );
 });
 
@@ -339,6 +350,19 @@ test("cloud puede importar la capa supabase", async () => {
 
   assert.equal(report.ok, true, formatArchitectureReport(report));
   assert.equal(report.violations.length, 0);
+});
+
+test("extractLocalImportSpecifiers detecta imports locales estáticos y dinámicos", () => {
+  const source = [
+    'import { a } from "./estatico.js";',
+    'const dynamic = await import("./dinamico.js");',
+    'import { readFile } from "node:fs/promises";',
+    'import { b } from "../otro/path.js";'
+  ].join("\n");
+  assert.deepEqual(
+    extractLocalImportSpecifiers(source).sort(),
+    ["../otro/path.js", "./dinamico.js", "./estatico.js"]
+  );
 });
 
 test("findForbiddenSupabaseRuntimeImports detecta cualquier specifier node:", () => {

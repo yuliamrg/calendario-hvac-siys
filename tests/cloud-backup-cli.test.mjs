@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { constants } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { PassThrough } from "node:stream";
@@ -169,7 +168,7 @@ test("R1 --source file|cloud es la única semántica y respaldo.json ya no es --
 
   const bogus = await invokeBare(["activity", "list", "--source", "bogus"]);
   assert.equal(bogus.status, 2);
-  assert.match(bogus.stderr, /--source debe ser file o cloud/);
+  assert.match(bogus.stderr, /sólo admite cloud/);
 });
 
 test("R2 --backup-file es obligatorio y es sólo operando del respaldo", async () => {
@@ -184,62 +183,25 @@ test("R2 --backup-file es obligatorio y es sólo operando del respaldo", async (
   });
 });
 
-test("S1 file restore/merge usan --backup-file sin sobrescribir entrada ni respaldo", async () => {
-  await withDirectory(async (directory) => {
-    const actualPath = resolve(directory, "actual.json");
-    const backupPath = resolve(directory, "respaldo.json");
-    const mergeWrite = resolve(directory, "combinado.json");
-    const restoreWrite = resolve(directory, "restaurado.json");
+test("S1 backup file fue retirado: --source file y --input fallan antes de red o archivo", async () => {
+  const sourceFile = await invokeBare([
+    "backup", "restore", "--source", "file", "--backup-file", "respaldo.json", "--yes"
+  ]);
+  assert.equal(sourceFile.status, 2, sourceFile.stderr);
+  assert.match(sourceFile.stderr, /INVALID_REQUEST/);
+  assert.match(sourceFile.stderr, /sólo admite cloud/);
 
-    const actual = createDefaultDocument("2026-09-01", NOW);
-    actual.catalog.clients.push({ id: "client-1", name: "Cliente Uno", active: true });
-    const backup = structuredClone(actual);
-    backup.calendarMeta.revision = 7;
-    backup.catalog.clients.push({ id: "client-2", name: "Cliente Dos", active: true, updatedAt: NOW });
+  const mergeSourceFile = await invokeBare([
+    "backup", "merge", "--source", "file", "--backup-file", "respaldo.json"
+  ]);
+  assert.equal(mergeSourceFile.status, 2, mergeSourceFile.stderr);
+  assert.match(mergeSourceFile.stderr, /INVALID_REQUEST/);
 
-    await writeFile(actualPath, JSON.stringify(createBackupEnvelope(actual, { channel: "local" })), "utf8");
-    const backupRaw = JSON.stringify(createBackupEnvelope(backup, { channel: "beta" }));
-    await writeFile(backupPath, backupRaw, "utf8");
-    const actualRaw = await readFile(actualPath, "utf8");
-
-    const merge = await invokeBare([
-      "backup", "merge", "--source", "file", "--input", actualPath,
-      "--backup-file", backupPath, "--write", mergeWrite, "--output", "json"
-    ]);
-    assert.equal(merge.status, 0, merge.stderr);
-    assert.equal(JSON.parse(merge.stdout).result.counts.added, 1);
-    assert.equal(JSON.parse(await readFile(mergeWrite, "utf8")).document.catalog.clients.length, 2);
-
-    const restore = await invokeBare([
-      "backup", "restore", "--input", actualPath,
-      "--backup-file", backupPath, "--write", restoreWrite, "--output", "json", "--yes"
-    ]);
-    assert.equal(restore.status, 0, restore.stderr);
-    const restored = JSON.parse(await readFile(restoreWrite, "utf8")).document;
-    assert.equal(restored.calendarMeta.revision, 7);
-
-    assert.equal(await readFile(actualPath, "utf8"), actualRaw, "el --input no se sobrescribe");
-    assert.equal(await readFile(backupPath, "utf8"), backupRaw, "el respaldo no se sobrescribe");
-  });
-});
-
-test("S2 file merge --dry-run no escribe archivo", async () => {
-  await withDirectory(async (directory) => {
-    const actualPath = resolve(directory, "actual.json");
-    const backupSource = createDefaultDocument("2026-08-01", NOW);
-    backupSource.catalog.clients.push({ id: "client-9", name: "Cliente Nuevo", active: true, updatedAt: NOW });
-    const backupPath = await writeBackup(directory, backupSource, { revision: 5 });
-    const dryWrite = resolve(directory, "no-debe-existir.json");
-    await writeFile(actualPath, JSON.stringify(createBackupEnvelope(createDefaultDocument("2026-09-01", NOW), { channel: "local" })), "utf8");
-
-    const dry = await invokeBare([
-      "backup", "merge", "--input", actualPath, "--backup-file", backupPath,
-      "--write", dryWrite, "--dry-run", "--output", "json"
-    ]);
-    assert.equal(dry.status, 0, dry.stderr);
-    assert.equal(JSON.parse(dry.stdout).changed, true);
-    await assert.rejects(access(dryWrite, constants.F_OK));
-  });
+  const inputFlag = await invokeBare([
+    "backup", "merge", "--source", "cloud", "--channel", "beta", "--input", "actual.json", "--backup-file", "respaldo.json"
+  ]);
+  assert.equal(inputFlag.status, 2, inputFlag.stderr);
+  assert.match(inputFlag.stderr, /INVALID_REQUEST/);
 });
 
 test("T1 restore cloud usa CAS de calendar_documents.revision y preserva la revisión del respaldo", async () => {

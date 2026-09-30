@@ -1,5 +1,4 @@
 import { stdin as defaultStdin, stdout as defaultStdout, stderr as defaultStderr } from "node:process";
-import { resolve } from "node:path";
 import { CALENDAR_OPERATIONS, CalendarContractError, executeCalendarOperation } from "../calendar-contract.js";
 import { APP_VERSION } from "../core.js";
 import { CLOUD_COMMANDS, HELP, buildPayload, parseCli } from "./arguments.js";
@@ -9,27 +8,23 @@ import { CloudCalendarSource } from "./cloud-read.js";
 import { createCloudCalendarWriter } from "./cloud-write.js";
 import { readPassword, readPasswordFromStdin } from "./auth-prompt.js";
 import { confirmDestructive, exitCodeFor, formatHumanResult, writeNewTextFile } from "./io.js";
-import { FileCalendarSource } from "./sources.js";
 
-function sourceKindFor(operation, values) {
-  const kind = values.source ?? "file";
-  if (!["file", "cloud"].includes(kind)) {
-    const hint = operation === "backup.restore" || operation === "backup.merge"
-      ? " Usa --backup-file para indicar el respaldo."
-      : "";
-    throw new CloudCliError("INVALID_REQUEST", `--source debe ser file o cloud.${hint}`);
+const BACKUP_OPERATIONS = new Set(["backup.restore", "backup.merge"]);
+const SOURCE_AUTHORITY_MESSAGE = "La CLI usa Supabase como única autoridad; indica --source cloud.";
+
+function requireCloudSource(operation, values) {
+  if (values.source === "cloud") return;
+  const hint = BACKUP_OPERATIONS.has(operation) ? " El respaldo se indica con --backup-file." : "";
+  if (values.source === undefined || values.source === "") {
+    throw new CloudCliError("INVALID_REQUEST", `${SOURCE_AUTHORITY_MESSAGE}${hint}`);
   }
-  return kind;
-}
-
-function isCloudMutating(operation) {
-  const definition = CALENDAR_OPERATIONS[operation];
-  return Boolean(definition) && !definition.readOnly;
+  throw new CloudCliError(
+    "INVALID_REQUEST",
+    `La CLI usa Supabase como única autoridad; --source sólo admite cloud (recibido: ${values.source}).${hint}`
+  );
 }
 
 function ensureCloudRequest(values) {
-  if (values.input) throw new CloudCliError("INVALID_REQUEST", "--input no se usa con --source cloud.");
-  if (values.write) throw new CloudCliError("INVALID_REQUEST", "--write sólo aplica al modo file; las escrituras cloud persisten en el calendario seleccionado.");
   if (!values.channel || !["stable", "beta"].includes(values.channel)) {
     throw new CloudCliError("CHANNEL_INVALID", "--channel stable|beta es obligatorio para --source cloud.");
   }
@@ -38,10 +33,9 @@ function ensureCloudRequest(values) {
   }
 }
 
-function ensureFileRequest(values) {
-  if (!values.input) throw new CloudCliError("INVALID_REQUEST", "Falta --input.");
-  if (values.mine || values["calendar-id"] !== undefined) {
-    throw new CloudCliError("INVALID_REQUEST", "--mine y --calendar-id solo aplican a --source cloud.");
+function ensureOperationOperands(operation, values) {
+  if (values["backup-file"] !== undefined && !BACKUP_OPERATIONS.has(operation)) {
+    throw new CloudCliError("INVALID_REQUEST", "--backup-file sólo aplica a backup restore|merge.");
   }
 }
 
@@ -120,50 +114,38 @@ export async function runCli(argv, io = {}) {
     if (values["as-of"] !== undefined) throw new CloudCliError("HISTORICAL_QUERY_UNSUPPORTED", "La CLI solo soporta current cloud state; no admite consultas históricas as-of.");
     if (CLOUD_COMMANDS.has(parsed.operation)) return await runCloudCommand(parsed.operation, values, { ...io, stdin }, stdout, stderr);
 
-    const definition = CALENDAR_OPERATIONS[parsed.operation];
-    const sourceKind = sourceKindFor(parsed.operation, values);
-    if (!definition.readOnly && sourceKind === "file" && !values["dry-run"] && !values.write) {
-      throw new CloudCliError("INVALID_REQUEST", "Las escrituras requieren --write o --dry-run.");
-    }
-    let input;
-    let auth = null;
-    let config = null;
-    if (sourceKind === "cloud") {
-      ensureCloudRequest(values);
-      config = supabaseConfigFromEnv(io.env ?? process.env);
-      auth = await makeAuth(io, config);
-      const source = new CloudCalendarSource(config, {
-        auth,
-        fetchImpl: io.fetch,
-        timeoutMs: io.timeoutMs
-      });
-      input = await source.load({
-        channel: values.channel,
-        calendarId: values["calendar-id"],
-        mine: Boolean(values.mine)
-      });
-    } else {
-      ensureFileRequest(values);
-      input = await new FileCalendarSource(values.input).load();
-    }
+    const operation = parsed.operation;
+    const definition = CALENDAR_OPERATIONS[operation];
+    requireCloudSource(operation, values);
+    ensureCloudRequest(values);
+    ensureOperationOperands(operation, values);
+    const config = supabaseConfigFromEnv(io.env ?? process.env);
+    const auth = await makeAuth(io, config);
+    const source = new CloudCalendarSource(config, {
+      auth,
+      fetchImpl: io.fetch,
+      timeoutMs: io.timeoutMs
+    });
+    const input = await source.load({
+      channel: values.channel,
+      calendarId: values["calendar-id"],
+      mine: Boolean(values.mine)
+    });
 
     if (!values.output) values.output = "human";
     if (!["human", "json"].includes(values.output)) throw new CloudCliError("INVALID_REQUEST", "--output debe ser human o json.");
-    if (sourceKind === "file" && values.write && input.input.absolute.toLowerCase() === resolve(values.write).toLowerCase()) {
-      throw new CloudCliError("CONFLICT", "--write debe ser distinto de --input.");
-    }
-    await confirmDestructive(parsed.operation, values, stdin, stdout);
-    const payload = await buildPayload(parsed.operation, values);
-    const outcome = executeCalendarOperation(input.document, { operation: parsed.operation, payload }, {
+    await confirmDestructive(operation, values, stdin, stdout);
+    const payload = await buildPayload(operation, values);
+    const outcome = executeCalendarOperation(input.document, { operation, payload }, {
       appVersion: input.document.appVersion
     });
-    if (parsed.operation === "calendar.export-csv" || parsed.operation === "calendar.export-quarantine-csv") {
+    if (operation === "calendar.export-csv" || operation === "calendar.export-quarantine-csv") {
       if (values["csv-output"]) await writeNewTextFile(values["csv-output"], outcome.result.content);
       else stdout.write(outcome.result.content);
       return 0;
     }
     let written = null;
-    if (isCloudMutating(parsed.operation) && sourceKind === "cloud" && !values["dry-run"] && outcome.changed) {
+    if (!definition.readOnly && !values["dry-run"] && outcome.changed) {
       const writer = createCloudCalendarWriter(config, {
         auth,
         fetchImpl: io.fetch,
@@ -180,9 +162,6 @@ export async function runCli(argv, io = {}) {
         revision: persisted.revision,
         updatedAt: persisted.updatedAt
       };
-    } else if (!definition.readOnly && sourceKind === "file" && !values["dry-run"] && outcome.changed) {
-      const { writeCalendarFile } = await import("./files.js");
-      written = await writeCalendarFile(values.write, outcome.document, { channel: input.source.channel });
     }
     const rendered = {
       ...outcome,
@@ -190,7 +169,7 @@ export async function runCli(argv, io = {}) {
       document: definition.readOnly ? undefined : outcome.document,
       written
     };
-    if (!values.quiet) stdout.write(`${values.output === "json" ? JSON.stringify(rendered, null, 2) : formatHumanResult(parsed.operation, outcome, input.source, written, { dryRun: Boolean(values["dry-run"]) })}\n`);
+    if (!values.quiet) stdout.write(`${values.output === "json" ? JSON.stringify(rendered, null, 2) : formatHumanResult(operation, outcome, input.source, written, { dryRun: Boolean(values["dry-run"]) })}\n`);
     return 0;
   } catch (error) {
     const code = error instanceof CalendarContractError || error instanceof CloudCliError ? error.code : (error.code ?? "INTERNAL_ERROR");

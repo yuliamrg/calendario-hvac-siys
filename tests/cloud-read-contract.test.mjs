@@ -1,15 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PassThrough } from "node:stream";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { resolve } from "node:path";
-import { createBackupEnvelope, createDefaultDocument } from "../src/core.js";
+import { createDefaultDocument } from "../src/core.js";
 import { executeCalendarOperation } from "../src/calendar-contract.js";
 import { createSupabaseAuthClient } from "../src/cli/cloud-auth.js";
 import { assertCloudReadMethod, CloudCalendarSource, createSupabaseReadClient } from "../src/cli/cloud-read.js";
 import { SupabaseTransportError } from "../src/supabase/transport.js";
-import { FileCalendarSource } from "../src/cli/sources.js";
 import { runCli } from "../src/cli/main.js";
 
 const CONFIG = { url: "https://example.supabase.co", publishableKey: "sb_publishable_fixture" };
@@ -276,19 +272,12 @@ test("T17 filtro today/from/to correcto", async () => {
   }
 });
 
-test("T18 source=file continúa funcionando", async () => {
-  const directory = await mkdtemp(resolve(tmpdir(), "calendary-cloud-read-file-"));
-  try {
-    const path = resolve(directory, "input.json");
-    await writeFile(path, JSON.stringify(createBackupEnvelope(createDefaultDocument("2026-08-15", NOW), { channel: "local" })), "utf8");
-    const source = await new FileCalendarSource(path, { now: () => NOW }).load();
-    assert.equal(source.source.kind, "file");
-    const result = await invokeCli(["calendar", "inspect", "--input", path, "--output", "json"], null);
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(result.stdout).source.kind, "file");
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+test("T18 source=file fue retirado y falla antes de cualquier red", async () => {
+  const fixture = makeCloudFixture();
+  const result = await invokeCli(["calendar", "inspect", "--source", "file", "--output", "json"], fixture);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /INVALID_REQUEST/);
+  assert.equal(fixture.calls.length, 0);
 });
 
 test("T19 --write + cloud produce INVALID_REQUEST antes de red", async () => {
