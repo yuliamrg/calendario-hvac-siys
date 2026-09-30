@@ -2,7 +2,11 @@
 
 ## Propósito y restricciones
 
-Calendary es una aplicación web estática, sin framework, que debe funcionar de
+Este documento describe las capas de SIYS Sync Web y las fronteras compartidas
+con Calendary CLI. El mapa canónico de los dos clientes, shared code y backend
+está en [ARQUITECTURA_PRODUCTOS.md](ARQUITECTURA_PRODUCTOS.md).
+
+La Web es estática, sin framework, y debe funcionar de
 dos maneras sin divergencias:
 
 - como módulos ES durante desarrollo y pruebas;

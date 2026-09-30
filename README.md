@@ -15,6 +15,10 @@ El HTML servido en `localhost`, `127.0.0.1` o `::1` también se identifica como
 canal local: conserva IndexedDB y hereda la interfaz visual aprobada de la beta.
 Sólo las rutas pública estable y beta activan Supabase.
 
+Web estática y CLI son clientes distintos del mismo backend Supabase. La CLI
+`calendary` corre localmente bajo Node.js >=20 desde `bin/calendary.js`; no
+está incluida en el HTML ni servida por GitHub Pages.
+
 El repositorio también incluye la CLI `calendary`. Para operar el calendario
 exige `--source cloud`: Supabase es la única autoridad y la CLI lee o muta el
 documento cloud mediante la misma operación atómica de persistencia, sin
@@ -24,7 +28,7 @@ acceder directamente a IndexedDB. Los archivos JSON sólo entran como operando
 [contrato compartido](docs/CONTRATO_CALENDARIO.md) y el
 [runbook de respaldos](docs/OPERACION_RESPALDOS_JSON.md).
 
-También puede abrirse desde GitHub Pages. En esta rama, Pages se construye con
+La Web también puede abrirse desde GitHub Pages. El workflow de Pages construye con
 Supabase y los datos dejan de depender del navegador. El archivo local sigue
 usando IndexedDB para conservar una ruta offline y de recuperación; la opción
 **Descargar copia del cronograma** permite trasladar una programación local al
@@ -239,6 +243,7 @@ incluidos dentro del HTML generado.
 Documentación:
 
 - [Mapa de documentación por audiencia](docs/README.md)
+- [Arquitectura de productos: Web / CLI / shared / backend](docs/ARQUITECTURA_PRODUCTOS.md)
 - [Arquitectura y fases de refactorización](docs/ARQUITECTURA.md)
 - [Manual completo](docs/MANUAL_DE_USO.md)
 - [Guía de Base Operativa](docs/BASE_OPERATIVA.md)
