@@ -331,8 +331,15 @@ las fuentes Web/CLI; Web avanza a `0.18.0-beta.2` porque al integrar en `main`
 Pages publica `/beta/`. CLI permanece en `0.18.0-beta.1`; el tag beta.1 queda
 inmutable y `v0.18.0-beta.2` se crea sobre el commit integrado. El modelo
 `v...` sigue autoritativo temporalmente y `release:check` conserva sus verificaciones.
-Workstream 2 reorganizará archivos; Workstream 3 definirá distribución CLI y
-tags `web-v...` / `cli-v...`. Ninguno se implementa aquí.
+Workstream 2 (PR #53) ya implementa la topología física de workspaces
+`apps/web`, `apps/cli` y `packages/platform`; la raíz queda como orquestación y
+Supabase permanece en la raíz. Web sigue en `0.18.0-beta.2`, CLI en
+`0.18.0-beta.1`; `packages/platform` usa `0.0.0` como identidad interna de
+mecánica de workspace, no de release. La beta vigente de Web sigue siendo el tag
+histórico `v0.18.0-beta.2` y este refactor no crea otra release Web porque su
+artefacto generado es idéntico byte a byte. Workstream 3 sigue pendiente y
+definirá distribución CLI, namespaces de tags `web-v...` / `cli-v...` y
+topología de CI.
 
 Las versiones `0.14.0`, `0.14.1`, `0.15.0-beta.3` y las demás que aparecen en
 los ejemplos o en el changelog se conservan como historial. No deben leerse

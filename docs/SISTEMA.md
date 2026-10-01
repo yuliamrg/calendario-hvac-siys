@@ -1,8 +1,9 @@
 # Sistema actual: Calendary / SIYS Sync
 
-Estado de esta página: transición de Platform Architecture V2, Workstream 1,
-desde main certificado `40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`.
-Web y CLI conservan `0.18.0-beta.1` con identidades independientes.
+Estado de esta página: transición de Platform Architecture V2, Workstream 2
+(PR #53), desde main certificado `40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`.
+Web es `0.18.0-beta.2` y CLI conserva `0.18.0-beta.1` con identidades
+independientes.
 Describe el sistema que está en el código y la configuración actuales; no
 certifica que `dist/` sea publicable ni que el Supabase remoto tenga exactamente
 las migraciones del repositorio.
@@ -403,7 +404,7 @@ Estas reglas describen las fronteras existentes; no proponen componentes nuevos.
 | --- | --- | --- |
 | **Antecedente histórico** | S-03 y los commits posteriores añadieron `application/calendar-commands.js`, `application/import-commands.js`, `ui/view-state.js`, `activity-presentation.js`, `export-layout.js`, `importer.js` y validación automática del manifiesto. | El manifiesto fuente contiene 30 módulos y el `HEAD` local incluye `d27383a`, que regeneró `dist/`. La integración debe repetir el gate antes de publicar. |
 | **Antecedente histórico** | El worktree inicial tenía cambios en README, dist/, docs, src/, estilos y tests, además de nuevos módulos y planes. | La evidencia de esta página es local y mezclada; no debe presentarse como una release limpia. El maestro debe clasificar antes de integrar. |
-| **Transición actual** | Package, lock, WEB_VERSION y dist declaran `0.18.0-beta.1`; CLI_VERSION conserva ese valor independientemente; `stable-version.txt` conserva `v0.17.0`. | Workstream 1 no publica releases ni modifica tags certificados. Layout y distribución CLI propia pendientes de Workstreams 2 y 3. |
+| **Transición actual** | WEB_VERSION y dist declaran `0.18.0-beta.2`, CLI_VERSION conserva `0.18.0-beta.1`; el puntero `stable-version.txt` mantiene `v0.17.0`; esquema, contrato y formato de respaldo sin cambio. | Workstream 1 completó identidades de producto independientes. Workstream 2 (PR #53) implementa la topología física de tres workspaces. Workstream 3 queda pendiente para distribución/release de CLI, namespaces de tags y CI selectivo. |
 | **Hecho verificado** | [docs/DISTRIBUCION.md](DISTRIBUCION.md), [docs/OPERACION_RESPALDOS_JSON.md](OPERACION_RESPALDOS_JSON.md) y [docs/VERSIONAMIENTO.md](VERSIONAMIENTO.md) fueron sincronizados: las versiones antiguas quedaron marcadas como historia y el estado actual remite a las fuentes autoritativas. | Sigue pendiente validar el contenido remoto de GitHub Pages y Supabase; la documentación local ya no presenta esos ejemplos históricos como estado actual. |
 | **Antecedente histórico** | [docs/ARQUITECTURA.md](ARQUITECTURA.md) registra el corte local actual: `app.js` 4.823 líneas, `core.js` 1.315, `importer.js` 11 y 190 pruebas. | Las métricas son descriptivas del corte, no límites de diseño; deben actualizarse sólo cuando cambie el corte verificable. |
 | **Hecho verificado** | `cloud.js` persiste mediante `persist_calendar_document`: CAS por revisión de fila, documento y metadata en una transacción. | La migración fue aplicada y certificada en desarrollo en el workstream previo; esta fase no modifica el backend. |
