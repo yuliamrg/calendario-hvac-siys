@@ -66,13 +66,13 @@ lista de exclusiones está en [docs/BASE_OPERATIVA.md](BASE_OPERATIVA.md).
 
 | Actor o superficie | Qué hace | Lectura/escritura y frontera | Referencias actuales |
 | --- | --- | --- | --- |
-| Coordinador u operador | Abre el calendario, importa, edita, filtra, exporta y recupera respaldos. | Opera sobre una copia en memoria. Sólo el editor local o el propietario cloud puede guardar. | [src/app.js](../src/app.js), [src/index.template.html](../src/index.template.html) |
-| Browser local | Sirve el HTML desde file:, localhost, 127.0.0.1, ::1 o un dominio .localhost. | Usa IndexedDB; localStorage sólo conserva preferencias y, si corresponde, sesión cloud. El origen y el perfil aíslan los datos. | [src/core.js](../src/core.js), [src/persistence/indexed-document-store.js](../src/persistence/indexed-document-store.js) |
+| Coordinador u operador | Abre el calendario, importa, edita, filtra, exporta y recupera respaldos. | Opera sobre una copia en memoria. Sólo el editor local o el propietario cloud puede guardar. | [apps/web/src/app.js](../apps/web/src/app.js), [apps/web/src/index.template.html](../apps/web/src/index.template.html) |
+| Browser local | Sirve el HTML desde file:, localhost, 127.0.0.1, ::1 o un dominio .localhost. | Usa IndexedDB; localStorage sólo conserva preferencias y, si corresponde, sesión cloud. El origen y el perfil aíslan los datos. | [packages/platform/src/core.js](../packages/platform/src/core.js), [apps/web/src/persistence/indexed-document-store.js](../apps/web/src/persistence/indexed-document-store.js) |
 | GitHub Pages | Sirve el mismo tipo de HTML estático en la raíz estable y /beta/. | No contiene la base de datos. El workflow inyecta la configuración pública de Supabase durante el build. | [.github/workflows/pages.yml](../.github/workflows/pages.yml), [docs/DISTRIBUCION.md](DISTRIBUCION.md) |
-| Supabase Auth | Autentica la cuenta y emite la sesión usada por el navegador o la CLI. | Requiere cuenta autenticada en cloud. El token de acceso no sustituye las políticas RLS. | [src/cloud.js](../src/cloud.js), [src/cli/cloud-auth.js](../src/cli/cloud-auth.js) |
+| Supabase Auth | Autentica la cuenta y emite la sesión usada por el navegador o la CLI. | Requiere cuenta autenticada en cloud. El token de acceso no sustituye las políticas RLS. | [apps/web/src/cloud.js](../apps/web/src/cloud.js), [apps/cli/src/cloud-auth.js](../apps/cli/src/cloud-auth.js) |
 | Supabase/PostgREST/PostgreSQL | Proporciona calendarios lógicos y conserva el documento cloud. | RLS permite lectura a cuentas autenticadas según la migración de lectura compartida; las escrituras del documento quedan restringidas al propietario. | [supabase/migrations/20260803200000_create_calendar_cloud_schema.sql](../supabase/migrations/20260803200000_create_calendar_cloud_schema.sql), [supabase/migrations/20260806120000_shared_calendar_read_access.sql](../supabase/migrations/20260806120000_shared_calendar_read_access.sql) |
-| CLI calendary | Lee y muta el calendario cloud, incluidos restore/merge e identificación. | Node local; no abre IndexedDB. Usa Auth, GET PostgREST y RPC atómico por HTTPS; archivos sólo como operandos/salidas. | [bin/calendary.js](../bin/calendary.js), [src/cli/main.js](../src/cli/main.js), [docs/CLI.md](CLI.md) |
-| Excel / Base Operativa | Aporta catálogo y, mediante otra plantilla, filas de programación. | Es una fuente de entrada de importación; el libro no se modifica ni se vuelve una dependencia runtime. | [src/import/base-operativa.js](../src/import/base-operativa.js), [src/import/programming.js](../src/import/programming.js) |
+| CLI calendary | Lee y muta el calendario cloud, incluidos restore/merge e identificación. | Node local; no abre IndexedDB. Usa Auth, GET PostgREST y RPC atómico por HTTPS; archivos sólo como operandos/salidas. | [apps/cli/bin/calendary.js](../apps/cli/bin/calendary.js), [apps/cli/src/main.js](../apps/cli/src/main.js), [docs/CLI.md](CLI.md) |
+| Excel / Base Operativa | Aporta catálogo y, mediante otra plantilla, filas de programación. | Es una fuente de entrada de importación; el libro no se modifica ni se vuelve una dependencia runtime. | [apps/web/src/import/base-operativa.js](../apps/web/src/import/base-operativa.js), [apps/web/src/import/programming.js](../apps/web/src/import/programming.js) |
 | Mantenedor y CI | Cambia fuentes, migraciones, tests y artefactos; CI verifica el resultado. | Debe distinguir fuentes, artefactos generados, canales y cambios locales. | [package.json](../package.json), [.github/workflows/ci.yml](../.github/workflows/ci.yml) |
 
 ## 3. Contexto y componentes
@@ -81,7 +81,7 @@ lista de exclusiones está en [docs/BASE_OPERATIVA.md](BASE_OPERATIVA.md).
 
 ~~~text
                          repositorio Git
-       src + template + CSS + vendor + migraciones + tests
+       workspaces + template + CSS + vendor + migraciones + tests
                                 |
                          scripts/build.mjs
                                 |
@@ -112,20 +112,20 @@ lista de exclusiones está en [docs/BASE_OPERATIVA.md](BASE_OPERATIVA.md).
 ### Diagrama textual de componentes
 
 ~~~text
-UI y eventos: src/app.js
+UI y eventos: apps/web/src/app.js
         |
-        +--> presentación: src/ui/*
-        +--> contrato: src/calendar-contract.js
+        +--> presentación: apps/web/src/ui/*
+        +--> contrato: packages/platform/src/calendar-contract.js
         |        |
-        |        +--> núcleo: src/core.js
+        |        +--> núcleo: packages/platform/src/core.js
         |                 |
-        |                 +--> dominio puro: src/domain/*
+        |                 +--> dominio puro: packages/platform/src/domain/*
         |
-        +--> importación: src/importer.js -> src/import/*
-        +--> persistencia local: src/persistence/*
-        +--> persistencia cloud: src/cloud.js
+        +--> importación: apps/web/src/importer.js -> apps/web/src/import/*
+        +--> persistencia local: apps/web/src/persistence/*
+        +--> persistencia cloud: apps/web/src/cloud.js
 
-CLI: src/cli/* -> calendar-contract.js -> core.js/domain/*
+CLI: apps/cli/src/* -> calendar-contract.js -> core.js/domain/*
      cloud-only -> Auth + GET PostgREST -> contrato -> RPC atómico
      archivos -> operandos/salidas, nunca autoridad del calendario
 
@@ -140,7 +140,7 @@ la interfaz.
 
 ## 4. Selección de canal y superficies de ejecución
 
-runtimeChannelForLocation() en [src/core.js](../src/core.js) aplica estas
+runtimeChannelForLocation() en [packages/platform/src/core.js](../packages/platform/src/core.js) aplica estas
 reglas en este orden:
 
 | Condición de ubicación | Canal calculado | Persistencia cloud |
@@ -149,10 +149,10 @@ reglas en este orden:
 | Protocolo file: o host local (localhost, 127.0.0.1, ::1, *.localhost) | local | Nunca se activa por shouldUseSupabaseCloud(). |
 | Cualquier otra ubicación | stable | Se activa sólo con configuración Supabase completa. |
 
-En src/app.js, el canal beta usa la base IndexedDB
+En apps/web/src/app.js, el canal beta usa la base IndexedDB
 calendario-hvac-siys-beta; los demás canales locales usan
 calendario-hvac-siys. El aislamiento del navegador depende además del origen.
-En cloud, src/cloud.js asigna los identificadores lógicos
+En cloud, apps/web/src/cloud.js asigna los identificadores lógicos
 calendario-hvac-siys para estable y calendario-hvac-siys-beta para beta.
 
 Las superficies públicas configuradas en el repositorio son la raíz estable
@@ -170,9 +170,9 @@ contraseña de PostgreSQL no forman parte del contrato del frontend.
 
 ### 5.1 Bootstrap y carga inicial
 
-1. [src/index.template.html](../src/index.template.html) carga el DOM, la
+1. [apps/web/src/index.template.html](../apps/web/src/index.template.html) carga el DOM, la
    configuración cloud y, al final, el script de aplicación como módulo ES.
-2. initialize() en [src/app.js](../src/app.js) llena opciones estáticas,
+2. initialize() en [apps/web/src/app.js](../apps/web/src/app.js) llena opciones estáticas,
    aplica el contrato visual, registra eventos y carga preferencias de tema,
    movimiento y panel.
 3. loadInitialDocument() selecciona la rama local o cloud.
@@ -198,7 +198,7 @@ un ajuste y programe un guardado.
 
 ### 5.3 Mutación
 
-La UI usa [src/ui/mutation-controller.js](../src/ui/mutation-controller.js):
+La UI usa [apps/web/src/ui/mutation-controller.js](../apps/web/src/ui/mutation-controller.js):
 
 - mutateWithContract() llama a executeCalendarOperation(), reemplaza el
   documento sólo si el resultado cambió, conserva un snapshot para Deshacer,
@@ -209,7 +209,7 @@ La UI usa [src/ui/mutation-controller.js](../src/ui/mutation-controller.js):
 - un error restaura el snapshot anterior.
 
 Las operaciones públicas están declaradas en
-[src/calendar-contract.js](../src/calendar-contract.js). El contrato clona y
+[packages/platform/src/calendar-contract.js](../packages/platform/src/calendar-contract.js). El contrato clona y
 sanea la entrada, rechaza payloads desconocidos, valida referencias y fechas,
 y devuelve changed: false para un no-op. Una mutación real aumenta una vez la
 revisión del documento y añade auditoría. La importación de Base Operativa,
@@ -275,7 +275,7 @@ escritura condicionada por revisión y la RLS del propietario.
 | Actividades y fechas | appDocument.activities | Local: registro IndexedDB current. Cloud: calendar_documents.document.activities. CLI: Supabase como única autoridad; archivos sólo operandos/salidas. | JSON de respaldo es copia; no se fusiona al guardar automáticamente. |
 | Series y vínculos multifecha | appDocument.series y activity.seriesId | El mismo documento canónico del canal. | No existe tabla cloud normalizada equivalente. |
 | Clientes, sedes, ciudades y responsables | appDocument.catalog | Documento persistido del canal; una importación aceptada actualiza la copia del documento. | La Base Operativa es fuente externa de entrada, no un store runtime. Los registros manuales llevan source: manual. |
-| Festivos y excepciones | appDocument.holidayOverrides más reglas de [src/domain/holidays.js](../src/domain/holidays.js) | Documento para excepciones; código/regla HOLIDAY_RULESET_VERSION para la tabla de festivos. | Una migración de reglas queda anotada en audit. |
+| Festivos y excepciones | appDocument.holidayOverrides más reglas de [packages/platform/src/domain/holidays.js](../packages/platform/src/domain/holidays.js) | Documento para excepciones; código/regla HOLIDAY_RULESET_VERSION para la tabla de festivos. | Una migración de reglas queda anotada en audit. |
 | Ajustes operativos | appDocument.settings | Documento del canal, incluido currentDate, filtros y recordatorios. | Tema, movimiento y colapso del catálogo viven aparte en localStorage. |
 | Auditoría | appDocument.audit | Documento; se conservan como máximo 500 entradas. | No hay un historial cloud separado ni una bitácora as-of. |
 | Identidad/nombre/coordinador cloud | calendarMeta en el JSON y columnas calendars.name/coordinator | El documento es la fuente del contenido operativo; la tabla calendars es la fuente de selección/listado y se sincroniza en el mismo RPC que guarda el documento. | Documento y metadata se persisten atómicamente en una transacción. |
@@ -286,7 +286,7 @@ escritura condicionada por revisión y la RLS del propietario.
 | Preferencias visuales | uiPreferences | localStorage bajo siys-sync-ui-(canal). | No aumenta la revisión ni entra en respaldos. |
 | Respaldo JSON | Archivo descargado | El archivo sólo se vuelve autoridad cuando el usuario confirma backup.restore, o fuente de backup.merge. | Se sanea, se valida tamaño y se muestra previsualización antes de mutar. |
 | Base Operativa | Libro seleccionado por el operador | El libro original sigue fuera del sistema; el catálogo del documento es la copia aceptada. | Lectura solamente; no se importan cédulas, NIT, teléfonos, correos ni fotografías. |
-| Versiones de producto | Web: package.json y WEB_VERSION; CLI: src/cli/version.js > CLI_VERSION | Package y Web coinciden; CLI es independiente. package-lock.json es espejo Web. | stable-version.txt apunta al tag estable; dist/ es generado y no autoridad de fuente. |
+| Versiones de producto | Web: package.json, apps/web/package.json y WEB_VERSION; CLI: apps/cli/src/version.js > CLI_VERSION | Package y Web coinciden; CLI es independiente. package-lock.json es espejo Web. | stable-version.txt apunta al tag estable; dist/ es generado y no autoridad de fuente. |
 
 ## 7. Seguridad y privacidad
 
@@ -329,17 +329,17 @@ escritura condicionada por revisión y la RLS del propietario.
 
 | Área | Responsabilidad actual | Frontera que debe respetar |
 | --- | --- | --- |
-| src/domain/ | Funciones puras de texto, fechas, festivos, enums, orden, filtros, CSV, mezcla de respaldos/importaciones y ranking de responsables. | No importa UI, persistencia ni CLI. |
-| src/core.js | Fachada de dominio, documento por defecto, esquema 4, saneamiento/migración, validaciones y envoltura de respaldos. | No lee archivos, IndexedDB, red ni DOM. |
-| src/calendar-contract.js | Operaciones de lectura/mutación, payload estricto, invariantes, clon atómico, revisión y auditoría. | Recibe sólo documento/request/options; no conoce adaptadores. |
-| src/import/ y src/importer.js | Lectura tabular, conciliación de Base Operativa y programación Excel; la fachada conserva imports existentes. | Excel es entrada; no modifica el libro fuente. |
-| src/persistence/indexed-document-store.js | IndexedDB, registros current/recovery, reserva y liberación del lock. | Sólo adapta el almacenamiento local; no contiene reglas de calendario. |
-| src/persistence/json-preferences.js | Lectura, mezcla y limpieza de preferencias JSON. | No guarda el documento operativo. |
-| src/cloud.js | Auth browser, selección de calendario, lectura/escritura REST, revisión optimista y errores cloud. | Sólo usa configuración pública; la autorización final la aplica RLS. |
-| src/ui/ | Presentación del DOM, constantes, exportación visual, cálculo de filas de exportación, movimiento 3D y controlador de mutaciones. | No convertir presentación en fuente de verdad; el documento sigue en appDocument. |
-| src/app.js | Coordinador: runtime, bootstrap, eventos, diálogos, render, importación, persistencia, lock y recuperación. | Es el único lugar que conoce el DOM, el origen y la selección de canal juntos. |
-| src/cli/ y bin/calendary.js | Parseo de argumentos, Auth de Node, fuente cloud, contrato y salidas. | Cloud-only: lectura y escritura RPC; archivos como operandos/salidas, sin IndexedDB. |
-| scripts/ | Build autocontenido, comprobación de versión y auditoría de artefactos/red/secretos. | dist/ debe ser salida reproducible, no fuente manual. |
+| packages/platform/src/domain/ | Funciones puras de texto, fechas, festivos, enums, orden, filtros, CSV, mezcla de respaldos/importaciones y ranking de responsables. | No importa UI, persistencia, CLI, DOM ni runtime Node. |
+| packages/platform/src/core.js | Fachada de dominio, documento por defecto, esquema 4, saneamiento/migración, validaciones y envoltura de respaldos. | No lee archivos, IndexedDB, red ni DOM. |
+| packages/platform/src/calendar-contract.js | Operaciones de lectura/mutación, payload estricto, invariantes, clon atómico, revisión y auditoría. | Recibe sólo documento/request/options; no conoce adaptadores. |
+| apps/web/src/import/ y apps/web/src/importer.js | Lectura tabular, conciliación de Base Operativa y programación Excel; la fachada conserva imports existentes. | Excel es entrada; no modifica el libro fuente. |
+| apps/web/src/persistence/indexed-document-store.js | IndexedDB, registros current/recovery, reserva y liberación del lock. | Sólo adapta el almacenamiento local; no contiene reglas de calendario. |
+| apps/web/src/persistence/json-preferences.js | Lectura, mezcla y limpieza de preferencias JSON. | No guarda el documento operativo. |
+| apps/web/src/cloud.js | Auth browser, selección de calendario, lectura/escritura REST, revisión optimista y errores cloud. | Sólo usa configuración pública; la autorización final la aplica RLS. |
+| apps/web/src/ui/ | Presentación del DOM, constantes, exportación visual, cálculo de filas de exportación, movimiento 3D y controlador de mutaciones. | No convertir presentación en fuente de verdad; el documento sigue en appDocument. |
+| apps/web/src/app.js | Coordinador: runtime, bootstrap, eventos, diálogos, render, importación, persistencia, lock y recuperación. | Es el único lugar que conoce el DOM, el origen y la selección de canal juntos. |
+| apps/cli/src/ y apps/cli/bin/calendary.js | Parseo de argumentos, Auth de Node, fuente cloud, contrato y salidas. | Cloud-only: lectura y escritura RPC; archivos como operandos/salidas, sin IndexedDB. |
+| scripts/ | Build autocontenido, guardia de arquitectura, comprobación de versión y auditoría de artefactos/red/secretos. | dist/ debe ser salida reproducible, no fuente manual. |
 | supabase/migrations/ | Tablas, triggers, funciones de bootstrap/provisión y políticas RLS. | Cambios remotos deben tener migración y verificación de despliegue. |
 
 ## 9. Fallos y recuperación
@@ -363,7 +363,7 @@ escritura condicionada por revisión y la RLS del propietario.
 Estas reglas describen las fronteras existentes; no proponen componentes nuevos.
 
 1. **Antes de editar**, revisar git status, el canal afectado, la fuente de
-   versión y si el cambio involucra src/, dist/, migraciones o sólo docs. No
+   versión y si el cambio involucra apps/, packages/, dist/, migraciones o sólo docs. No
    usar dist/ como fuente de comportamiento.
 2. **Cambiar el documento** sólo mediante una migración compatible en
    sanitizeDocument(), una actualización explícita de SCHEMA_VERSION, pruebas
@@ -414,11 +414,13 @@ Estas reglas describen las fronteras existentes; no proponen componentes nuevos.
 
 ## 12. Evidencia y documentos relacionados
 
-La implementación principal está en [src/app.js](../src/app.js), [src/core.js](../src/core.js),
-[src/calendar-contract.js](../src/calendar-contract.js), [src/cloud.js](../src/cloud.js),
-la carpeta [src/persistence](../src/persistence), la carpeta [src/cli](../src/cli)
-y las migraciones de [supabase/migrations](../supabase/migrations). Para ampliar un
-tema sin duplicar reglas:
+La implementación principal está en [apps/web/src/app.js](../apps/web/src/app.js),
+[packages/platform/src/core.js](../packages/platform/src/core.js),
+[packages/platform/src/calendar-contract.js](../packages/platform/src/calendar-contract.js),
+[apps/web/src/cloud.js](../apps/web/src/cloud.js), la carpeta
+[apps/web/src/persistence](../apps/web/src/persistence), la carpeta
+[apps/cli/src](../apps/cli/src) y las migraciones de
+[supabase/migrations](../supabase/migrations). Para ampliar un tema sin duplicar reglas:
 
 - operación de respaldo: [docs/OPERACION_RESPALDOS_JSON.md](OPERACION_RESPALDOS_JSON.md);
 - contrato de operaciones: [docs/CONTRATO_CALENDARIO.md](CONTRATO_CALENDARIO.md);

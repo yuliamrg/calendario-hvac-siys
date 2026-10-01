@@ -43,16 +43,17 @@ anterior. La CLI continúa en `0.18.0-beta.1`. El puntero y el código local no
 demuestran por sí solos que las URLs públicas estén desplegadas o actualizadas.
 
 La distribución descrita aquí corresponde a SIYS Sync Web. Calendary CLI
-corre localmente bajo Node.js >=20 desde `bin/calendary.js`, habla por HTTPS
-con el mismo Supabase y no está incluida en el HTML ni servida por Pages.
+corre localmente bajo Node.js >=20 desde `apps/cli/bin/calendary.js`, habla por
+HTTPS con el mismo Supabase y no está incluida en el HTML ni servida por Pages.
 Actualmente se usa desde el repositorio / entorno Node, con `private: true`
 y sin canal independiente formal. Web usa `WEB_VERSION` en
-`src/ui/web-version.js`; CLI usa `CLI_VERSION` en `src/cli/version.js`.
-Son técnicamente independientes: Web vale `0.18.0-beta.2` y CLI
-`0.18.0-beta.1`.
-`package.json.version` representa Web/repositorio; el layout sigue igual.
-Workstream 2 reorganizará archivos y Workstream 3 elegirá distribución y tags
-independientes. El modelo `v...` sigue siendo temporalmente autoritativo. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
+`apps/web/src/ui/web-version.js`; CLI usa `CLI_VERSION` en
+`apps/cli/src/version.js`. Son técnicamente independientes: Web vale
+`0.18.0-beta.2` y CLI `0.18.0-beta.1`.
+`package.json.version` representa Web/repositorio. El repositorio ya usa npm
+workspaces privados `apps/web`, `apps/cli` y `packages/platform`; Workstream 3
+elegirá la distribución y los tags independientes. El modelo `v...` sigue
+siendo temporalmente autoritativo. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo

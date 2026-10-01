@@ -1,11 +1,11 @@
 # Operación de respaldos JSON
 
-Corte Workstream 1: `WEB_VERSION` (`src/ui/web-version.js`) y `CLI_VERSION`
-(`src/cli/version.js`) son independientes y actualmente valen
-`0.18.0-beta.2` y `0.18.0-beta.1`. Integrar Workstream 1 en `main` publica la
-nueva beta Web en `/beta/`. Package raíz sigue representando Web/repositorio; layout físico
-sin cambios, tags `v...` temporalmente autoritativos y distribución CLI propia
-pendiente del Workstream 3. Stable conserva `v0.17.0`.
+Corte Workstream 2: `WEB_VERSION` (`apps/web/src/ui/web-version.js`) y
+`CLI_VERSION` (`apps/cli/src/version.js`) son independientes y actualmente valen
+`0.18.0-beta.2` y `0.18.0-beta.1`. El repositorio usa npm workspaces privados
+`apps/web`, `apps/cli` y `packages/platform`. Package raíz sigue representando
+Web/repositorio; tags `v...` temporalmente autoritativos y distribución CLI
+propia pendiente del Workstream 3. Stable conserva `v0.17.0`.
 
 `document.appVersion` es metadato legado opaco: no determina compatibilidad,
 backend, productor o último escritor. Se conserva saneado; ausente/inválido
@@ -34,7 +34,7 @@ de OneDrive exista.
 
 ## Estado y alcance
 
-La línea actual del repositorio incluye `bin/calendary.js`, el contrato
+La línea actual del repositorio incluye `apps/cli/bin/calendary.js`, el contrato
 compartido y las pruebas de la CLI. Para operar el calendario la CLI exige
 `--source cloud`: Supabase es la única autoridad y no accede directamente a
 IndexedDB. Los archivos JSON sólo entran como operando (`--backup-file`,
@@ -89,11 +89,11 @@ calendario lógico distinto. El archivo sólo debe volver al
 mismo canal y perfil del que salió, salvo que se haya autorizado un traslado
 explícito.
 
-En la promoción comprobada el 2026-09-20, `package.json` y
-`src/core.js > APP_VERSION` declaran `0.17.0`, `package-lock.json`
-coincide y `stable-version.txt` contiene `v0.17.0`. `schemaVersion` vigente es
-4 y `formatVersion` de la envoltura de respaldo es 1. Estos datos locales no
-prueban qué versión o contenido están sirviendo las URLs públicas.
+En la promoción estable comprobada, `package.json` y `WEB_VERSION` declararon
+la versión Web, `package-lock.json` coincidió y `stable-version.txt` contiene
+`v0.17.0`. `schemaVersion` vigente es 4 y `formatVersion` de la envoltura de
+respaldo es 1. Estos datos locales no prueban qué versión o contenido están
+sirviendo las URLs públicas.
 
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
@@ -173,7 +173,7 @@ cloud`; los archivos JSON locales se validan con PowerShell, ya que la CLI
 retiró `--input`:
 
 ```powershell
-node bin/calendary.js calendar inspect --source cloud --channel beta `
+node apps/cli/bin/calendary.js calendar inspect --source cloud --channel beta `
   --calendar-id <uuid> --output json
 ```
 
@@ -190,7 +190,7 @@ entra como operando `--backup-file` para `backup restore|merge`:
 ```powershell
 $modified = Join-Path $backupRoot 'YYYY-MM-DD_HH-mm-ss_cli-<accion>_<cliente>-<sede>.json'
 
-node bin/calendary.js activity create `
+node apps/cli/bin/calendary.js activity create `
   --source cloud --channel beta --calendar-id <uuid> `
   --payload '<objeto JSON definido por el contrato>' `
   --output json
@@ -236,10 +236,10 @@ interactivo requiere `--yes`, mientras que `backup merge` no pide confirmación.
 `--dry-run` lee y valida sin persistir:
 
 ```powershell
-node bin/calendary.js backup merge --source cloud --channel beta `
+node apps/cli/bin/calendary.js backup merge --source cloud --channel beta `
   --calendar-id <uuid> --backup-file $modified
 
-node bin/calendary.js backup restore --source cloud --channel beta `
+node apps/cli/bin/calendary.js backup restore --source cloud --channel beta `
   --calendar-id <uuid> --backup-file $source --yes
 ```
 

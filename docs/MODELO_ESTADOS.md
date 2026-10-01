@@ -18,8 +18,9 @@ Estado: documento de S-02, construido sobre el código local actual.
 Este documento describe el documento canónico que produce sanitizeDocument cuando
 SCHEMA_VERSION es 4 y las mutaciones que atraviesan
 executeCalendarOperation. La fuente de verdad para los nombres de campos y las
-reglas es el código, no esta documentación: src/core.js,
-src/calendar-contract.js y src/domain/calendar-enums.js. Las pruebas
+reglas es el código, no esta documentación: packages/platform/src/core.js,
+packages/platform/src/calendar-contract.js y
+packages/platform/src/domain/calendar-enums.js. Las pruebas
 relacionadas son tests/core.test.mjs, tests/contract.test.mjs,
 tests/quarantine.test.mjs y tests/importer.test.mjs. La frontera operacional
 y el transporte por JSON están descritos en docs/CONTRATO_CALENDARIO.md y
