@@ -1,8 +1,10 @@
 # SIYS Sync
 
-Platform Architecture V2 completa sus tres workstreams: identidades, estructura
-física y releases independientes. SIYS Sync Web permanece en `0.18.0-beta.2`
-y Calendary CLI en `0.18.0-beta.1`.
+Platform Architecture V2 está completa: identidades, estructura física y
+releases independientes. SIYS Sync Web prepara el candidato estable `0.18.0`
+como promoción de la línea validada `0.18.0-beta.2`; Calendary CLI permanece
+independiente en `0.18.0-beta.1`. La preparación no cambia el canal publicado:
+Web estable sigue en `0.17.0`.
 
 | Producto | Autoridad | Tag | Distribución |
 | --- | --- | --- | --- |
@@ -16,7 +18,9 @@ Supabase permanece como backend compartido, sin cambios.
 
 Los tags históricos `v...` son inmutables. `web-v0.17.0` y
 `web-v0.18.0-beta.2` son aliases de sus commits históricos exactos.
-`stable-version.txt` apunta a `web-v0.17.0`; no hay promoción de stable.
+`stable-version.txt` apunta a `web-v0.17.0`: no hay promoción de stable. El
+candidato Web `0.18.0` aún no está etiquetado como `web-v0.18.0` ni publicado
+en la raíz estable.
 
 Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su
 [GitHub Release](https://github.com/yuliamrg/calendario-hvac-siys/releases),
@@ -28,8 +32,8 @@ node bin/calendary.js --help
 ```
 
 El ZIP incluye Platform y no requiere clonar ni instalar workspaces. La
-primera publicación se realiza con `cli-v0.18.0-beta.1` después de aprobar e
-integrar Workstream 3. Consulte [CLI](docs/CLI.md) y
+primera publicación se realizó con `cli-v0.18.0-beta.1`; su GitHub Release se
+conserva sin cambios en esta preparación de Web. Consulte [CLI](docs/CLI.md) y
 [build y release](docs/BUILD_RELEASE.md).
 
 `document.appVersion` es metadato legado opaco; la compatibilidad del documento

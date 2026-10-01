@@ -1,6 +1,6 @@
 # Arquitectura de productos
 
-Decisión vigente de Platform Architecture V2, Workstream 3: SIYS Sync Web y
+Decisión vigente de Platform Architecture V2 (completa): SIYS Sync Web y
 Calendary CLI son dos clientes ejecutables distintos en el mismo monorepo.
 Ambos reutilizan lógica compartida y se comunican directamente por HTTPS con
 el mismo backend Supabase. Los workstreams previos materializaron las tres fronteras
@@ -84,9 +84,9 @@ clientes; Web stable y beta conservan calendarios lógicos separados.
 
 ## Identidades independientes
 
-- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.18.0-beta.2"`.
+- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.18.0"`.
 - CLI: `apps/cli/src/version.js > CLI_VERSION = "0.18.0-beta.1"`.
-- Manifiestos: `apps/web/package.json` = `0.18.0-beta.2` y
+- Manifiestos: `apps/web/package.json` = `0.18.0` y
   `apps/cli/package.json` = `0.18.0-beta.1`, ambos `private: true`.
 - La raíz privada no posee versión; `package-lock.json` sólo refleja versiones
   de workspaces, sin identidad de producto raíz.
@@ -120,13 +120,14 @@ Un envelope Web actual puede contener un documento con `appVersion` antiguo.
 
 1. Workstream 1 separó identidades de producto.
 2. Workstream 2 separó Web, CLI y Platform físicamente.
-3. Workstream 3 completa Architecture V2 con versionado, tags y distribución
+3. Workstream 3 completó Architecture V2 con versionado, tags y distribución
    independientes. No se introduce otro workstream ni framework de releases.
 
 Web usa `web-v<version>` y GitHub Pages. Beta se construye desde `main`;
 stable desde `stable-version.txt = web-v0.17.0`. Los aliases
 `web-v0.17.0` y `web-v0.18.0-beta.2` conservan exactamente los commits de
-`v0.17.0` y `v0.18.0-beta.2`. Los tags históricos `v...` no se reescriben.
+`v0.17.0` y `v0.18.0-beta.2`. Los tags históricos `v...` no se reescriben. El
+candidato Web `0.18.0` todavía no está etiquetado como `web-v0.18.0`.
 
 CLI usa `cli-v<version>` y GitHub Release. `scripts/build-cli-release.mjs`
 copia runtime CLI y Platform desde sus fuentes, sin segunda copia mantenida.
@@ -138,5 +139,5 @@ clientes. No se usan filtros de paths. El checker incluye `apps/cli/bin/` en
 la frontera CLI: permite internals CLI y prohíbe Web, persistencia browser y
 versión Web. Platform sigue interno y Supabase no cambia.
 
-La primera release CLI conserva `0.18.0-beta.1`. Su tag se crea únicamente
-tras aprobar e integrar Workstream 3; nunca durante implementación.
+La primera release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva sin
+cambios en la preparación de Web `0.18.0`; su tag no se mueve.

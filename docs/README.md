@@ -29,7 +29,7 @@ no sustituyen las fuentes del código actual.
 ## Para desarrollo e integración
 
 - [Arquitectura de productos](ARQUITECTURA_PRODUCTOS.md): mapa Web / CLI /
-  shared / backend y dirección futura diferida.
+  shared / backend, identidades y releases independientes.
 - [Arquitectura](ARQUITECTURA.md): capas, módulos y fronteras de importación.
 - [Contrato del calendario](CONTRATO_CALENDARIO.md): operaciones, payloads,
   respuestas y errores.

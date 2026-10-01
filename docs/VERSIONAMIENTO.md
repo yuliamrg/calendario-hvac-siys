@@ -16,7 +16,7 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 ## 1. Fuentes de versión y artefactos
 
 - Web: `apps/web/package.json.version` = `WEB_VERSION` en
-  `apps/web/src/ui/web-version.js`, hoy `0.18.0-beta.2`.
+  `apps/web/src/ui/web-version.js`, hoy `0.18.0`.
 - CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
   `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
 - Platform: `packages/platform/package.json.version = 0.0.0`, privado e interno,
@@ -81,10 +81,10 @@ número de commits ni sobre el tamaño del diff:
 | ¿Cambia esquema, respaldo, contrato o compatibilidad operativa? | `SCHEMA_VERSION`, `CONTRACT_VERSION`, `formatVersion` y migraciones | Nueva línea y advertencia de compatibilidad; si es incompatible, no se oculta como PATCH. |
 | ¿El cambio sólo es documentación, test, CI, build o refactor interno? | No cambia comportamiento ni contrato | Conserva la versión. |
 
-Para este corte, los cambios posteriores a `0.16.0-beta.2` agregan capacidades
+Por ejemplo, los cambios posteriores a `0.16.0-beta.2` agregaron capacidades
 públicas de presentación/exportación y fronteras operativas nuevas. Por eso se
-abre `0.17.0-beta.1`; no se usa `0.16.0-beta.3`. El esquema persistido y el
-contrato se mantienen en 4 y 1, respectivamente, por lo que no se trata de una
+abrió `0.17.0-beta.1`; no se usó `0.16.0-beta.3`. El esquema persistido y el
+contrato se mantuvieron en 4 y 1, respectivamente, por lo que no fue una
 ruptura de compatibilidad.
 
 ## 3. Cómo se organiza una línea beta
@@ -237,19 +237,18 @@ CI completa permanece sin optimización por paths porque Platform afecta ambos.
 
 ## 9. Corte actual y migración
 
-Workstream 3 parte de `2ec67437646db431363961ee18bbecd000b25dba` y completa
-Architecture V2 sin cambiar versiones ni comportamiento. Web `0.18.0-beta.2`,
-CLI `0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1,
+Workstream 3 completó Architecture V2 e integró versionado, tags y releases
+independientes sin cambiar el comportamiento de producto. Estado actual: Web
+candidato `0.18.0` (promoción de la línea validada `0.18.0-beta.2`), CLI
+`0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1,
 backup formatVersion 1. No se cambia Supabase.
 
 `web-v0.17.0` aliasa el commit de `v0.17.0`; `web-v0.18.0-beta.2` aliasa el
-commit de `v0.18.0-beta.2`. Se resuelven con `git rev-parse <tag>^{commit}`
-y se verifica igualdad exacta antes/después del push. Los aliases se crean
-tras todos los gates; no son nuevas releases Web ni disparan builds.
-El puntero cambia a `web-v0.17.0` sin promoción ni cambio de bytes stable.
+commit de `v0.18.0-beta.2`. Se resuelven con `git rev-parse <tag>^{commit}`.
+Los aliases no son nuevas releases Web ni disparan builds. El puntero continúa
+en `web-v0.17.0`: la preparación del candidato `0.18.0` no lo mueve y
+`web-v0.18.0` no se crea antes del Human Gate.
 
-La primera release CLI mantiene `0.18.0-beta.1`. Su tag no se crea durante
-implementación: pertenece al commit integrado tras Human Merge approval.
-Los ejemplos anteriores y CHANGELOG conservan historia; no describen releases
-nuevas de este workstream. No se añade una entrada de producto al changelog
-porque su convención vigente sólo contiene versiones publicadas.
+La release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva intacta.
+Los ejemplos anteriores y CHANGELOG conservan historia y no describen releases
+nuevas de este workstream.

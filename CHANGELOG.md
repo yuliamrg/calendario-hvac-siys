@@ -1,5 +1,25 @@
 # Historial de cambios
 
+## [0.18.0] - 2026-09-30
+
+### Promoción a candidato estable
+
+- Se promueve la línea Web validada `0.18.0-beta.2` a `0.18.0` como candidato
+  estable de SIYS Sync Web. No se agrega funcionalidad nueva: es la misma
+  implementación de la beta, sin cambios de UI, calendario ni comportamiento.
+- Platform Architecture V2 ya está completa; esta preparación no abre nuevos
+  workstreams ni modifica infraestructura.
+- Calendary CLI permanece independiente en `0.18.0-beta.1`; no se cambia por
+  simetría ni se publica una release CLI nueva. Platform continúa interno en
+  `0.0.0`.
+- Se conservan `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y el formato de
+  respaldo `formatVersion = 1`; Supabase no cambia.
+- El puntero estable `stable-version.txt` continúa en `web-v0.17.0`: la
+  promoción efectiva de stable y la creación del tag `web-v0.18.0` dependen del
+  Human Gate y no forman parte de esta preparación.
+- Mientras el candidato no se promueva, el canal publicado sigue siendo Web
+  estable `0.17.0` y CLI `0.18.0-beta.1`.
+
 ## [0.18.0-beta.2] - 2026-09-29
 
 ### Identidades independientes de producto
