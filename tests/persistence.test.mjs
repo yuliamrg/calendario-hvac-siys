@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createIndexedDocumentStore } from "../src/persistence/indexed-document-store.js";
-import { createJsonPreferences } from "../src/persistence/json-preferences.js";
+import { createIndexedDocumentStore } from "../apps/web/src/persistence/indexed-document-store.js";
+import { createJsonPreferences } from "../apps/web/src/persistence/json-preferences.js";
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));

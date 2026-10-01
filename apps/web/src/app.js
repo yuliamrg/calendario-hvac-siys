@@ -48,8 +48,8 @@ import {
   validateActivity,
   validateHolidayOverride,
   validatePlanningDate
-} from "./core.js";
-import { executeCalendarOperation } from "./calendar-contract.js";
+} from "@siys-sync/platform/core.js";
+import { executeCalendarOperation } from "@siys-sync/platform/calendar-contract.js";
 import {
   PROGRAMMING_COLUMNS,
   applyProgrammingImport,
@@ -99,7 +99,7 @@ import { createIndexedDocumentStore } from "./persistence/indexed-document-store
 import { createJsonPreferences } from "./persistence/json-preferences.js";
 import {
   responsibleCoverageScore
-} from "./domain/responsible-ranking.js";
+} from "@siys-sync/platform/domain/responsible-ranking.js";
 
 const RUNTIME_CHANNEL = runtimeChannelForLocation(location);
 const DATABASE_NAME = RUNTIME_CHANNEL === "beta"

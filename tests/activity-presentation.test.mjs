@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { ACTIVITY_STATUSES, RESPONSIBLE_TYPES } from "../src/domain/calendar-enums.js";
+import { ACTIVITY_STATUSES, RESPONSIBLE_TYPES } from "../packages/platform/src/domain/calendar-enums.js";
 import {
   ACTIVITY_STATUS_PRESENTATION,
   activityObservationsTooltip,
   activityResponsiblePresentation,
   activityStatusPresentation,
   buildActivityPresentation
-} from "../src/ui/activity-presentation.js";
+} from "../apps/web/src/ui/activity-presentation.js";
 
 test("el contrato conserva todos los estados y una sola representación de in_progress", () => {
   assert.deepEqual(

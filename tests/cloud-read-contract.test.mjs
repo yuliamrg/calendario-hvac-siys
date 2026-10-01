@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PassThrough } from "node:stream";
-import { createDefaultDocument } from "../src/core.js";
-import { executeCalendarOperation } from "../src/calendar-contract.js";
-import { createSupabaseAuthClient } from "../src/cli/cloud-auth.js";
-import { assertCloudReadMethod, CloudCalendarSource, createSupabaseReadClient } from "../src/cli/cloud-read.js";
-import { SupabaseTransportError } from "../src/supabase/transport.js";
-import { runCli } from "../src/cli/main.js";
+import { createDefaultDocument } from "../packages/platform/src/core.js";
+import { executeCalendarOperation } from "../packages/platform/src/calendar-contract.js";
+import { createSupabaseAuthClient } from "../apps/cli/src/cloud-auth.js";
+import { assertCloudReadMethod, CloudCalendarSource, createSupabaseReadClient } from "../apps/cli/src/cloud-read.js";
+import { SupabaseTransportError } from "../packages/platform/src/supabase/transport.js";
+import { runCli } from "../apps/cli/src/main.js";
 
 const CONFIG = { url: "https://example.supabase.co", publishableKey: "sb_publishable_fixture" };
 const USER = { id: "11111111-1111-4111-8111-111111111111", email: "fixture@example.com" };

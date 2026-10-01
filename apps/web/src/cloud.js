@@ -1,4 +1,4 @@
-import { createSupabaseTransport, SupabaseTransportError } from "./supabase/transport.js";
+import { createSupabaseTransport, SupabaseTransportError } from "@siys-sync/platform/supabase/transport.js";
 
 const SESSION_KEY_PREFIX = "siys-sync-supabase-session";
 const STABLE_CALENDAR_KEY = "calendario-hvac-siys";

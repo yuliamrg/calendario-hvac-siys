@@ -1,0 +1,16 @@
+{
+  "name": "@siys-sync/cli",
+  "version": "0.18.0-beta.1",
+  "private": true,
+  "type": "module",
+  "description": "Calendary CLI para el cronograma HVAC SIYS.",
+  "bin": {
+    "calendary": "./bin/calendary.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@siys-sync/platform": "*"
+  }
+}

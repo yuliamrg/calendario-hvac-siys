@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import * as core from "../src/core.js";
+import * as core from "../packages/platform/src/core.js";
 import {
   addDaysISO,
   compareISODate,
@@ -9,27 +9,27 @@ import {
   monthGridDates,
   parseISODate,
   todayInBogota
-} from "../src/domain/dates.js";
-import { normalizeDisplayText, normalizeKey, normalizeText, safeText } from "../src/domain/text.js";
-import { responsibleCoverageScore, sortResponsiblesByCoverage } from "../src/domain/responsible-ranking.js";
+} from "../packages/platform/src/domain/dates.js";
+import { normalizeDisplayText, normalizeKey, normalizeText, safeText } from "../packages/platform/src/domain/text.js";
+import { responsibleCoverageScore, sortResponsiblesByCoverage } from "../packages/platform/src/domain/responsible-ranking.js";
 import {
   colombianHolidays,
   generateSeriesDates,
   holidayMapForRange
-} from "../src/domain/holidays.js";
+} from "../packages/platform/src/domain/holidays.js";
 import {
   displayInitialsFor,
   formatDisplayDate,
   formatMonthTitle,
   timestampLabel
-} from "../src/ui/presentation.js";
+} from "../apps/web/src/ui/presentation.js";
 import {
   decodeAddress,
   decodeRange,
   encodeColumn,
   findHeader,
   worksheetRows
-} from "../src/import/xlsx-table.js";
+} from "../apps/web/src/import/xlsx-table.js";
 
 test("la fachada del núcleo conserva las utilidades de dominio extraídas", () => {
   assert.equal(core.parseISODate, parseISODate);

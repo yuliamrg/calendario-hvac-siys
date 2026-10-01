@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCloudCalendarWriter } from "../src/cli/cloud-write.js";
-import { createSupabaseRestClient } from "../src/cli/cloud-rest.js";
+import { createCloudCalendarWriter } from "../apps/cli/src/cloud-write.js";
+import { createSupabaseRestClient } from "../apps/cli/src/cloud-rest.js";
 
 const CONFIG = { url: "https://example.supabase.co", publishableKey: "sb_publishable_fixture" };
 const CALENDAR_ID = "11111111-1111-4111-8111-111111111112";

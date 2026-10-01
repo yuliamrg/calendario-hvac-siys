@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { CALENDAR_OPERATIONS } from "../calendar-contract.js";
+import { CALENDAR_OPERATIONS } from "@siys-sync/platform/calendar-contract.js";
 import { readCalendarFile } from "./files.js";
 
 export const HELP = `calendary — calendario HVAC SI&S con Supabase como única autoridad

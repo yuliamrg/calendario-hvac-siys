@@ -52,19 +52,32 @@ const gitRevision = (ref) => {
 
 const localTagExists = (tag) => Boolean(gitRevision("refs/tags/" + tag));
 
-const [packageSource, lockSource, webSource, cliSource, stableSource, namedDist, pagesDist] =
-  await Promise.all([
-    readText("package.json"),
-    readText("package-lock.json"),
-    readText("src/ui/web-version.js"),
-    readText("src/cli/version.js"),
-    readText("stable-version.txt"),
-    readFile(resolve(root, "dist", "calendario-hvac-siys.html")),
-    readFile(resolve(root, "dist", "index.html"))
-  ]);
+const [
+  packageSource,
+  lockSource,
+  webSource,
+  cliSource,
+  webPackageSource,
+  cliPackageSource,
+  stableSource,
+  namedDist,
+  pagesDist
+] = await Promise.all([
+  readText("package.json"),
+  readText("package-lock.json"),
+  readText("apps/web/src/ui/web-version.js"),
+  readText("apps/cli/src/version.js"),
+  readText("apps/web/package.json"),
+  readText("apps/cli/package.json"),
+  readText("stable-version.txt"),
+  readFile(resolve(root, "dist", "calendario-hvac-siys.html")),
+  readFile(resolve(root, "dist", "index.html"))
+]);
 
 let packageJson;
 let lockJson;
+let webPackageJson;
+let cliPackageJson;
 try {
   packageJson = JSON.parse(packageSource);
 } catch (error) {
@@ -75,21 +88,43 @@ try {
 } catch (error) {
   failures.push("package-lock.json no es JSON válido: " + error.message);
 }
+try {
+  webPackageJson = JSON.parse(webPackageSource);
+} catch (error) {
+  failures.push("apps/web/package.json no es JSON válido: " + error.message);
+}
+try {
+  cliPackageJson = JSON.parse(cliPackageSource);
+} catch (error) {
+  failures.push("apps/cli/package.json no es JSON válido: " + error.message);
+}
 
 const packageVersion = packageJson?.version;
 const parsedPackage = parseVersion(packageVersion, "package.json > version");
 const webMatch = webSource.match(/export const WEB_VERSION = "([^"]+)";/);
 const webVersion = webMatch?.[1];
-if (!webMatch) failures.push("src/ui/web-version.js no declara WEB_VERSION con el formato esperado.");
-parseVersion(webVersion, "src/ui/web-version.js > WEB_VERSION");
+if (!webMatch) failures.push("apps/web/src/ui/web-version.js no declara WEB_VERSION con el formato esperado.");
+parseVersion(webVersion, "apps/web/src/ui/web-version.js > WEB_VERSION");
 
 const cliMatch = cliSource.match(/export const CLI_VERSION = "([^"]+)";/);
 const cliVersion = cliMatch?.[1];
-if (!cliMatch) failures.push("src/cli/version.js no declara CLI_VERSION con el formato esperado.");
-parseVersion(cliVersion, "src/cli/version.js > CLI_VERSION");
+if (!cliMatch) failures.push("apps/cli/src/version.js no declara CLI_VERSION con el formato esperado.");
+parseVersion(cliVersion, "apps/cli/src/version.js > CLI_VERSION");
 
 if (packageVersion && webVersion && packageVersion !== webVersion) {
   failures.push("package.json (" + packageVersion + ") y WEB_VERSION (" + webVersion + ") no coinciden.");
+}
+if (webPackageJson && webVersion && webPackageJson.version !== webVersion) {
+  failures.push("apps/web/package.json (" + webPackageJson.version + ") y WEB_VERSION (" + webVersion + ") no coinciden.");
+}
+if (cliPackageJson && cliVersion && cliPackageJson.version !== cliVersion) {
+  failures.push("apps/cli/package.json (" + cliPackageJson.version + ") y CLI_VERSION (" + cliVersion + ") no coinciden.");
+}
+if (webPackageJson && webPackageJson.private !== true) {
+  failures.push("apps/web/package.json debe ser privado hasta Workstream 3.");
+}
+if (cliPackageJson && cliPackageJson.private !== true) {
+  failures.push("apps/cli/package.json debe ser privado hasta Workstream 3.");
 }
 if (lockJson?.version !== undefined && lockJson.version !== packageVersion) {
   failures.push("package-lock.json > version (" + lockJson.version + ") no coincide con package.json (" + packageVersion + ").");

@@ -4,9 +4,9 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-import { createImportCommands } from "../src/application/import-commands.js";
+import { createImportCommands } from "../apps/web/src/application/import-commands.js";
 
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "src");
+const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "apps", "web", "src");
 const staticImportPattern = /\b(?:import|export)\s+(?:(?:[\s\S]*?)\s+from\s+)?["']([^"']+)["']/g;
 
 function fixtureDocument() {

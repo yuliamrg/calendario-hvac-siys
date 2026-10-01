@@ -2,500 +2,355 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  checkArchitecture,
   classifyModule,
-  extractLocalImportSpecifiers,
+  checkArchitecture,
+  extractImportSpecifiers,
   findForbiddenPackageReferences,
+  findForbiddenPlatformReferences,
   findForbiddenSemanticReferences,
   findForbiddenSupabaseRuntimeImports,
   formatArchitectureReport,
+  resolveImportSpecifier,
   validateArchitectureGraph
 } from "../scripts/architecture-check.mjs";
 
-test("el grafo real de src respeta las fronteras y captura la CLI completa", async () => {
+const clonedGraph = (actual) => new Map(actual.graph);
+
+test("el grafo real respeta las fronteras de los tres workspaces", async () => {
   const report = await checkArchitecture();
 
   assert.equal(report.ok, true, formatArchitectureReport(report));
   assert.deepEqual(report.violations, []);
-  assert.equal(classifyModule("app.js"), "composition");
-  assert.equal(report.modules.includes("cli/main.js"), true);
-  assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-read.js"),
-    true,
-    "El grafo debe capturar la ruta de lectura cloud de la CLI"
+  assert.equal(classifyModule("apps/web/src/app.js"), "web/composition");
+  assert.equal(classifyModule("apps/cli/src/main.js"), "cli");
+  assert.equal(classifyModule("packages/platform/src/core.js"), "platform/core");
+  assert.equal(classifyModule("packages/platform/src/calendar-contract.js"), "platform/contract");
+  assert.equal(classifyModule("packages/platform/src/domain/dates.js"), "platform/domain");
+  assert.equal(classifyModule("packages/platform/src/supabase/transport.js"), "platform/supabase");
+
+  const mainGraph = report.graph.get("apps/cli/src/main.js");
+  assert.ok(mainGraph.some(({ projectPath }) => projectPath === "apps/cli/src/cloud-read.js"));
+  assert.ok(mainGraph.some(({ projectPath }) => projectPath === "apps/cli/src/cloud-write.js"));
+  assert.ok(
+    mainGraph.some(({ projectPath }) => projectPath === "packages/platform/src/calendar-contract.js"),
+    "la CLI debe resolver el contrato compartido por el workspace de plataforma"
   );
-  assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-write.js"),
-    true,
-    "El grafo debe capturar la frontera de escritura cloud de la CLI"
+  assert.ok(
+    report.modules.includes("packages/platform/src/supabase/transport.js"),
+    "el grafo debe capturar el transporte compartido"
   );
 });
 
-test("la validación detecta una dependencia sintética que cruza una frontera", async () => {
+test("platform no puede importar web ni cli", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("domain/synthetic-violation.js", [
-    { specifier: "../ui/presentation.js", relativePath: "ui/presentation.js" }
-  ]);
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "domain/synthetic-violation.js"],
-    graph
-  });
-
-  assert.equal(report.ok, false);
-  assert.equal(
-    report.violations.some((item) => (
-      item.type === "forbidden-import"
-      && item.importer === "domain/synthetic-violation.js"
-      && item.dependency === "ui/presentation.js"
-    )),
-    true
-  );
-  assert.match(formatArchitectureReport(report), /domain\/synthetic-violation\.js/);
+  for (const target of [
+    { boundary: "web/ui", projectPath: "apps/web/src/ui/presentation.js" },
+    { boundary: "cli", projectPath: "apps/cli/src/main.js" }
+  ]) {
+    const graph = clonedGraph(actual);
+    const modulePath = "packages/platform/src/domain/synthetic-violation.js";
+    graph.set(modulePath, [{ specifier: `../${target.projectPath}`, projectPath: target.projectPath }]);
+    const report = validateArchitectureGraph({ ...actual, graph, modules: [...actual.modules, modulePath] });
+    assert.equal(report.ok, false);
+    assert.ok(
+      report.violations.some((item) => (
+        item.type === "forbidden-import"
+        && item.importer === modulePath
+        && item.dependencyBoundary === target.boundary
+      )),
+      `platform no debe importar ${target.boundary}`
+    );
+  }
 });
 
-test("el grafo real de src respeta las fronteras y captura la CLI completa", async () => {
-  const report = await checkArchitecture();
-
-  assert.equal(report.ok, true, formatArchitectureReport(report));
-  assert.deepEqual(report.violations, []);
-  assert.equal(classifyModule("app.js"), "composition");
-  assert.equal(report.modules.includes("cli/main.js"), true);
-  assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-read.js"),
-    true,
-    "El grafo debe capturar la ruta de lectura cloud de la CLI"
-  );
-  assert.equal(
-    report.graph.get("cli/main.js").some(({ relativePath }) => relativePath === "cli/cloud-write.js"),
-    true,
-    "El grafo debe capturar la frontera de escritura cloud de la CLI"
-  );
-});
-
-test("la validación detecta una dependencia sintética prohibida en la capa application", async () => {
+test("web no puede importar cli y cli no puede importar web", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("application/synthetic-violation.js", [
-    { specifier: "../ui/presentation.js", relativePath: "ui/presentation.js" }
-  ]);
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "application/synthetic-violation.js"],
-    graph
-  });
-
-  assert.equal(report.ok, false);
-  assert.equal(
-    report.violations.some((item) => (
-      item.type === "forbidden-import"
-      && item.importer === "application/synthetic-violation.js"
-      && item.dependency === "ui/presentation.js"
-    )),
-    true
-  );
-  assert.match(formatArchitectureReport(report), /application\/synthetic-violation\.js/);
+  const cases = [
+    {
+      importer: "apps/web/src/app.js",
+      importerBoundary: "web/composition",
+      target: "apps/cli/src/main.js",
+      targetBoundary: "cli"
+    },
+    {
+      importer: "apps/cli/src/main.js",
+      importerBoundary: "cli",
+      target: "apps/web/src/ui/presentation.js",
+      targetBoundary: "web/ui"
+    }
+  ];
+  for (const testCase of cases) {
+    const graph = clonedGraph(actual);
+    graph.set(testCase.importer, [
+      ...(actual.graph.get(testCase.importer) ?? []),
+      { specifier: `./${testCase.target}`, projectPath: testCase.target }
+    ]);
+    const report = validateArchitectureGraph({ ...actual, graph });
+    assert.equal(report.ok, false);
+    assert.ok(
+      report.violations.some((item) => (
+        item.type === "forbidden-import"
+        && item.importer === testCase.importer
+        && item.dependencyBoundary === testCase.targetBoundary
+      )),
+      `${testCase.importer} no debe importar ${testCase.target}`
+    );
+  }
 });
 
-test("la validación permite importaciones permitidas desde la capa application", async () => {
+test("un módulo platform no puede importar runtime Node ni APIs de navegador", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("application/synthetic-allow.js", [
-    { specifier: "../core.js", relativePath: "core.js" }
-  ]);
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "application/synthetic-allow.js"],
-    graph
-  });
-
-  assert.equal(report.ok, true, formatArchitectureReport(report));
-  assert.equal(report.violations.length, 0);
-});
-
-test("el grafo real de src pasa con la nueva regla de application", async () => {
-  const report = await checkArchitecture();
-
-  assert.equal(report.ok, true, formatArchitectureReport(report));
-  assert.deepEqual(report.violations, []);
-});
-
-test("application no puede importar la frontera import (adaptadores de Excel)", async () => {
-  const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("application/synthetic-import-frontier.js", [
-    { specifier: "../import/xlsx-table.js", relativePath: "import/xlsx-table.js" }
-  ]);
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "application/synthetic-import-frontier.js"],
-    graph
-  });
-
-  assert.equal(report.ok, false);
-  assert.equal(
-    report.violations.some((item) => (
-      item.type === "forbidden-import"
-      && item.importer === "application/synthetic-import-frontier.js"
-      && item.dependency === "import/xlsx-table.js"
-      && item.dependencyLayer === "import"
-    )),
-    true,
-    "application no debe conocer src/import"
-  );
-});
-
-test("application tampoco puede importar la fachada importer.js", async () => {
-  const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("application/synthetic-importer.js", [
-    { specifier: "../importer.js", relativePath: "importer.js" }
-  ]);
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "application/synthetic-importer.js"],
-    graph
-  });
-
-  assert.equal(report.ok, false);
-  assert.equal(
-    report.violations.some((item) => (
-      item.type === "forbidden-import"
-      && item.importer === "application/synthetic-importer.js"
-      && item.dependency === "importer.js"
-    )),
-    true
-  );
-});
-
-test("la validación semántica detecta referencias prohibidas en un módulo application", async () => {
-  const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("application/synthetic-semantic.js", []);
+  const modulePath = "packages/platform/src/domain/synthetic-runtime.js";
+  const graph = clonedGraph(actual);
   const sources = new Map(actual.sources);
-  sources.set("application/synthetic-semantic.js", [
+  graph.set(modulePath, [
+    { specifier: "node:fs/promises", projectPath: null }
+  ]);
+  sources.set(modulePath, [
+    'import { readFile } from "node:fs/promises";',
+    "export function read() {",
+    "  return window.innerWidth + localStorage.length + readFile;",
+    "}"
+  ].join("\n"));
+
+  const report = validateArchitectureGraph({
+    ...actual,
+    modules: [...actual.modules, modulePath],
+    graph,
+    sources
+  });
+
+  assert.equal(report.ok, false);
+  assert.ok(report.violations.some((item) => (
+    item.type === "forbidden-platform-runtime-import"
+    && item.module === modulePath
+    && item.specifier === "node:fs/promises"
+  )));
+  for (const token of ["window", "localStorage"]) {
+    assert.ok(report.violations.some((item) => (
+      item.type === "forbidden-platform-reference"
+      && item.module === modulePath
+      && item.token === token
+    )));
+  }
+});
+
+test("los módulos compartidos no pueden reintroducir la identidad de producto", async () => {
+  const actual = await checkArchitecture();
+  for (const modulePath of [
+    "packages/platform/src/core.js",
+    "packages/platform/src/calendar-contract.js",
+    "packages/platform/src/domain/dates.js",
+    "apps/web/src/application/calendar-commands.js",
+    "apps/web/src/import/xlsx-table.js",
+    "packages/platform/src/supabase/transport.js"
+  ]) {
+    for (const token of ["APP_VERSION", "WEB_VERSION", "CLI_VERSION"]) {
+      const sources = new Map(actual.sources);
+      sources.set(modulePath, `export const ${token} = "9.8.7";`);
+      const report = validateArchitectureGraph({ ...actual, sources });
+      assert.ok(report.violations.some((item) => (
+        item.type === "shared-product-version"
+        && item.module === modulePath
+        && item.token === token
+      )), `${modulePath} no debe declarar ${token}`);
+    }
+  }
+});
+
+test("la capa application web rechaza tokens y paquetes prohibidos", async () => {
+  const actual = await checkArchitecture();
+  const semanticModule = "apps/web/src/application/synthetic-semantic.js";
+  const semanticSources = new Map(actual.sources);
+  semanticSources.set(semanticModule, [
     "export function measure() {",
     "  const width = window.innerWidth;",
     "  return width + localStorage.length;",
     "}"
   ].join("\n"));
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "application/synthetic-semantic.js"],
-    graph,
-    sources
+  const semanticReport = validateArchitectureGraph({
+    ...actual,
+    modules: [...actual.modules, semanticModule],
+    sources: semanticSources
   });
-
-  assert.equal(report.ok, false);
-  assert.equal(
-    report.violations.some((item) => (
+  for (const token of ["window", "localStorage"]) {
+    assert.ok(semanticReport.violations.some((item) => (
       item.type === "forbidden-semantic-reference"
-      && item.module === "application/synthetic-semantic.js"
-      && item.token === "window"
-    )),
-    true
-  );
-  assert.equal(
-    report.violations.some((item) => (
-      item.type === "forbidden-semantic-reference"
-      && item.module === "application/synthetic-semantic.js"
-      && item.token === "localStorage"
-    )),
-    true
-  );
-  assert.match(formatArchitectureReport(report), /window/);
+      && item.module === semanticModule
+      && item.token === token
+    )));
+  }
+
+  const packageModule = "apps/web/src/application/synthetic-excel.js";
+  const packageSources = new Map(actual.sources);
+  packageSources.set(packageModule, 'import { read } from "xlsx";\nexport const load = () => read("a.xlsx");');
+  const packageReport = validateArchitectureGraph({
+    ...actual,
+    modules: [...actual.modules, packageModule],
+    sources: packageSources
+  });
+  assert.ok(packageReport.violations.some((item) => (
+    item.type === "forbidden-application-package"
+    && item.module === packageModule
+    && item.specifier === "xlsx"
+  )));
 });
 
-test("la validación semántica detecta imports de paquetes prohibidos", async () => {
+test("el transporte supabase es dual-runtime y no puede importar node:", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("application/synthetic-excel.js", []);
+  const modulePath = "packages/platform/src/supabase/synthetic-runtime.js";
   const sources = new Map(actual.sources);
-  sources.set("application/synthetic-excel.js", [
-    "import { read } from \"xlsx\";",
-    "export function load() { return read(\"a.xlsx\"); }"
+  sources.set(modulePath, [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";',
+    "export async function load() { return readFile(homedir(), \"utf8\"); }"
   ].join("\n"));
-
   const report = validateArchitectureGraph({
-    modules: [...actual.modules, "application/synthetic-excel.js"],
-    graph,
+    ...actual,
+    modules: [...actual.modules, modulePath],
     sources
   });
-
-  assert.equal(report.ok, false);
-  assert.equal(
-    report.violations.some((item) => (
-      item.type === "forbidden-application-package"
-      && item.module === "application/synthetic-excel.js"
-      && item.specifier === "xlsx"
-    )),
-    true
-  );
+  for (const specifier of ["node:fs/promises", "node:os"]) {
+    assert.ok(report.violations.some((item) => (
+      item.type === "forbidden-supabase-runtime-import"
+      && item.module === modulePath
+      && item.specifier === specifier
+    )));
+  }
 });
 
-test("la validación semántica ignora comentarios, mensajes y template literals", () => {
-  const source = [
-    "// window y localStorage no deben usarse; se inyectan adaptadores.",
-    "export function notify() {",
-    "  throw new Error(\"Usar window solo via adaptador inyectado.\");",
-    "  const tip = `Esto menciona fetch y Supabase en un literal.`;",
-    "}"
-  ].join("\n");
-
-  assert.deepEqual(findForbiddenSemanticReferences(source), []);
-});
-
-test("la validación semántica permite un módulo application limpio", async () => {
+test("la prohibición de node: no aplica a la capa cli", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("application/synthetic-clean.js", []);
+  const modulePath = "apps/cli/src/synthetic-runtime.js";
   const sources = new Map(actual.sources);
-  sources.set("application/synthetic-clean.js", [
-    "import { dispatchOperation } from \"./calendar-commands.js\";",
-    "export function run(op, payload) {",
-    "  const value = structuredClone(payload);",
-    "  return dispatchOperation(value, op);",
-    "}"
+  sources.set(modulePath, [
+    'import { readFile } from "node:fs/promises";',
+    'import { homedir } from "node:os";'
   ].join("\n"));
-
   const report = validateArchitectureGraph({
-    modules: [...actual.modules, "application/synthetic-clean.js"],
-    graph,
+    ...actual,
+    modules: [...actual.modules, modulePath],
     sources
   });
-
-  assert.equal(report.ok, true, formatArchitectureReport(report));
-  assert.equal(
-    report.violations.some((item) => item.type === "forbidden-semantic-reference"),
-    false
-  );
-});
-
-test("la capa supabase clasifica el transporte compartido y respeta el grafo real", async () => {
-  const report = await checkArchitecture();
-
   assert.equal(report.ok, true, formatArchitectureReport(report));
   assert.deepEqual(report.violations, []);
-  assert.equal(classifyModule("supabase/transport.js"), "supabase");
-  assert.equal(report.modules.includes("supabase/transport.js"), true);
 });
 
-test("un módulo supabase no puede importar ninguna otra capa", async () => {
+test("las fronteras internas conservan sus prohibiciones entre capas", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  const forbiddenTargets = [
-    { specifier: "../cli/main.js", relativePath: "cli/main.js", layer: "cli" },
-    { specifier: "../cloud.js", relativePath: "cloud.js", layer: "cloud" },
-    { specifier: "../ui/presentation.js", relativePath: "ui/presentation.js", layer: "ui" },
-    { specifier: "../persistence/json-preferences.js", relativePath: "persistence/json-preferences.js", layer: "persistence" },
-    { specifier: "../application/calendar-commands.js", relativePath: "application/calendar-commands.js", layer: "application" },
-    { specifier: "../core.js", relativePath: "core.js", layer: "core" },
-    { specifier: "../calendar-contract.js", relativePath: "calendar-contract.js", layer: "contract" },
-    { specifier: "../domain/dates.js", relativePath: "domain/dates.js", layer: "domain" }
+  const cases = [
+    ["packages/platform/src/supabase/transport.js", "packages/platform/src/domain/dates.js", "platform/domain"],
+    ["packages/platform/src/core.js", "packages/platform/src/supabase/transport.js", "platform/supabase"],
+    ["apps/web/src/ui/presentation.js", "packages/platform/src/supabase/transport.js", "platform/supabase"],
+    ["apps/web/src/persistence/json-preferences.js", "apps/web/src/ui/presentation.js", "web/ui"],
+    ["apps/web/src/import/xlsx-table.js", "apps/web/src/ui/presentation.js", "web/ui"],
+    ["apps/web/src/application/calendar-commands.js", "apps/web/src/import/xlsx-table.js", "web/import"]
   ];
-  graph.set("supabase/synthetic-violation.js", forbiddenTargets.map(({ specifier, relativePath }) => ({
-    specifier,
-    relativePath
-  })));
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "supabase/synthetic-violation.js"],
-    graph
-  });
-
-  assert.equal(report.ok, false);
-  for (const target of forbiddenTargets) {
-    assert.equal(
+  for (const [importer, target, dependencyBoundary] of cases) {
+    const graph = clonedGraph(actual);
+    graph.set(importer, [{ specifier: `./${target}`, projectPath: target }]);
+    const report = validateArchitectureGraph({ ...actual, graph });
+    assert.ok(
       report.violations.some((item) => (
         item.type === "forbidden-import"
-        && item.importer === "supabase/synthetic-violation.js"
-        && item.dependency === target.relativePath
-        && item.dependencyLayer === target.layer
+        && item.importer === importer
+        && item.dependencyBoundary === dependencyBoundary
       )),
-      true,
-      `supabase no debe importar ${target.relativePath}`
+      `${importer} no debe importar ${target}`
     );
   }
 });
 
-test("cli puede importar la capa supabase", async () => {
+test("un import de plataforma no declarado en los exports se marca", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("cli/synthetic-supabase.js", [
-    { specifier: "../supabase/transport.js", relativePath: "supabase/transport.js" }
+  const graph = clonedGraph(actual);
+  graph.set("apps/web/src/app.js", [
+    ...(actual.graph.get("apps/web/src/app.js") ?? []),
+    {
+      specifier: "@siys-sync/platform/domain/holidays.js",
+      projectPath: "packages/platform/src/domain/holidays.js"
+    }
   ]);
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "cli/synthetic-supabase.js"],
-    graph
-  });
-
-  assert.equal(report.ok, true, formatArchitectureReport(report));
-  assert.equal(report.violations.length, 0);
+  const report = validateArchitectureGraph({ ...actual, graph });
+  assert.equal(report.ok, false);
+  assert.ok(report.violations.some((item) => (
+    item.type === "undeclared-platform-export"
+    && item.subpath === "./domain/holidays.js"
+  )));
 });
 
-test("cloud puede importar la capa supabase", async () => {
+test("un módulo sin frontera declarada y un import irresoluble se detectan", async () => {
   const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("cloud.js", [
-    ...(actual.graph.get("cloud.js") ?? []),
-    { specifier: "./supabase/transport.js", relativePath: "supabase/transport.js" }
+  const unknownModule = "apps/web/src/mystery.js";
+  const graph = clonedGraph(actual);
+  graph.set("apps/web/src/app.js", [
+    ...(actual.graph.get("apps/web/src/app.js") ?? []),
+    { specifier: "desconocido", projectPath: null }
   ]);
-
   const report = validateArchitectureGraph({
-    modules: actual.modules,
+    ...actual,
+    modules: [...actual.modules, unknownModule],
     graph
   });
-
-  assert.equal(report.ok, true, formatArchitectureReport(report));
-  assert.equal(report.violations.length, 0);
+  assert.equal(report.ok, false);
+  assert.ok(report.violations.some((item) => (
+    item.type === "unknown-layer" && item.module === unknownModule
+  )));
+  assert.ok(report.violations.some((item) => (
+    item.type === "unresolved-import" && item.specifier === "desconocido"
+  )));
 });
 
-test("extractLocalImportSpecifiers detecta imports locales estáticos y dinámicos", () => {
+test("extractImportSpecifiers detecta imports estáticos y dinámicos", () => {
   const source = [
     'import { a } from "./estatico.js";',
     'const dynamic = await import("./dinamico.js");',
     'import { readFile } from "node:fs/promises";',
-    'import { b } from "../otro/path.js";'
+    'import { b } from "@siys-sync/platform/core.js";'
   ].join("\n");
   assert.deepEqual(
-    extractLocalImportSpecifiers(source).sort(),
-    ["../otro/path.js", "./dinamico.js", "./estatico.js"]
+    extractImportSpecifiers(source).sort(),
+    ["@siys-sync/platform/core.js", "./dinamico.js", "./estatico.js", "node:fs/promises"].sort()
   );
+});
+
+test("resolveImportSpecifier traduce rutas relativas y exports de plataforma", () => {
+  assert.equal(
+    resolveImportSpecifier("apps/web/src/app.js", "./core.js"),
+    "apps/web/src/core.js"
+  );
+  assert.equal(
+    resolveImportSpecifier("apps/web/src/import/base-operativa.js", "./xlsx-table.js"),
+    "apps/web/src/import/xlsx-table.js"
+  );
+  assert.equal(
+    resolveImportSpecifier("apps/web/src/app.js", "@siys-sync/platform/core.js"),
+    "packages/platform/src/core.js"
+  );
+  assert.equal(resolveImportSpecifier("apps/cli/src/files.js", "node:path"), null);
+});
+
+test("findForbiddenPlatformReferences y findForbiddenSemanticReferences separan sus tokens", () => {
+  assert.deepEqual(findForbiddenPlatformReferences("const x = window; const y = localStorage;"), ["window", "localStorage"]);
+  assert.deepEqual(findForbiddenPlatformReferences("const document = {};"), []);
+  assert.deepEqual(findForbiddenSemanticReferences('const t = `fetch y Supabase`;'), []);
+  assert.deepEqual(findForbiddenSemanticReferences("document.createElement('div');"), ["document"]);
 });
 
 test("findForbiddenSupabaseRuntimeImports detecta cualquier specifier node:", () => {
   const source = [
     'import { readFile } from "node:fs/promises";',
     'import { homedir } from "node:os";',
-    'import { join } from "node:path";',
     'const stream = await import("node:stream");',
-    'import { createTransport } from "../transport.js";',
-    'import test from "node:test";'
+    'import { createTransport } from "@siys-sync/platform/supabase/transport.js";'
   ].join("\n");
-
   assert.deepEqual(
     findForbiddenSupabaseRuntimeImports(source).sort(),
-    ["node:fs/promises", "node:os", "node:path", "node:stream", "node:test"]
+    ["node:fs/promises", "node:os", "node:stream"]
   );
-  assert.deepEqual(findForbiddenSupabaseRuntimeImports('import x from "./local.js";'), []);
 });
 
-test("un módulo supabase no puede importar módulos runtime node:", async () => {
-  const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("supabase/synthetic-runtime.js", []);
-  const sources = new Map(actual.sources);
-  sources.set("supabase/synthetic-runtime.js", [
-    'import { readFile } from "node:fs/promises";',
-    'import { homedir } from "node:os";',
-    'export async function load() { return readFile(homedir(), "utf8"); }'
-  ].join("\n"));
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "supabase/synthetic-runtime.js"],
-    graph,
-    sources
-  });
-
-  assert.equal(report.ok, false);
-  for (const specifier of ["node:fs/promises", "node:os"]) {
-    assert.equal(
-      report.violations.some((item) => (
-        item.type === "forbidden-supabase-runtime-import"
-        && item.module === "supabase/synthetic-runtime.js"
-        && item.specifier === specifier
-      )),
-      true,
-      `supabase no debe importar ${specifier}`
-    );
-  }
-  assert.match(formatArchitectureReport(report), /node:fs\/promises/);
-});
-
-test("la prohibición de node: no aplica a la capa cli", async () => {
-  const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  graph.set("cli/synthetic-runtime.js", []);
-  const sources = new Map(actual.sources);
-  sources.set("cli/synthetic-runtime.js", [
-    'import { readFile } from "node:fs/promises";',
-    'import { homedir } from "node:os";'
-  ].join("\n"));
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, "cli/synthetic-runtime.js"],
-    graph,
-    sources
-  });
-
-  assert.equal(report.ok, true, formatArchitectureReport(report));
-  assert.equal(report.violations.length, 0);
-});
-
-test("domain, core, contract y application no pueden importar supabase", async () => {
-  const actual = await checkArchitecture();
-  const graph = new Map(actual.graph);
-  const syntheticModules = [
-    "domain/synthetic-supabase.js",
-    "application/synthetic-supabase.js"
-  ];
-  const supabaseDependency = [{ specifier: "../supabase/transport.js", relativePath: "supabase/transport.js" }];
-  graph.set("domain/synthetic-supabase.js", supabaseDependency);
-  graph.set("application/synthetic-supabase.js", supabaseDependency);
-  graph.set("core.js", [
-    ...(actual.graph.get("core.js") ?? []),
-    { specifier: "./supabase/transport.js", relativePath: "supabase/transport.js" }
-  ]);
-  graph.set("calendar-contract.js", [
-    ...(actual.graph.get("calendar-contract.js") ?? []),
-    { specifier: "./supabase/transport.js", relativePath: "supabase/transport.js" }
-  ]);
-
-  const report = validateArchitectureGraph({
-    modules: [...actual.modules, ...syntheticModules],
-    graph
-  });
-
-  assert.equal(report.ok, false);
-  for (const importer of [...syntheticModules, "core.js", "calendar-contract.js"]) {
-    assert.equal(
-      report.violations.some((item) => (
-        item.type === "forbidden-import"
-        && item.importer === importer
-        && item.dependency === "supabase/transport.js"
-        && item.dependencyLayer === "supabase"
-      )),
-      true,
-      `${importer} no debe importar supabase`
-    );
-  }
-});
-
-test("product boundaries reject shared-to-client and cross-client version imports without filename-specific rules", async () => {
-  const actual = await checkArchitecture();
-  for (const importer of ["domain/dates.js", "core.js", "calendar-contract.js", "application/calendar-commands.js", "cli/main.js", "app.js"]) {
-    const targets = importer === "cli/main.js" ? ["ui/future-identity.js"]
-      : importer === "app.js" ? ["cli/future-identity.js"]
-        : ["ui/future-identity.js", "cli/future-identity.js"];
-    for (const dependency of targets) {
-      const graph = new Map(actual.graph);
-      graph.set(importer, [{ specifier: `./${dependency}`, relativePath: dependency }]);
-      const report = validateArchitectureGraph({ modules: [...actual.modules, dependency], graph });
-      assert.ok(report.violations.some((item) => item.type === "forbidden-import" && item.importer === importer && item.dependency === dependency));
-    }
-  }
-});
-
-test("shared modules cannot reintroduce product release ownership", async () => {
-  const actual = await checkArchitecture();
-  for (const module of ["core.js", "calendar-contract.js", "domain/dates.js", "application/calendar-commands.js"]) {
-    for (const token of ["APP_VERSION", "WEB_VERSION", "CLI_VERSION"]) {
-      const sources = new Map(actual.sources);
-      sources.set(module, `export const ${token} = "9.8.7";`);
-      const report = validateArchitectureGraph({ ...actual, sources });
-      assert.ok(report.violations.some((item) => item.type === "shared-product-version" && item.module === module && item.token === token));
-    }
-  }
+test("findForbiddenPackageReferences detecta paquetes excel/supabase", () => {
+  assert.deepEqual(findForbiddenPackageReferences('import { read } from "xlsx";'), ["xlsx"]);
+  assert.deepEqual(findForbiddenPackageReferences('import { createClient } from "@supabase/supabase-js";'), ["@supabase/supabase-js"]);
 });

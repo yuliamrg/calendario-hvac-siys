@@ -4,10 +4,10 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-import { createCalendarCommands } from "../src/application/calendar-commands.js";
-import { createMutationController } from "../src/ui/mutation-controller.js";
+import { createCalendarCommands } from "../apps/web/src/application/calendar-commands.js";
+import { createMutationController } from "../apps/web/src/ui/mutation-controller.js";
 
-const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "src");
+const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "apps", "web", "src");
 const staticImportPattern = /\b(?:import|export)\s+(?:(?:[\s\S]*?)\s+from\s+)?["']([^"']+)["']/g;
 
 function fixtureDocument() {

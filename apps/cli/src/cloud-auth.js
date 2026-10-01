@@ -5,7 +5,7 @@ import {
   SupabaseTransportError,
   createSupabaseTransport,
   normalizeSupabaseConfig as normalizeBasicSupabaseConfig
-} from "../supabase/transport.js";
+} from "@siys-sync/platform/supabase/transport.js";
 import { CloudCliError } from "./cloud-errors.js";
 
 const DEFAULT_TIMEOUT_MS = 15_000;

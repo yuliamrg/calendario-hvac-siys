@@ -1,4 +1,4 @@
-import { SupabaseTransportError, createSupabaseTransport } from "../supabase/transport.js";
+import { SupabaseTransportError, createSupabaseTransport } from "@siys-sync/platform/supabase/transport.js";
 import { CloudCliError } from "./cloud-errors.js";
 import { createSupabaseAuthClient, supabaseConfigFromEnv } from "./cloud-auth.js";
 

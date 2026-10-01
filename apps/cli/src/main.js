@@ -1,5 +1,5 @@
 import { stdin as defaultStdin, stdout as defaultStdout, stderr as defaultStderr } from "node:process";
-import { CALENDAR_OPERATIONS, CalendarContractError, executeCalendarOperation } from "../calendar-contract.js";
+import { CALENDAR_OPERATIONS, CalendarContractError, executeCalendarOperation } from "@siys-sync/platform/calendar-contract.js";
 import { CLI_VERSION } from "./version.js";
 import { CLOUD_COMMANDS, HELP, buildPayload, parseCli } from "./arguments.js";
 import { createSupabaseAuthClient, supabaseConfigFromEnv } from "./cloud-auth.js";

@@ -1,38 +1,128 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  PLATFORM_PACKAGE_NAME,
+  PLATFORM_SPECIFIER_PREFIX,
+  WORKSPACES,
+  isPlatformSpecifier,
+  normalizeModulePath,
+  projectPathForPlatformSpecifier,
+  projectRoot,
+  readWorkspaceExports,
+  workspaceForModulePath
+} from "./workspaces.mjs";
 
-const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-export const projectRoot = resolve(scriptDirectory, "..");
-export const sourceRoot = resolve(projectRoot, "src");
+export { projectRoot };
+
+export const compositionRoot = `${WORKSPACES.web.sourceRoot}/app.js`;
 
 const SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".cjs"]);
 const staticImportPattern = /\b(?:import|export)\s+(?:(?:[\s\S]*?)\s+from\s+)?["']([^"']+)["']/g;
 const dynamicImportPattern = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
 
 export const ARCHITECTURE_RULES = Object.freeze({
-  domain: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
-  core: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
-  contract: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
-  import: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "supabase"]),
-  persistence: Object.freeze(["ui", "cli", "cloud", "composition", "supabase"]),
-  cloud: Object.freeze(["ui", "cli", "composition"]),
-  ui: Object.freeze(["persistence", "cli", "cloud", "composition", "supabase"]),
-  cli: Object.freeze(["ui", "persistence", "cloud", "composition"]),
-  composition: Object.freeze(["cli"]),
-  supabase: Object.freeze([
-    "domain",
-    "core",
-    "contract",
-    "import",
-    "persistence",
-    "ui",
-    "cloud",
-    "cli",
-    "composition",
-    "application"
+  "platform/domain": Object.freeze([
+    "platform/core",
+    "platform/contract",
+    "platform/supabase",
+    "web/composition",
+    "web/cloud",
+    "web/import",
+    "web/application",
+    "web/persistence",
+    "web/ui",
+    "cli"
   ]),
-  application: Object.freeze(["ui", "persistence", "cli", "cloud", "composition", "import", "supabase"]),
+  "platform/core": Object.freeze([
+    "platform/contract",
+    "platform/supabase",
+    "web/composition",
+    "web/cloud",
+    "web/import",
+    "web/application",
+    "web/persistence",
+    "web/ui",
+    "cli"
+  ]),
+  "platform/contract": Object.freeze([
+    "platform/supabase",
+    "web/composition",
+    "web/cloud",
+    "web/import",
+    "web/application",
+    "web/persistence",
+    "web/ui",
+    "cli"
+  ]),
+  "platform/supabase": Object.freeze([
+    "platform/domain",
+    "platform/core",
+    "platform/contract",
+    "web/composition",
+    "web/cloud",
+    "web/import",
+    "web/application",
+    "web/persistence",
+    "web/ui",
+    "cli"
+  ]),
+  "web/composition": Object.freeze(["cli"]),
+  "web/cloud": Object.freeze([
+    "web/composition",
+    "web/import",
+    "web/application",
+    "web/persistence",
+    "web/ui",
+    "cli"
+  ]),
+  "web/import": Object.freeze([
+    "platform/contract",
+    "platform/supabase",
+    "web/cloud",
+    "web/composition",
+    "web/persistence",
+    "web/ui",
+    "cli"
+  ]),
+  "web/application": Object.freeze([
+    "platform/contract",
+    "platform/supabase",
+    "web/cloud",
+    "web/composition",
+    "web/import",
+    "web/persistence",
+    "web/ui",
+    "cli"
+  ]),
+  "web/persistence": Object.freeze([
+    "platform/core",
+    "platform/contract",
+    "platform/supabase",
+    "web/cloud",
+    "web/composition",
+    "web/import",
+    "web/application",
+    "web/ui",
+    "cli"
+  ]),
+  "web/ui": Object.freeze([
+    "platform/core",
+    "platform/contract",
+    "platform/supabase",
+    "web/cloud",
+    "web/composition",
+    "web/persistence",
+    "cli"
+  ]),
+  cli: Object.freeze([
+    "web/composition",
+    "web/cloud",
+    "web/import",
+    "web/application",
+    "web/persistence",
+    "web/ui"
+  ])
 });
 
 export const APPLICATION_FORBIDDEN_TOKENS = Object.freeze([
@@ -48,6 +138,17 @@ export const APPLICATION_FORBIDDEN_TOKENS = Object.freeze([
   "XLSX"
 ]);
 
+export const PLATFORM_FORBIDDEN_TOKENS = Object.freeze([
+  "window",
+  "localStorage",
+  "sessionStorage",
+  "indexedDB",
+  "BroadcastChannel",
+  "XMLHttpRequest",
+  "WebSocket",
+  "EventSource"
+]);
+
 export const APPLICATION_FORBIDDEN_PACKAGES = Object.freeze([
   "xlsx",
   "exceljs",
@@ -57,25 +158,28 @@ export const APPLICATION_FORBIDDEN_PACKAGES = Object.freeze([
 
 export const SUPABASE_RUNTIME_IMPORT_PREFIX = "node:";
 
-export function normalizeModulePath(modulePath) {
-  return String(modulePath)
-    .replaceAll("\\", "/")
-    .replace(/^\.\//, "");
-}
-
 export function classifyModule(modulePath) {
-  const normalizedPath = normalizeModulePath(modulePath);
-  if (normalizedPath === "app.js") return "composition";
-  if (normalizedPath === "core.js") return "core";
-  if (normalizedPath === "calendar-contract.js") return "contract";
-  if (normalizedPath === "cloud.js") return "cloud";
-  if (normalizedPath === "importer.js" || normalizedPath.startsWith("import/")) return "import";
-  if (normalizedPath.startsWith("domain/")) return "domain";
-  if (normalizedPath.startsWith("persistence/")) return "persistence";
-  if (normalizedPath.startsWith("ui/")) return "ui";
-  if (normalizedPath.startsWith("cli/")) return "cli";
-  if (normalizedPath.startsWith("application/")) return "application";
-  if (normalizedPath.startsWith("supabase/")) return "supabase";
+  const normalized = normalizeModulePath(modulePath);
+  const workspace = workspaceForModulePath(normalized);
+  if (!workspace) return null;
+  const relativePath = normalized.slice(workspace.sourceRoot.length + 1);
+  if (workspace.id === "platform") {
+    if (relativePath === "core.js") return "platform/core";
+    if (relativePath === "calendar-contract.js") return "platform/contract";
+    if (relativePath.startsWith("domain/")) return "platform/domain";
+    if (relativePath.startsWith("supabase/")) return "platform/supabase";
+    return null;
+  }
+  if (workspace.id === "web") {
+    if (relativePath === "app.js") return "web/composition";
+    if (relativePath === "cloud.js") return "web/cloud";
+    if (relativePath === "importer.js" || relativePath.startsWith("import/")) return "web/import";
+    if (relativePath.startsWith("persistence/")) return "web/persistence";
+    if (relativePath.startsWith("application/")) return "web/application";
+    if (relativePath.startsWith("ui/")) return "web/ui";
+    return null;
+  }
+  if (workspace.id === "cli") return "cli";
   return null;
 }
 
@@ -125,9 +229,9 @@ function stripCommentsAndStringLiterals(source) {
   return code;
 }
 
-export function findForbiddenSemanticReferences(source) {
+function findForbiddenTokens(source, tokens) {
   const code = stripCommentsAndStringLiterals(source);
-  const pattern = new RegExp(`(?<![.\\w$])(?:${APPLICATION_FORBIDDEN_TOKENS.join("|")})\\b`, "g");
+  const pattern = new RegExp(`(?<![.\\w$])(?:${tokens.join("|")})\\b`, "g");
   const found = new Set();
   for (const match of code.matchAll(pattern)) {
     const token = match[0];
@@ -136,6 +240,14 @@ export function findForbiddenSemanticReferences(source) {
     found.add(token);
   }
   return [...found];
+}
+
+export function findForbiddenSemanticReferences(source) {
+  return findForbiddenTokens(source, APPLICATION_FORBIDDEN_TOKENS);
+}
+
+export function findForbiddenPlatformReferences(source) {
+  return findForbiddenTokens(source, PLATFORM_FORBIDDEN_TOKENS);
 }
 
 export function isForbiddenApplicationPackage(specifier) {
@@ -164,13 +276,14 @@ export function findForbiddenSupabaseRuntimeImports(source) {
     .filter((specifier) => specifier.startsWith(SUPABASE_RUNTIME_IMPORT_PREFIX));
 }
 
-export function extractLocalImportSpecifiers(source) {
-  return extractImportSpecifiers(source).filter((specifier) => specifier.startsWith("."));
-}
-
-export function resolveLocalModulePath(importerRelativePath, specifier, root = sourceRoot) {
-  const targetPath = resolve(root, dirname(importerRelativePath), specifier);
-  return normalizeModulePath(relative(root, targetPath));
+export function resolveImportSpecifier(importerProjectPath, specifier) {
+  if (specifier.startsWith(".")) {
+    return normalizeModulePath(relative(projectRoot, resolve(projectRoot, dirname(importerProjectPath), specifier)));
+  }
+  if (isPlatformSpecifier(specifier)) {
+    return projectPathForPlatformSpecifier(specifier);
+  }
+  return null;
 }
 
 async function collectSourceFiles(directory, root, files) {
@@ -186,80 +299,107 @@ async function collectSourceFiles(directory, root, files) {
   }
 }
 
-export async function discoverSourceModules({ root = sourceRoot } = {}) {
+export async function discoverSourceModules() {
   const files = [];
-  await collectSourceFiles(root, root, files);
+  for (const workspace of Object.values(WORKSPACES)) {
+    await collectSourceFiles(resolve(projectRoot, workspace.sourceRoot), projectRoot, files);
+  }
   return files.sort();
 }
 
-export async function readSourceImportGraph({ root = sourceRoot } = {}) {
-  const modules = await discoverSourceModules({ root });
+export async function readSourceImportGraph() {
+  const modules = await discoverSourceModules();
   const graph = new Map();
   const sources = new Map();
 
   for (const importer of modules) {
-    const source = await readFile(resolve(root, importer), "utf8");
+    const source = await readFile(resolve(projectRoot, importer), "utf8");
     sources.set(importer, source);
-    const imports = extractLocalImportSpecifiers(source).map((specifier) => ({
+    const imports = extractImportSpecifiers(source).map((specifier) => ({
       specifier,
-      relativePath: resolveLocalModulePath(importer, specifier, root)
+      projectPath: resolveImportSpecifier(importer, specifier)
     }));
     graph.set(importer, imports);
   }
 
-  return { root, modules, graph, sources };
+  return { modules, graph, sources };
 }
 
 function violation(type, details) {
   return { type, ...details };
 }
 
-export function validateArchitectureGraph({ modules, graph, sources }) {
+export function countModulesByBoundary(modules) {
+  const counts = {};
+  for (const modulePath of modules) {
+    const boundary = classifyModule(modulePath) ?? "unknown";
+    counts[boundary] = (counts[boundary] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export function validateArchitectureGraph({ modules, graph, sources, platformExports }) {
   const normalizedModules = [...new Set(modules.map(normalizeModulePath))].sort();
   const moduleSet = new Set(normalizedModules);
   const violations = [];
   const compositionRoots = normalizedModules.filter(
-    (modulePath) => classifyModule(modulePath) === "composition"
+    (modulePath) => classifyModule(modulePath) === "web/composition"
   );
 
   for (const modulePath of normalizedModules) {
-    const layer = classifyModule(modulePath);
-    if (!layer) {
+    if (!classifyModule(modulePath)) {
       violations.push(violation("unknown-layer", { module: modulePath }));
     }
   }
 
-  if (!moduleSet.has("app.js")) {
-    violations.push(violation("missing-composition-root", { module: "app.js" }));
+  if (!moduleSet.has(compositionRoot)) {
+    violations.push(violation("missing-composition-root", { module: compositionRoot }));
   }
-  if (compositionRoots.length !== 1 || compositionRoots[0] !== "app.js") {
-    violations.push(violation("invalid-composition-root", { modules: compositionRoots }));
+  if (compositionRoots.length !== 1 || compositionRoots[0] !== compositionRoot) {
+    violations.push(violation("invalid-composition-root", {
+      modules: compositionRoots,
+      expected: compositionRoot
+    }));
   }
 
   let importCount = 0;
   for (const importer of normalizedModules) {
-    const importerLayer = classifyModule(importer);
+    const importerBoundary = classifyModule(importer);
     for (const dependency of graph.get(importer) ?? []) {
       importCount += 1;
-      const dependencyPath = normalizeModulePath(dependency.relativePath);
+      const specifier = dependency.specifier;
+      const dependencyPath = dependency.projectPath ? normalizeModulePath(dependency.projectPath) : null;
+      if (!dependencyPath) {
+        if (!specifier.startsWith(SUPABASE_RUNTIME_IMPORT_PREFIX)) {
+          violations.push(violation("unresolved-import", { importer, specifier }));
+        }
+        continue;
+      }
       if (!moduleSet.has(dependencyPath)) {
         violations.push(violation("missing-local-module", {
           importer,
-          specifier: dependency.specifier,
+          specifier,
           dependency: dependencyPath
         }));
         continue;
       }
 
-      const dependencyLayer = classifyModule(dependencyPath);
-      const forbiddenLayers = ARCHITECTURE_RULES[importerLayer] ?? [];
-      if (dependencyLayer && forbiddenLayers.includes(dependencyLayer)) {
+      if (Array.isArray(platformExports) && specifier.startsWith(PLATFORM_SPECIFIER_PREFIX)) {
+        const subpath = `.${specifier.slice(PLATFORM_PACKAGE_NAME.length)}`;
+        if (!platformExports.includes(subpath)) {
+          violations.push(violation("undeclared-platform-export", { importer, specifier, subpath }));
+        }
+      }
+
+      const dependencyBoundary = classifyModule(dependencyPath);
+      const forbiddenBoundaries = ARCHITECTURE_RULES[importerBoundary] ?? [];
+      if (dependencyBoundary && forbiddenBoundaries.includes(dependencyBoundary)) {
         violations.push(violation("forbidden-import", {
           importer,
-          importerLayer,
+          importerBoundary,
           dependency: dependencyPath,
-          dependencyLayer,
-          specifier: dependency.specifier
+          dependencyBoundary,
+          specifier
         }));
       }
     }
@@ -267,10 +407,10 @@ export function validateArchitectureGraph({ modules, graph, sources }) {
 
   if (sources) {
     for (const modulePath of normalizedModules) {
-      const layer = classifyModule(modulePath);
+      const boundary = classifyModule(modulePath);
       const source = sources.get(modulePath);
       if (typeof source !== "string") continue;
-      if (["domain", "core", "contract", "application", "import", "supabase"].includes(layer)) {
+      if (["platform/domain", "platform/core", "platform/contract", "web/application", "web/import", "platform/supabase"].includes(boundary)) {
         const code = stripCommentsAndStringLiterals(source);
         for (const token of ["APP_VERSION", "WEB_VERSION", "CLI_VERSION"]) {
           if (new RegExp(`\\b${token}\\b`).test(code)) {
@@ -278,7 +418,15 @@ export function validateArchitectureGraph({ modules, graph, sources }) {
           }
         }
       }
-      if (layer === "application") {
+      if (["platform/domain", "platform/core", "platform/contract"].includes(boundary)) {
+        for (const specifier of findForbiddenSupabaseRuntimeImports(source)) {
+          violations.push(violation("forbidden-platform-runtime-import", { module: modulePath, specifier }));
+        }
+        for (const token of findForbiddenPlatformReferences(source)) {
+          violations.push(violation("forbidden-platform-reference", { module: modulePath, token }));
+        }
+      }
+      if (boundary === "web/application") {
         for (const token of findForbiddenSemanticReferences(source)) {
           violations.push(violation("forbidden-semantic-reference", { module: modulePath, token }));
         }
@@ -286,7 +434,7 @@ export function validateArchitectureGraph({ modules, graph, sources }) {
           violations.push(violation("forbidden-application-package", { module: modulePath, specifier }));
         }
       }
-      if (layer === "supabase") {
+      if (boundary === "platform/supabase") {
         for (const specifier of findForbiddenSupabaseRuntimeImports(source)) {
           violations.push(violation("forbidden-supabase-runtime-import", { module: modulePath, specifier }));
         }
@@ -297,33 +445,44 @@ export function validateArchitectureGraph({ modules, graph, sources }) {
   return {
     ok: violations.length === 0,
     modules: normalizedModules,
+    boundaryCounts: countModulesByBoundary(normalizedModules),
     importCount,
     violations
   };
 }
 
-export async function checkArchitecture(options = {}) {
-  const graph = await readSourceImportGraph(options);
+export async function checkArchitecture() {
+  const graph = await readSourceImportGraph();
+  const { exports: platformExports } = await readWorkspaceExports("platform");
   return {
     ...graph,
-    ...validateArchitectureGraph(graph)
+    platformExports,
+    ...validateArchitectureGraph({ ...graph, platformExports })
   };
 }
 
 function formatViolation(item) {
   switch (item.type) {
     case "unknown-layer":
-      return `módulo sin capa declarada: ${item.module}`;
+      return `módulo sin frontera declarada: ${item.module}`;
     case "missing-composition-root":
       return `falta el composition root ${item.module}`;
     case "invalid-composition-root":
-      return `app.js debe ser el único composition root (actuales: ${item.modules.join(", ") || "ninguno"})`;
+      return `${item.expected} debe ser el único composition root (actuales: ${item.modules.join(", ") || "ninguno"})`;
+    case "unresolved-import":
+      return `import no resuelto: ${item.importer} -> ${item.specifier}`;
     case "missing-local-module":
       return `import local no resuelto: ${item.importer} -> ${item.specifier} (${item.dependency})`;
+    case "undeclared-platform-export":
+      return `${item.importer} importa ${item.specifier} pero @siys-sync/platform no exporta ${item.subpath}`;
     case "forbidden-import":
-      return `${item.importer} [${item.importerLayer}] no puede importar ${item.dependency} [${item.dependencyLayer}]`;
+      return `${item.importer} [${item.importerBoundary}] no puede importar ${item.dependency} [${item.dependencyBoundary}]`;
     case "shared-product-version":
       return `módulo compartido ${item.module} referencia la identidad de producto ${item.token}`;
+    case "forbidden-platform-runtime-import":
+      return `módulo platform ${item.module} importa un runtime Node no portable '${item.specifier}'`;
+    case "forbidden-platform-reference":
+      return `módulo platform ${item.module} referencia el token de navegador prohibido '${item.token}'`;
     case "forbidden-semantic-reference":
       return `módulo application ${item.module} referencia el token prohibido '${item.token}'`;
     case "forbidden-application-package":
@@ -337,7 +496,10 @@ function formatViolation(item) {
 
 export function formatArchitectureReport(report) {
   if (report.ok) {
-    return `Guardia de arquitectura OK: ${report.modules.length} módulos, ${report.importCount} imports locales.`;
+    const boundaries = Object.entries(report.boundaryCounts ?? {})
+      .map(([boundary, count]) => `${boundary}=${count}`)
+      .join(", ");
+    return `Guardia de arquitectura OK: ${report.modules.length} módulos, ${report.importCount} imports, fronteras [${boundaries}].`;
   }
   return [
     "Guardia de arquitectura fallida:",
@@ -345,8 +507,8 @@ export function formatArchitectureReport(report) {
   ].join("\n");
 }
 
-export async function assertArchitecture(options = {}) {
-  const report = await checkArchitecture(options);
+export async function assertArchitecture() {
+  const report = await checkArchitecture();
   if (!report.ok) throw new Error(formatArchitectureReport(report));
   return report;
 }

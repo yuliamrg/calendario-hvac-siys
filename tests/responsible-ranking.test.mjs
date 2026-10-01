@@ -5,7 +5,7 @@ import {
   createResponsibleCoverageIndex,
   responsibleCoverageScore,
   sortResponsiblesByCoverage,
-} from "../src/domain/responsible-ranking.js";
+} from "../packages/platform/src/domain/responsible-ranking.js";
 
 const catalog = [
   {

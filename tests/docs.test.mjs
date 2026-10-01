@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const stylePaths = [
-  resolve(root, "src", "styles.css"),
-  resolve(root, "src", "styles", "responsive.css"),
-  resolve(root, "src", "styles", "channel-contract.css")
+  resolve(root, "apps", "web", "src", "styles.css"),
+  resolve(root, "apps", "web", "src", "styles", "responsive.css"),
+  resolve(root, "apps", "web", "src", "styles", "channel-contract.css")
 ];
 const readStyles = () => stylePaths.map((path) => readFileSync(path, "utf8")).join("\n\n");
 
@@ -74,8 +74,8 @@ test("el manual documenta persistencia, filtros, plantilla y restauración", () 
 });
 
 test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móviles explícitos", () => {
-  const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
-  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const template = readFileSync(resolve(root, "apps", "web", "src", "index.template.html"), "utf8");
+  const app = readFileSync(resolve(root, "apps", "web", "src", "app.js"), "utf8");
   const css = readStyles();
   for (const label of [
     "Gestionar",
@@ -134,8 +134,8 @@ test("la interfaz usa lenguaje operativo, tema del sistema inicial y menús móv
 });
 
 test("la actividad conserva un solo buscador de responsables y unifica la ampliacion", () => {
-  const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
-  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const template = readFileSync(resolve(root, "apps", "web", "src", "index.template.html"), "utf8");
+  const app = readFileSync(resolve(root, "apps", "web", "src", "app.js"), "utf8");
   assert.equal((template.match(/id="responsibleSearch"/g) ?? []).length, 1);
   assert.doesNotMatch(template, /activityResponsibleText|activityResponsibleType|responsibleSuggestions/);
   assert.doesNotMatch(template, /Ampliar a rango/);
@@ -146,8 +146,8 @@ test("la actividad conserva un solo buscador de responsables y unifica la amplia
 });
 
 test("los formularios tienen un solo dueño de scroll y suspenden la animación pesada", () => {
-  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
-  const motion = readFileSync(resolve(root, "src", "ui", "three-motion.js"), "utf8");
+  const app = readFileSync(resolve(root, "apps", "web", "src", "app.js"), "utf8");
+  const motion = readFileSync(resolve(root, "apps", "web", "src", "ui", "three-motion.js"), "utf8");
   const css = readStyles();
   assert.match(css, /dialog:has\(> form\)\[open\]\s*\{[\s\S]*?overflow:\s*hidden/);
   assert.match(css, /dialog > form\s*\{[\s\S]*?overflow-y:\s*auto/);
@@ -160,8 +160,8 @@ test("los formularios tienen un solo dueño de scroll y suspenden la animación 
 });
 
 test("la lista cloud de cronogramas tiene refresco y la provisión es idempotente", () => {
-  const template = readFileSync(resolve(root, "src", "index.template.html"), "utf8");
-  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const template = readFileSync(resolve(root, "apps", "web", "src", "index.template.html"), "utf8");
+  const app = readFileSync(resolve(root, "apps", "web", "src", "app.js"), "utf8");
   const migration = readFileSync(
     resolve(root, "supabase", "migrations", "20260813160000_provision_user_calendars.sql"),
     "utf8"
@@ -241,7 +241,7 @@ test("las reglas de versionamiento explican SemVer y la decisión beta actual", 
 test("la versión de release está sincronizada entre package, lock, Web y puntero estable", () => {
   const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   const packageLock = JSON.parse(readFileSync(resolve(root, "package-lock.json"), "utf8"));
-  const web = readFileSync(resolve(root, "src", "ui", "web-version.js"), "utf8");
+  const web = readFileSync(resolve(root, "apps", "web", "src", "ui", "web-version.js"), "utf8");
   const stableTag = readFileSync(resolve(root, "stable-version.txt"), "utf8").trim();
   assert.match(packageJson.version, /^0\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/);
   assert.match(stableTag, /^v\d+\.\d+\.\d+$/);
@@ -252,7 +252,7 @@ test("la versión de release está sincronizada entre package, lock, Web y punte
 
 test("el contrato visual promovido se aplica a beta y estable", () => {
   const css = readStyles();
-  const app = readFileSync(resolve(root, "src", "app.js"), "utf8");
+  const app = readFileSync(resolve(root, "apps", "web", "src", "app.js"), "utf8");
   assert.match(css, /html\[data-channel="beta"\],[\s\S]*html\[data-channel="stable"\]/);
   assert.match(app, /document\.documentElement\.dataset\.channel = RUNTIME_CHANNEL/);
   assert.match(app, /\["beta", "stable", "local"\]\.includes\(RUNTIME_CHANNEL\)/);

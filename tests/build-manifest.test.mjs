@@ -2,12 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  applicationModuleRelativePaths,
+  applicationModulePaths,
   discoverApplicationModules,
   validateApplicationModuleManifest
 } from "../scripts/build.mjs";
 
-test("el manifiesto cubre el grafo local de app.js y conserva el orden", async () => {
+const indexOf = (modulePath) => applicationModulePaths.indexOf(modulePath);
+
+test("el manifiesto cubre el grafo de app.js con orden dependency-first a través de workspaces", async () => {
   const report = await validateApplicationModuleManifest();
 
   assert.deepEqual(report.missing, []);
@@ -16,57 +18,64 @@ test("el manifiesto cubre el grafo local de app.js y conserva el orden", async (
   assert.equal(report.discovered.every((modulePath) => report.listed.includes(modulePath)), true);
 
   for (const required of [
-    "importer.js",
-    "ui/activity-presentation.js",
-    "ui/export-layout.js",
-    "application/import-commands.js",
-    "supabase/transport.js"
+    "apps/web/src/importer.js",
+    "apps/web/src/ui/activity-presentation.js",
+    "apps/web/src/ui/export-layout.js",
+    "apps/web/src/application/import-commands.js",
+    "packages/platform/src/core.js",
+    "packages/platform/src/calendar-contract.js",
+    "packages/platform/src/supabase/transport.js"
   ]) {
-    assert.equal(applicationModuleRelativePaths.includes(required), true, `Falta ${required}`);
+    assert.equal(applicationModulePaths.includes(required), true, `Falta ${required}`);
   }
 
   assert.ok(
-    applicationModuleRelativePaths.indexOf("supabase/transport.js") <
-      applicationModuleRelativePaths.indexOf("cloud.js"),
+    indexOf("packages/platform/src/supabase/transport.js") < indexOf("apps/web/src/cloud.js"),
     "supabase/transport.js debe preceder a cloud.js"
   );
   assert.ok(
-    applicationModuleRelativePaths.indexOf("ui/activity-presentation.js") <
-      applicationModuleRelativePaths.indexOf("ui/export-layout.js")
+    indexOf("apps/web/src/ui/activity-presentation.js") < indexOf("apps/web/src/ui/export-layout.js")
   );
   assert.ok(
-    applicationModuleRelativePaths.indexOf("importer.js") <
-      applicationModuleRelativePaths.indexOf("app.js")
+    indexOf("apps/web/src/importer.js") < indexOf("apps/web/src/app.js")
+  );
+  assert.ok(
+    indexOf("packages/platform/src/core.js") < indexOf("apps/web/src/app.js")
   );
 
   const discovered = await discoverApplicationModules();
-  assert.equal(discovered.modules.includes("ui/three-motion.js"), false);
-  assert.equal(applicationModuleRelativePaths.includes("ui/three-motion.js"), true);
+  assert.equal(discovered.modules.includes("apps/web/src/ui/three-motion.js"), false);
+  assert.equal(applicationModulePaths.includes("apps/web/src/ui/three-motion.js"), true);
   assert.equal(
-    discovered.modules.includes("supabase/transport.js"),
+    discovered.modules.includes("packages/platform/src/supabase/transport.js"),
     true,
     "el grafo descubierto desde app.js debe incluir el transporte compartido"
   );
+  assert.equal(
+    discovered.modules.some((modulePath) => modulePath.startsWith("apps/cli/")),
+    false,
+    "el bundle web nunca debe incorporar la CLI"
+  );
 });
 
-test("la validacion detecta un modulo omitido sin marcar imports internos listados", async () => {
-  const manifestWithoutExportLayout = applicationModuleRelativePaths.filter(
-    (modulePath) => modulePath !== "ui/export-layout.js"
+test("la validación detecta un módulo omitido sin marcar imports internos listados", async () => {
+  const manifestWithoutExportLayout = applicationModulePaths.filter(
+    (modulePath) => modulePath !== "apps/web/src/ui/export-layout.js"
   );
   const report = await validateApplicationModuleManifest({
-    moduleRelativePaths: manifestWithoutExportLayout
+    modulePaths: manifestWithoutExportLayout
   });
 
   assert.equal(
-    report.missing.some(({ relativePath }) => relativePath === "ui/export-layout.js"),
+    report.missing.some(({ projectPath }) => projectPath === "apps/web/src/ui/export-layout.js"),
     true
   );
   assert.equal(
-    report.missing.some(({ relativePath }) => relativePath === "ui/activity-presentation.js"),
+    report.missing.some(({ projectPath }) => projectPath === "apps/web/src/ui/activity-presentation.js"),
     false
   );
   assert.equal(
-    report.missing.some(({ relativePath }) => relativePath === "ui/calendar-constants.js"),
+    report.missing.some(({ projectPath }) => projectPath === "apps/web/src/ui/calendar-constants.js"),
     false
   );
 });

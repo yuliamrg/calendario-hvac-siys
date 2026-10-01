@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLI_VERSION } from "../src/cli/version.js";
+import { CLI_VERSION } from "../apps/cli/src/version.js";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
-const bin = resolve(root, "bin", "calendary.js");
+const bin = resolve(root, "apps", "cli", "bin", "calendary.js");
 
 function cli(args) {
   const env = { ...process.env };

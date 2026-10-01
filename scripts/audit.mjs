@@ -8,11 +8,11 @@ const pagesPath = resolve(root, "dist", "index.html");
 const [named, pages, appSource, contractSource, cliSource, cloudSource, transportSource, packageSource] = await Promise.all([
   readFile(namedPath, "utf8"),
   readFile(pagesPath, "utf8"),
-  readFile(resolve(root, "src", "app.js"), "utf8"),
-  readFile(resolve(root, "src", "calendar-contract.js"), "utf8"),
-  readFile(resolve(root, "src", "cli", "main.js"), "utf8"),
-  readFile(resolve(root, "src", "cloud.js"), "utf8"),
-  readFile(resolve(root, "src", "supabase", "transport.js"), "utf8"),
+  readFile(resolve(root, "apps", "web", "src", "app.js"), "utf8"),
+  readFile(resolve(root, "packages", "platform", "src", "calendar-contract.js"), "utf8"),
+  readFile(resolve(root, "apps", "cli", "src", "main.js"), "utf8"),
+  readFile(resolve(root, "apps", "web", "src", "cloud.js"), "utf8"),
+  readFile(resolve(root, "packages", "platform", "src", "supabase", "transport.js"), "utf8"),
   readFile(resolve(root, "package.json"), "utf8")
 ]);
 
@@ -31,7 +31,7 @@ if (!/\bfetchImpl\s*\(/.test(transportSource)) failures.push("El transporte Supa
 if (!/createSupabaseTransport\s*\(/.test(cloudSource)) failures.push("El adaptador Supabase no compone el transporte compartido.");
 if (/sb_secret_|service_role/i.test(named)) failures.push("El HTML parece contener una credencial administrativa de Supabase.");
 const packageJson = JSON.parse(packageSource);
-if (packageJson.bin?.calendary !== "./bin/calendary.js") failures.push("package.json no publica el ejecutable calendary esperado.");
+if (packageJson.bin?.calendary !== "./apps/cli/bin/calendary.js") failures.push("package.json no publica el ejecutable calendary esperado.");
 if (/gh[opusr]_[A-Za-z0-9_]{20,}/.test(named)) failures.push("El HTML parece contener un token de GitHub.");
 
 const tracked = execFileSync("git", ["ls-files"], { cwd: root, encoding: "utf8" })
