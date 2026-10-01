@@ -1,23 +1,37 @@
 # SIYS Sync
 
-Platform Architecture V2, Workstream 2: SIYS Sync Web usa
-`0.18.0-beta.2` y Calendary CLI conserva `0.18.0-beta.1`. Sus identidades son
-independientes: `apps/web/src/ui/web-version.js > WEB_VERSION` identifica Web y
-`apps/cli/src/version.js > CLI_VERSION` identifica CLI. La versión raíz de
-`package.json` sigue representando la release Web/repositorio mientras
-Workstream 3 no separe la distribución.
+Platform Architecture V2 completa sus tres workstreams: identidades, estructura
+física y releases independientes. SIYS Sync Web permanece en `0.18.0-beta.2`
+y Calendary CLI en `0.18.0-beta.1`.
 
-El repositorio es un monorepo con npm workspaces privados: `apps/web`,
-`apps/cli` y `packages/platform`. `packages/platform` agrupa dominio, contrato
-y transporte runtime-neutral compartido; Web y CLI dependen de él y ninguna de
-las dos aplicaciones puede importar a la otra. Supabase y las migraciones
-permanecen en la raíz. La raíz sigue orquestando `npm ci`, `npm test`,
-`npm run build`, `npm run architecture:check` y `npm run cli`.
+| Producto | Autoridad | Tag | Distribución |
+| --- | --- | --- | --- |
+| SIYS Sync Web | `apps/web/package.json` + `WEB_VERSION` | `web-v<version>` | GitHub Pages: raíz stable y `/beta/` desde main |
+| Calendary CLI | `apps/cli/package.json` + `CLI_VERSION` | `cli-v<version>` | GitHub Release con ZIP autónomo y SHA-256 |
+| Platform | `packages/platform`, privado `0.0.0` | Sin tags propios | Runtime compartido interno |
 
-El modelo de tags `v...` sigue siendo autoritativo temporalmente;
-`v0.18.0-beta.1` permanece como snapshot histórico inmutable, el tag
-`v0.18.0-beta.2` se crea sobre el commit integrado y stable conserva
-`v0.17.0`.
+La raíz privada no tiene versión: orquesta npm workspaces, scripts, bin y
+Node >=20. `npm run cli` y los comandos habituales siguen funcionando.
+Supabase permanece como backend compartido, sin cambios.
+
+Los tags históricos `v...` son inmutables. `web-v0.17.0` y
+`web-v0.18.0-beta.2` son aliases de sus commits históricos exactos.
+`stable-version.txt` apunta a `web-v0.17.0`; no hay promoción de stable.
+
+Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su
+[GitHub Release](https://github.com/yuliamrg/calendario-hvac-siys/releases),
+extraiga y, con Node.js >=20, ejecute desde la carpeta:
+
+```powershell
+node bin/calendary.js --version
+node bin/calendary.js --help
+```
+
+El ZIP incluye Platform y no requiere clonar ni instalar workspaces. La
+primera publicación se realiza con `cli-v0.18.0-beta.1` después de aprobar e
+integrar Workstream 3. Consulte [CLI](docs/CLI.md) y
+[build y release](docs/BUILD_RELEASE.md).
+
 `document.appVersion` es metadato legado opaco; la compatibilidad del documento
 la determina `schemaVersion` y la del respaldo, `formatVersion`.
 

@@ -287,7 +287,7 @@ ${source.replace(/ +\t/g, "\t")}
     .replace(slots.app, () => escapeInlineScript(appBundle))
     .replace(slots.license, () => licenseComment)
     .replace("__SIYS_SUPABASE_CONFIG_VALUE__", () => JSON.stringify(supabaseConfig))
-    .replaceAll("__SIYS_SYNC_ICON__", `data:image/svg+xml;base64,${brandIcon.toString("base64")}`);
+    .replaceAll("__SIYS_SYNC_ICON__", `data:image/svg+xml;base64,${Buffer.from(brandIcon.toString("utf8").replaceAll("\r\n", "\n")).toString("base64")}`);
 
   const remainingMarkers = [
     ...requiredTokens.filter((token) => html.includes(token)),
@@ -301,13 +301,15 @@ ${source.replace(/ +\t/g, "\t")}
     ].join(", ")}`);
   }
 
+  // Preserve the certified LF composition even with core.autocrlf=true.
+  const outputHtml = html.replaceAll("\r\n", "\n");
   await mkdir(paths.outputDir, { recursive: true });
   await Promise.all([
-    writeFile(paths.output, html, "utf8"),
-    writeFile(paths.pagesOutput, html, "utf8")
+    writeFile(paths.output, outputHtml, "utf8"),
+    writeFile(paths.pagesOutput, outputHtml, "utf8")
   ]);
 
-  const size = Buffer.byteLength(html);
+  const size = Buffer.byteLength(outputHtml);
   console.log(JSON.stringify({
     status: "ok",
     output: paths.output,

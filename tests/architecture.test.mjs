@@ -28,6 +28,8 @@ test("el grafo real respeta las fronteras de los tres workspaces", async () => {
   assert.equal(classifyModule("packages/platform/src/domain/dates.js"), "platform/domain");
   assert.equal(classifyModule("packages/platform/src/supabase/transport.js"), "platform/supabase");
 
+  assert.equal(classifyModule("apps/cli/bin/calendary.js"), "cli");
+  assert.ok(report.modules.includes("apps/cli/bin/calendary.js"));
   const mainGraph = report.graph.get("apps/cli/src/main.js");
   assert.ok(mainGraph.some(({ projectPath }) => projectPath === "apps/cli/src/cloud-read.js"));
   assert.ok(mainGraph.some(({ projectPath }) => projectPath === "apps/cli/src/cloud-write.js"));
@@ -353,4 +355,15 @@ test("findForbiddenSupabaseRuntimeImports detecta cualquier specifier node:", ()
 test("findForbiddenPackageReferences detecta paquetes excel/supabase", () => {
   assert.deepEqual(findForbiddenPackageReferences('import { read } from "xlsx";'), ["xlsx"]);
   assert.deepEqual(findForbiddenPackageReferences('import { createClient } from "@supabase/supabase-js";'), ["@supabase/supabase-js"]);
+});
+
+test("el bin CLI rechaza Web, persistencia browser y versión Web", async () => {
+  const actual = await checkArchitecture();
+  for (const target of ["apps/web/src/app.js", "apps/web/src/persistence/json-preferences.js", "apps/web/src/ui/web-version.js"]) {
+    const graph = clonedGraph(actual);
+    const importer = "apps/cli/bin/calendary.js";
+    graph.set(importer, [...actual.graph.get(importer), { specifier: target, projectPath: target }]);
+    const report = validateArchitectureGraph({ ...actual, graph });
+    assert.ok(report.violations.some((item) => item.type === "forbidden-import" && item.importer === importer));
+  }
 });

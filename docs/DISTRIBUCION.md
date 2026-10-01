@@ -21,39 +21,41 @@ SIYS_SUPABASE_URL y SIYS_SUPABASE_PUBLISHABLE_KEY para activar Auth y
 PostgREST en los canales estable y beta. La clave publishable puede viajar en
 el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
-`dist/` contiene salidas generadas: una diferencia, una versión embebida o un
-archivo existente allí no cambia la autoridad de las fuentes. Integrar
-Workstream 1 en `main` publica Web `0.18.0-beta.2` en `/beta/`, porque Pages
-se ejecuta con cada push a `main`. El tag `v0.18.0-beta.1` permanece como
-snapshot histórico inmutable y Calendary CLI continúa en `0.18.0-beta.1`.
+`dist/` es salida generada, no autoridad de versión. Web usa
+`apps/web/package.json` + `WEB_VERSION`; CLI usa `apps/cli/package.json` +
+`CLI_VERSION`. La raíz privada no posee versión de producto.
 
 ## Canales
 
-| Canal | Fuente publicada | Versión |
-|---|---|---|
-| Estable, raíz | Tag normal indicado por `stable-version.txt` | `v0.17.0`, la versión promovida sin prerelease. |
-| Beta, /beta/ | `main` | Web `0.18.0-beta.2` tras integrar Workstream 1. |
-| Local | `dist/calendario-hvac-siys.html` | Artefacto generado; leer la versión visible sólo como verificación del artefacto. |
+| Producto/canal | Fuente | Distribución |
+| --- | --- | --- |
+| Web stable | `stable-version.txt = web-v0.17.0` | Raíz GitHub Pages |
+| Web beta | main, `0.18.0-beta.2` | `/beta/` GitHub Pages |
+| Web local | Build HTML | Archivo autocontenido |
+| Calendary CLI | `cli-v<version>`, primera `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
+| Platform | `packages/platform`, `0.0.0` privado | Interno, sin tags/releases propios |
 
-`stable-version.txt` es un puntero de distribución, no la fuente de la versión
-de `main`. La raíz stable sigue desde `stable-version.txt = v0.17.0`; `/beta/`
-se construye desde el código de `main` con Web `0.18.0-beta.2` al integrar
-Workstream 1. `v0.18.0-beta.1` sigue apuntando a su snapshot certificado
-anterior. La CLI continúa en `0.18.0-beta.1`. El puntero y el código local no
-demuestran por sí solos que las URLs públicas estén desplegadas o actualizadas.
+Web usa tags `web-v...`; CLI usa `cli-v...`. Los tags `v...` son historial
+inmutable. `web-v0.17.0` y `web-v0.18.0-beta.2` aliasan exactamente sus
+commits históricos. Cambiar el puntero stable no promueve ni cambia Web stable.
+Los aliases no disparan Pages ni GitHub Releases.
 
-La distribución descrita aquí corresponde a SIYS Sync Web. Calendary CLI
-corre localmente bajo Node.js >=20 desde `apps/cli/bin/calendary.js`, habla por
-HTTPS con el mismo Supabase y no está incluida en el HTML ni servida por Pages.
-Actualmente se usa desde el repositorio / entorno Node, con `private: true`
-y sin canal independiente formal. Web usa `WEB_VERSION` en
-`apps/web/src/ui/web-version.js`; CLI usa `CLI_VERSION` en
-`apps/cli/src/version.js`. Son técnicamente independientes: Web vale
-`0.18.0-beta.2` y CLI `0.18.0-beta.1`.
-`package.json.version` representa Web/repositorio. El repositorio ya usa npm
-workspaces privados `apps/web`, `apps/cli` y `packages/platform`; Workstream 3
-elegirá la distribución y los tags independientes. El modelo `v...` sigue
-siendo temporalmente autoritativo. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
+## Instalar Calendary CLI
+
+Descargue `calendary-cli-0.18.0-beta.1.zip` y su checksum desde GitHub Releases,
+verifique SHA-256 y extraiga. Con Node.js >=20, desde la carpeta extraída:
+
+```powershell
+node bin/calendary.js --version
+node bin/calendary.js --help
+```
+
+El ZIP incluye CLI y `node_modules/@siys-sync/platform` desde el runtime
+compartido original. No requiere clonar ni npm install; no incluye Web,
+migraciones ni configuración Supabase. Use las variables públicas existentes
+y cloud login. Consulte [CLI](CLI.md). La primera publicación se hará desde
+el tag del commit integrado, tras aprobación del Human Merge Gate.
+No se publica npm: el ZIP satisface el canal requerido sin registro ni auth npm.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo
@@ -92,7 +94,7 @@ pendientes de integración tampoco equivalen a una publicación.
 ## Publicación de una beta
 
 1. Clasificar el cambio y elegir la versión según VERSIONAMIENTO.md.
-2. Actualizar package.json, package-lock.json y WEB_VERSION.
+2. Actualizar apps/web/package.json, el espejo workspace del lock y WEB_VERSION.
 3. Actualizar CHANGELOG.md, documentación y pruebas del contrato.
 4. Ejecutar:
 
@@ -104,9 +106,9 @@ npm run goal:check
    git diff --check y git status.
 6. Abrir un PR hacia main con el alcance, la versión y la evidencia.
 7. Esperar CI e integrar el PR.
-8. Crear el tag beta sobre el commit exacto integrado: `v<version>`.
-9. Ejecutar `npm run release:check -- --require-current-tag`; esta comprobación
-   exige que `v<version>` exista y apunte al commit exacto de `HEAD`.
+8. Crear el tag beta sobre el commit exacto integrado: `web-v<version>`.
+9. Ejecutar `npm run release:web:check`; esta comprobación
+   valida fuentes y artefactos del tag, sin exigir igualdad con HEAD posterior.
 10. Verificar `/beta/` sólo con un despliegue autorizado y registrar versión,
     canal, persistencia y resultado del smoke test.
 
@@ -120,9 +122,9 @@ estable separada:
 
 1. Seleccionar el commit beta aceptado.
 2. Crear un commit de promoción que quite `-beta.N` de la versión objetivo en
-   package.json, package-lock.json y WEB_VERSION.
+   apps/web/package.json, el espejo workspace del lock y WEB_VERSION.
 3. Regenerar dist/ y ejecutar las pruebas de estable.
-4. Crear `v<version>` sobre ese commit estable.
+4. Crear `web-v<version>` sobre ese commit estable.
 5. Actualizar stable-version.txt al tag normal promovido mediante un PR hacia
    main.
 6. Esperar Deploy GitHub Pages.
@@ -157,3 +159,10 @@ El smoke está en `tests/pages_smoke.py` y recibe `--url`, `--beta-url`,
 se deben cubrir Chrome y Edge, los seis viewports responsive y las
 comprobaciones de accesibilidad indicadas en `CRITERIOS_DE_DISENO.md`. No se
 ejecutó un smoke remoto en esta actualización documental.
+
+## Workflow CLI independiente
+
+`cli-release.yml` sólo responde a tags `cli-v*`, valida ref/versión exactos,
+prueba CLI/shared y el paquete autónomo, crea ZIP y checksum y publica con gh.
+Las betas se marcan prerelease. La CI de PR valida todo el repositorio sin
+path filters. Platform no tiene workflow de release.

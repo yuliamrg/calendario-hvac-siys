@@ -1,9 +1,8 @@
 {
   "name": "calendario-hvac-siys",
-  "version": "0.18.0-beta.2",
   "private": true,
   "type": "module",
-  "description": "Calendario local autocontenido para programación de servicios HVAC SI&S.",
+  "description": "Orquestación privada de SIYS Sync Web, Calendary CLI y Platform.",
   "workspaces": [
     "apps/web",
     "apps/cli",
@@ -19,12 +18,15 @@
     "architecture:check": "node scripts/architecture-check.mjs",
     "verify": "npm run test && npm run architecture:check && npm run build && npm run version:check && npm run audit",
     "version:check": "node scripts/version-check.mjs",
-    "release:check": "node scripts/version-check.mjs --require-stable-tag",
     "cli": "node apps/cli/bin/calendary.js",
     "cli:smoke": "node --test tests/cli.test.mjs",
     "cli:e2e": "node --test tests/cli-e2e.test.mjs",
-    "test:cli": "npm run cli:smoke && npm run cli:e2e",
-    "goal:check": "npm run verify && npm run test:cli"
+    "test:cli": "npm run cli:smoke && npm run cli:e2e && npm run test:cli-release",
+    "goal:check": "npm run verify && npm run test:cli",
+    "release:web:check": "node scripts/version-check.mjs --product web --require-tag",
+    "release:cli:check": "node scripts/version-check.mjs --product cli --require-tag --require-head",
+    "build:cli-release": "node scripts/build-cli-release.mjs",
+    "test:cli-release": "node --test tests/cli-release.test.mjs"
   },
   "engines": {
     "node": ">=20"
