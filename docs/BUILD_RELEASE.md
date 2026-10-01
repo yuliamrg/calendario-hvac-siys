@@ -1,32 +1,11 @@
-# Build, distribución y releases
+# Build y release
 
-## Alcance y corte verificado
-
-Este documento describe Workstream 2 de Platform Architecture V2 desde el main
-certificado `0fc36da64fb69b5ccb09eb93edeb31473cd4e104`. La reorganización física
-introduce `apps/web`, `apps/cli` y `packages/platform` como npm workspaces
-privados; el artefacto público generado se conserva byte a byte idéntico al
-certificado. Web publica `0.18.0-beta.2`; CLI conserva `0.18.0-beta.1`. Stable
-sigue en `v0.17.0` y `v0.18.0-beta.1` conserva su snapshot histórico.
-
-## Fuentes autoritativas
-
-| Dato | Fuente autoritativa | Hecho verificado |
-| --- | --- | --- |
-| Release Web/repositorio | `package.json`, campo `version` | `0.18.0-beta.2`; no versiona CLI |
-| Versión de Calendary CLI | `apps/cli/src/version.js`, `CLI_VERSION` y `apps/cli/package.json` | `0.18.0-beta.1`, independiente de Web |
-| Versión Web visible y del exportador de respaldos | `apps/web/src/ui/web-version.js`, `WEB_VERSION` y `apps/web/package.json` | `0.18.0-beta.2`, igual a `package.json` |
-| Identidad de workspace Platform | `packages/platform/package.json` | `0.0.0`, privada y sin release |
-| Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.18.0-beta.2` |
-| Puntero estable | `stable-version.txt` | `v0.17.0`, tag normal promovido |
-| Historial de cambios | `CHANGELOG.md` | La entrada actual prepara `0.18.0-beta.2`; conserva beta.1 y la promoción estable como historial |
-| Manifiesto y algoritmo de empaquetado | `scripts/build.mjs` | La lista usa rutas de repositorio (`apps/web/src/...`, `packages/platform/src/...`) y se valida contra el grafo de `apps/web/src/app.js` |
-| Fuente de ejecución web | `apps/web/src/app.js` y sus módulos Web/Platform | Se concatena en un HTML; los imports relativos y `@siys-sync/platform/...` se eliminan después de incluir los módulos |
-
-`packages/platform/src/core.js` mantiene `SCHEMA_VERSION = 4`,
-`packages/platform/src/calendar-contract.js` mantiene `CONTRACT_VERSION = 1` y
-el ruleset de festivos se identifica por `HOLIDAY_RULESET_VERSION`. No son
-sustitutos de `WEB_VERSION`.
+Platform Architecture V2, Workstream 3 parte de
+`2ec67437646db431363961ee18bbecd000b25dba`. La raíz privada no tiene versión:
+orquesta scripts, npm workspaces, bin y Node >=20. Las autoridades son
+`apps/web/package.json` + `WEB_VERSION` (`0.18.0-beta.2`) y
+`apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
+interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
 
 ## Manifiesto de la aplicación
 
@@ -102,90 +81,95 @@ versión; el resultado local debe quedar sin diferencias después del build.
 Esto no certifica el despliegue remoto, por lo que CI y los smokes autorizados
 deben repetirse después de integrar.
 
-## Canales y distribución
+## Web: GitHub Pages
 
-| Canal | Fuente actual | Artefacto o ruta |
-| --- | --- | --- |
-| Local | `dist/calendario-hvac-siys.html` | Archivo descargable; `file:`, localhost y servidores locales conservan la ruta local |
-| Stable | Tag normal indicado por `stable-version.txt` (`v0.17.0`) | Raíz de GitHub Pages |
-| Beta | Se construye desde `main`, versión Web `0.18.0-beta.2` | `/beta/`; integrar Workstream 1 activa Pages por push a `main` |
+`web-v<version>` identifica el commit productor de la release Web.
+`npm run release:web:check` valida el tag, sus fuentes y los dos HTML
+etiquetados. Compara el hash del HTML actual con el etiquetado cuando no se
+usa `--skip-dist`; no exige que el tag apunte a HEAD, porque infraestructura
+posterior puede conservar la misma release. `--tag web-v<version>` permite
+indicar explícitamente el tag y `--require-stable-tag` comprueba el puntero.
+Los aliases históricos anteriores a workspaces se leen en sus rutas originales.
 
-`.github/workflows/pages.yml` comprueba `stable-version.txt`, obtiene ese tag
-en `stable-src`, verifica stable y beta por separado, y copia
-`stable-src/dist/index.html` a la raíz y `dist/index.html` a `/beta/`. Pages
-sirve el HTML; Supabase aporta Auth y persistencia cloud cuando el canal
-público recibe la configuración.
+Pages continúa con push a `main`: raíz desde `web-v0.17.0` y `/beta/` desde
+main. El puntero cambia de namespace, sin promoción. El checkout stable es
+el mismo commit histórico; las copias a Pages se comparan byte a byte.
+Los aliases no disparan builds ni GitHub Releases. No hay Web GitHub Release.
 
-## Versionamiento y releases
+## CLI: GitHub Release
 
-La política operativa está en `docs/VERSIONAMIENTO.md`:
-
-- `package.json > version` y `apps/web/src/ui/web-version.js > WEB_VERSION` deben coincidir;
-- `apps/web/package.json > version` debe coincidir con `WEB_VERSION` y
-  `apps/cli/package.json > version` con `CLI_VERSION`;
-- `package-lock.json` es un espejo generado, no una decisión independiente;
-- los tags usan `v<version>`;
-- stable usa una versión normal y beta usa `-beta.N`;
-- `stable-version.txt` puede apuntar a stable mientras `main` contiene otra
-  prerelease;
-- `npm run release:check -- --require-current-tag` exige que el tag actual
-  exista y resuelva al mismo commit que `HEAD`, no sólo que tenga el nombre
-  correcto.
-
-Los gates definidos por el repositorio son:
+`npm run build:cli-release` produce staging limpio en
+`releases/calendary-cli-0.18.0-beta.1/` (ignorado por Git). Para un destino
+temporal nuevo: `npm run build:cli-release -- --out <directorio>`.
+El builder valida versión y dependencias, copia únicamente runtime JS de
+CLI y Platform, rechaza archivos inesperados/symlinks y normaliza EOL a LF.
+Genera metadata privada y README.txt; no usa dependencias nuevas.
 
 ```text
-node --test tests/build-manifest.test.mjs
-node --check scripts/build.mjs
-npm test
-npm run build
-npm run version:check
-npm run audit
-npm run verify
+calendary-cli-0.18.0-beta.1/
+  package.json
+  README.txt
+  bin/calendary.js
+  src/...
+  node_modules/@siys-sync/platform/
+    package.json
+    src/...
 ```
 
-`release:check -- --require-current-tag` corresponde después de integrar y
-crear el tag sobre el commit integrado; no es un gate de esta preparación.
+El usuario descarga y extrae el ZIP, instala Node.js >=20 y ejecuta
+`node bin/calendary.js --version` / `node bin/calendary.js --help`.
+No requiere workspace install ni clonar. No contiene Web, vendor XLSX,
+migraciones, fixtures, secretos o URL/key Supabase; recibe configuración por
+el modelo existente de entorno/CLI.
 
-`npm run verify` combina pruebas, `architecture:check`, build, comprobación de
-versión y auditoría.
-`.github/workflows/ci.yml` instala dependencias con `npm ci`, ejecuta pruebas,
-build, `version:check`, `audit` y verifica que el build no deje diferencias en
-`dist/`. Para una promoción también aplican los smokes de
-`tests/pages_smoke.py`, los viewports y las comprobaciones descritas en
-`docs/CRITERIOS_DE_DISENO.md`.
+`.github/workflows/cli-release.yml` sólo responde a push de `cli-v*`.
+Hace checkout exacto del tag, npm ci, `release:cli:check`, arquitectura,
+pruebas completas y CLI/shared, staging y smoke. Comprime con ZIP del runner,
+normaliza timestamps y calcula SHA-256. Publica ZIP + checksum con
+`gh release create --verify-tag`; beta se marca prerelease y no latest.
+Título: `Calendary CLI 0.18.0-beta.1`. `contents: write` sólo está en el job
+que publica; no hay auth npm. npm publish queda diferido porque el canal
+requerido es ZIP autónomo y no necesita un registro adicional.
 
-## Estado posterior a la promoción
+`npm run release:cli:check -- --tag cli-v<version>` exige manifiesto/constante
+y commit HEAD exactos. En Actions también comprueba GITHUB_REF/GITHUB_SHA.
+Una release CLI no depende de dist Web ni de tags Web.
 
-- `v0.17.0` es el tag estable promovido desde `0.17.0-beta.1` y apunta al
-  commit integrado que pasó CI.
-- `stable-version.txt` apunta a `v0.17.0`; Pages usa ese tag para la raíz
-  estable.
-- Beta `v0.18.0-beta.1` ya está certificada y permanece inmutable. La
-  integración de Workstream 1 publica Web `0.18.0-beta.2`; su tag
-  `v0.18.0-beta.2` se crea después de integrar y verificar CI, Pages y la URL
-  pública. CLI conserva `0.18.0-beta.1` y stable conserva `v0.17.0`.
-- El gate de publicación se verificó con pruebas de navegador, smoke
-  autenticado, Pages, Supabase y migraciones.
-- Los módulos de aplicación deben recibir sus dependencias por argumentos y
-  evitar estado global; los adaptadores de almacenamiento permanecen fuera de
-  esa capa.
-- `app.js` conserva la coordinación del DOM y su estado efímero; el contrato y
-  los importadores conservan las secuencias que deben ser atómicas. El criterio
-  de cierre es que sus funciones internas tengan una responsabilidad legible,
-  no imponer un límite artificial de líneas al archivo coordinador.
+## Validación y CI
 
-## Frontera CLI e identidades independientes
+```powershell
+npm ci
+npm test
+npm run architecture:check
+npm run build
+npm run build:cli-release
+npm run version:check
+npm run audit
+npm run test:cli
+npm run goal:check
+git diff --check
+```
 
-La CLI corre localmente bajo Node.js >=20 desde `apps/cli/bin/calendary.js`;
-`apps/cli/*` queda fuera del manifiesto HTML. La raíz conserva un `bin`
-conveniente (`calendary`) y el script `npm run cli` apuntando al workspace.
-Cada paquete es `private: true`; `packages/platform` usa `0.0.0` como identidad
-interna de workspace, no de release. Web usa `0.18.0-beta.2` y CLI
-`0.18.0-beta.1`, como prueba concreta de identidades independientes. La
-distribución CLI independiente queda para Workstream 3.
-El modelo antiguo de tags `v...` sigue temporalmente autoritativo.
-`document.appVersion` es metadato legado, conservado en mutaciones; la
-compatibilidad sigue en `schemaVersion` y `formatVersion = 1`. Web pasa su
-versión al envelope de respaldo como `exporterVersion: WEB_VERSION`. Véase
-[arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
+`test:cli-release` construye dos paquetes temporales fuera del workspace,
+compara inventario/bytes, resuelve todos los imports dentro del paquete,
+ejecuta versión/ayuda y solicitud inválida con fetch bloqueado.
+La CI de PR conserva validación completa, sin filtros de paths.
+Actions: checkout v7, setup-node v7, configure-pages v6,
+upload-pages-artifact v5 y deploy-pages v5. El runtime de producto sigue Node 20.
+
+## Reproducibilidad Windows
+
+El builder Web normaliza CRLF a LF al escribir la composición y antes de
+codificar el SVG en base64. Esto incluye los literales del propio builder.
+Con core.autocrlf=true y la misma configuración pública de CI, el resultado
+conserva el SHA-256 certificado:
+`ED6F3202AAFB15B8BA175E93F137F78698D867CD5FD3E20B90F3A80CB3FA90A1`.
+Sin configuración Supabase se produce intencionalmente otro HTML local.
+
+## Migración y Human Merge Gate
+
+Tags `v...`: historial inmutable. Los únicos aliases son `web-v0.17.0` y
+`web-v0.18.0-beta.2`, sobre los commits resueltos mediante
+`git rev-parse <tag>^{commit}`. Sólo se crean/pushean tras todos los gates.
+No se crea `cli-v0.18.0-beta.1` hasta aprobación e integración de Workstream 3.
+No se fusiona la PR ni se publica release CLI/Pages manualmente.

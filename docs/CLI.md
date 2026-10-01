@@ -11,10 +11,28 @@ formato de respaldo en 1.
 
 La CLI vive en el workspace privado `apps/cli` (`@siys-sync/cli`) y consume la
 lógica compartida de `packages/platform` mediante imports
-`@siys-sync/platform/...`. `package.json.version` (raíz) sigue representando
-Web/repositorio. No hay distribución CLI independiente todavía; se definirá en
-Workstream 3, junto con su primer número y tags propios. El modelo histórico
-`v...` sigue temporalmente autoritativo.
+`@siys-sync/platform/...`. La raíz es orquestación privada sin versión.
+`apps/cli/package.json.version` coincide con `CLI_VERSION`; el canal formal
+es GitHub Release mediante tags `cli-v<version>`, independiente de Pages.
+
+## Instalación desde release
+
+1. Descargue el ZIP y `.zip.sha256` de la release `cli-v0.18.0-beta.1`.
+2. Compruebe SHA-256 y extraiga `calendary-cli-0.18.0-beta.1.zip`.
+3. Instale Node.js >=20 y entre a la carpeta extraída.
+4. Ejecute `node bin/calendary.js --version` y `node bin/calendary.js --help`.
+
+No requiere `npm install` ni clonar el repositorio. El ZIP contiene `bin/`,
+`src/`, `package.json`, `README.txt` y `node_modules/@siys-sync/platform/`.
+No incorpora URL/key Supabase ni credenciales; configure
+`SIYS_SUPABASE_URL` y `SIYS_SUPABASE_PUBLISHABLE_KEY` con el modelo existente.
+En los ejemplos de esta guía, sustituya `npm run cli --` por
+`node bin/calendary.js` cuando use el ZIP.
+
+Para actualizar, extraiga la nueva release en otra carpeta. Para desinstalar,
+elimine esa carpeta; gestione la sesión externa mediante `cloud logout`.
+El workflow publicará la primera release después del Human Merge Gate;
+la implementación no crea el tag CLI ni publica manualmente.
 
 La CLI es una capa local y portable sobre el mismo contrato de la interfaz.
 Supabase es la única autoridad del calendario: la CLI autentica, lee el

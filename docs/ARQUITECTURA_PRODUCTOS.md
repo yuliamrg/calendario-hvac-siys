@@ -1,9 +1,9 @@
 # Arquitectura de productos
 
-Decisión vigente de Platform Architecture V2, Workstream 2: SIYS Sync Web y
+Decisión vigente de Platform Architecture V2, Workstream 3: SIYS Sync Web y
 Calendary CLI son dos clientes ejecutables distintos en el mismo monorepo.
 Ambos reutilizan lógica compartida y se comunican directamente por HTTPS con
-el mismo backend Supabase. Este workstream materializa las tres fronteras
+el mismo backend Supabase. Los workstreams previos materializaron las tres fronteras
 físicas con npm workspaces privados (`apps/web`, `apps/cli`, `packages/platform`)
 conservando el mismo comportamiento observable y el mismo artefacto HTML.
 
@@ -56,8 +56,8 @@ de Web ni de CLI, y Web y CLI no se importan entre sí.
 - Supabase es su única autoridad de calendario. Los archivos son operandos
   o salidas, no una fuente de estado alternativa.
 - No está embebida en el HTML ni desplegada o servida por GitHub Pages.
-- No tiene todavía un canal de distribución independiente formal;
-  `package.json` permanece `private: true`.
+- `package.json` permanece `private: true`. La distribución es un ZIP
+  autónomo mediante GitHub Release y tags `cli-v<version>`.
 
 ## Shared Calendar Platform
 
@@ -82,24 +82,21 @@ Supabase aporta Auth, PostgREST, RPC y PostgreSQL. Las migraciones viven bajo
 con CAS y sincroniza metadata en una transacción. El backend es común a ambos
 clientes; Web stable y beta conservan calendarios lógicos separados.
 
-## Identidades independientes, transición actual
+## Identidades independientes
 
 - Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.18.0-beta.2"`.
 - CLI: `apps/cli/src/version.js > CLI_VERSION = "0.18.0-beta.1"`.
 - Manifiestos: `apps/web/package.json` = `0.18.0-beta.2` y
   `apps/cli/package.json` = `0.18.0-beta.1`, ambos `private: true`.
-- `package.json.version` sigue representando la release Web/repositorio y debe
-  coincidir con `WEB_VERSION`; `package-lock.json` conserva su espejo.
-- `packages/platform/package.json` usa `0.0.0` como identidad de mecánica de
-  workspace; no es una versión de release.
+- La raíz privada no posee versión; `package-lock.json` sólo refleja versiones
+  de workspaces, sin identidad de producto raíz.
+- Platform usa `0.0.0` interno y privado, sin tags ni releases propios.
 
-Web y CLI ya tienen valores distintos: esta es la primera prueba real de
-identidades independientes. Las pruebas también conservan un caso temporal
-hipotético para comprobar `--version` y los gates Web. No se selecciona una
-primera release CLI independiente.
+Web y CLI tienen versiones independientes. El checker valida cada pareja de
+manifiesto/constante sin exigir igualdad entre productos.
 El núcleo compartido no exporta `APP_VERSION` ni posee una release de producto.
 Se mantienen `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`, backup
-`formatVersion = 1` y `stable-version.txt = v0.17.0`.
+`formatVersion = 1` y `stable-version.txt = web-v0.17.0`.
 
 ## Semántica del documento y del respaldo
 
@@ -119,28 +116,27 @@ Web pasa `exporterVersion: WEB_VERSION` a `createBackupEnvelope`. La utilidad
 compartida no obtiene versiones de clientes; sin exportador explícito usa `""`.
 Un envelope Web actual puede contener un documento con `appVersion` antiguo.
 
-## Workstreams
+## Workstreams y releases
 
-Workstream 2 (este) materializó la estructura física `apps/web`, `apps/cli` y
-`packages/platform` con npm workspaces privados, límites verificados por
-`scripts/architecture-check.mjs` y el mismo artefacto HTML certificado. No hay
-framework de monorepo ni bundler.
+1. Workstream 1 separó identidades de producto.
+2. Workstream 2 separó Web, CLI y Platform físicamente.
+3. Workstream 3 completa Architecture V2 con versionado, tags y distribución
+   independientes. No se introduce otro workstream ni framework de releases.
 
-Workstream 3 definirá distribución/releases CLI independientes y los namespaces
-`web-v...` / `cli-v...`. Actualmente la CLI se usa desde el repositorio Node,
-sin distribución independiente ni publicación npm. No se crea ZIP, npm release
-ni GitHub Release. La topología CI y Pages siguen siendo las de Workstream 1.
+Web usa `web-v<version>` y GitHub Pages. Beta se construye desde `main`;
+stable desde `stable-version.txt = web-v0.17.0`. Los aliases
+`web-v0.17.0` y `web-v0.18.0-beta.2` conservan exactamente los commits de
+`v0.17.0` y `v0.18.0-beta.2`. Los tags históricos `v...` no se reescriben.
 
-## Tags y publicación vigentes
+CLI usa `cli-v<version>` y GitHub Release. `scripts/build-cli-release.mjs`
+copia runtime CLI y Platform desde sus fuentes, sin segunda copia mantenida.
+El ZIP incluye la resolución Node del paquete compartido, funciona sin npm
+install y no incluye Web, vendor XLSX, migraciones ni configuración cloud.
 
-El modelo histórico `v<version>` sigue siendo temporalmente autoritativo para
-Web/repositorio. `v0.18.0-beta.1` permanece como snapshot histórico inmutable;
-la integración de Workstream 1 publica Web `0.18.0-beta.2` porque Pages se
-despliega con cada push a `main`. El tag `v0.18.0-beta.2` se crea después de
-integrar, sobre el commit integrado. Calendary CLI permanece en
-`0.18.0-beta.1`.
-`release:check` conserva los gates del tag estable y del tag Web actual
-sobre HEAD cuando se solicita `--require-current-tag`; una rama de refactor no
-es un nuevo tag de release. Pages mantiene sus triggers y stable conserva
-el puntero `v0.17.0`. No se modifica Supabase ni la topología CI. Workstream 3
-sigue pendiente.
+La CI de PR valida el repositorio completo porque Platform afecta ambos
+clientes. No se usan filtros de paths. El checker incluye `apps/cli/bin/` en
+la frontera CLI: permite internals CLI y prohíbe Web, persistencia browser y
+versión Web. Platform sigue interno y Supabase no cambia.
+
+La primera release CLI conserva `0.18.0-beta.1`. Su tag se crea únicamente
+tras aprobar e integrar Workstream 3; nunca durante implementación.

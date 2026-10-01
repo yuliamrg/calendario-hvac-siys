@@ -133,7 +133,7 @@ test("a source-controlled differing CLI version changes --version while Web chec
       { recursive: true }
     );
     await mkdir(resolve(fixture, "dist"));
-    const dist = `export const WEB_VERSION = "${WEB_VERSION}";`;
+    const dist = `export const WEB_VERSION = "${WEB_VERSION}";\n${" ".repeat(2 * 1024 * 1024)}`;
     for (const name of ["index.html", "calendario-hvac-siys.html"]) await writeFile(resolve(fixture, "dist", name), dist);
     // Hypothetical fixture only: this is not a selected CLI release number.
     const hypothetical = "9.8.7-beta.2";

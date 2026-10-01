@@ -21,20 +21,20 @@ jobs:
       SIYS_SUPABASE_URL: ${{ vars.SIYS_SUPABASE_URL }}
       SIYS_SUPABASE_PUBLISHABLE_KEY: ${{ vars.SIYS_SUPABASE_PUBLISHABLE_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Resolve stable version
         id: stable
         shell: bash
         run: |
           stable_tag="$(tr -d '[:space:]' < stable-version.txt)"
-          [[ "$stable_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$stable_tag" =~ ^web-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           echo "tag=$stable_tag" >> "$GITHUB_OUTPUT"
       - name: Checkout stable release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.stable.outputs.tag }}
           path: stable-src
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: Install beta dependencies
@@ -60,10 +60,12 @@ jobs:
           cp stable-src/dist/calendario-hvac-siys.html pages/calendario-hvac-siys.html
           cp dist/index.html pages/beta/index.html
           cp dist/calendario-hvac-siys.html pages/beta/calendario-hvac-siys.html
+          cmp stable-src/dist/index.html pages/index.html
+          cmp stable-src/dist/calendario-hvac-siys.html pages/calendario-hvac-siys.html
           test -s pages/index.html
           test -s pages/beta/index.html
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: pages
 
@@ -76,4 +78,4 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

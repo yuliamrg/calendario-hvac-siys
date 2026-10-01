@@ -1,0 +1,63 @@
+name: Release Calendary CLI
+
+on:
+  push:
+    tags:
+      - "cli-v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Validate exact CLI release ref
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run release:cli:check -- --tag "$RELEASE_TAG"
+      - run: npm run architecture:check
+      - name: Test CLI and shared contracts
+        run: npm test
+      - run: npm run test:cli
+      - run: npm run build:cli-release
+      - name: Smoke staged executable
+        shell: bash
+        run: |
+          version="$(node --input-type=module -e 'import { CLI_VERSION } from "./apps/cli/src/version.js"; console.log(CLI_VERSION)')"
+          cd "releases/calendary-cli-$version"
+          test "$(node bin/calendary.js --version)" = "$version"
+          node bin/calendary.js --help
+      - name: Archive and publish exact tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#cli-v}"
+          name="calendary-cli-$version"
+          cd releases
+          # Normalize timestamps; -X excludes host-specific ZIP metadata.
+          find "$name" -type f -exec touch -t 198001010000 {} +
+          find "$name" -type f | LC_ALL=C sort | zip -X "$name.zip" -@
+          sha256sum "$name.zip" > "$name.zip.sha256"
+          prerelease=()
+          if [[ "$version" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$RELEASE_TAG" --verify-tag --title "Calendary CLI $version" \
+            --notes "Distribución autónoma de Calendary CLI. Requiere Node.js >=20. Consulte README.txt dentro del ZIP." \
+            --latest=false "${prerelease[@]}" "$name.zip" "$name.zip.sha256"

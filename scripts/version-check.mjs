@@ -39,7 +39,7 @@ const parseVersion = (value, label) => {
 };
 
 const git = (...args) => {
-  try { return execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "ignore"] }); }
+  try { return execFileSync("git", args, { cwd: root, maxBuffer: 16 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }); }
   catch { return null; }
 };
 const revision = (ref) => git("rev-parse", "--verify", ref)?.toString().trim() ?? null;

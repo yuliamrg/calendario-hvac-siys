@@ -15,51 +15,21 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 
 ## 1. Fuentes de versión y artefactos
 
-### Fuentes autoritativas
+- Web: `apps/web/package.json.version` = `WEB_VERSION` en
+  `apps/web/src/ui/web-version.js`, hoy `0.18.0-beta.2`.
+- CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
+  `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
+- Platform: `packages/platform/package.json.version = 0.0.0`, privado e interno,
+  sin tags ni releases propios.
+- Raíz: `package.json` privado, sin versión; sólo orquestación. `package-lock.json`
+  refleja versiones de workspaces, no contiene versión raíz.
+- `stable-version.txt = web-v0.17.0`: puntero Web estable, no versión de main.
+- dist: salida generada del build, nunca autoridad ni edición manual.
 
-- **package.json > version**: identidad de release Web/repositorio durante
-  esta transición; no es la autoridad de versión CLI.
-- **apps/web/src/ui/web-version.js > WEB_VERSION**: versión del ejecutable Web,
-  visible en la interfaz y pasada explícitamente al envelope de nuevos respaldos.
-  `apps/web/package.json > version` debe coincidir con ella.
-- **apps/cli/src/version.js > CLI_VERSION**: identidad del ejecutable Calendary
-  CLI, usada por `calendary --version`, sin importar código Web.
-  `apps/cli/package.json > version` debe coincidir con ella.
-
-Package y Web deben coincidir. Web y CLI son independientes y actualmente
-identifican Web como `0.18.0-beta.2` y CLI como `0.18.0-beta.1`. La integración
-en `main` publica la beta Web porque Pages se ejecuta con cada push a `main`.
-El repositorio ya usa npm workspaces privados `apps/web`, `apps/cli` y
-`packages/platform`; `packages/platform` usa `0.0.0` como identidad interna de
-mecánica de workspace, no de release. La distribución CLI independiente queda
-pendiente del Workstream 3. Véase
-[arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
-
-### Espejos y punteros
-
-- **package-lock.json**: espejo generado por npm. Sus dos versiones raíz deben
-  coincidir con package.json; no es una decisión independiente.
-- **stable-version.txt**: puntero que el workflow usa para seleccionar el tag
-  estable de la raíz de GitHub Pages. No es la versión de `main` y no tiene que
-  coincidir con la beta en desarrollo.
-- **dist/index.html** y **dist/calendario-hvac-siys.html**: salidas generadas
-  por `npm run build`. Pueden contener una copia embebida de `WEB_VERSION`, pero
-  no son fuente ni autoridad; no se editan manualmente.
-- **Tags Git**: identifican releases inmutables y usan el formato
-  v<version>, por ejemplo v0.14.0-beta.1 o v0.14.0.
-
-La validación automatizada está disponible con:
-
-~~~text
-npm run version:check
-~~~
-
-En el corte de Workstream 2, `package.json` declara `0.18.0-beta.2` igual a
-`WEB_VERSION`, `apps/web/package.json` coincide con Web, `apps/cli/package.json`
-coincide con CLI (`0.18.0-beta.1`), los dos valores raíz de `package-lock.json`
-coinciden y `stable-version.txt` contiene `v0.17.0`. Es un estado del
-repositorio local: no certifica qué HTML está sirviendo actualmente GitHub
-Pages.
+`npm run version:check` valida cada producto independientemente y el formato
+`web-v<stable-semver>` del puntero, sin exigir Web = CLI ni tags durante PR.
+Los tags `web-v<version>` identifican Web; `cli-v<version>` identifican CLI.
+Los tags históricos `v...` se conservan inmutables.
 
 ## 2. Regla base de Semantic Versioning
 
@@ -187,9 +157,9 @@ identifican con mensajes Conventional Commits, por ejemplo `docs:`, `test:`,
 mero hecho de crear un commit ni se edita `dist/` manualmente.
 
 Un commit de release es distinto: actualiza de forma coordinada
-`package.json`, `package-lock.json`, `apps/web/src/ui/web-version.js`,
-`apps/web/package.json`, `CHANGELOG.md` y los artefactos requeridos, ejecuta los
-gates y recibe el tag `v<version>` después de integrar el PR. Un cambio documental que acompaña una versión pendiente se
+`apps/web/package.json`, `package-lock.json`, `apps/web/src/ui/web-version.js`,
+`CHANGELOG.md` y los artefactos requeridos, ejecuta los
+gates y recibe el tag `web-v<version>` después de integrar el PR. Un cambio documental que acompaña una versión pendiente se
 queda en la misma línea y se integra como commit revisable separado.
 
 ## 5. Prereleases y promoción
@@ -220,7 +190,7 @@ primero como beta.
 | Identificador | Qué versiona | Cuándo aumenta |
 |---|---|---|
 | WEB_VERSION | Release de SIYS Sync Web | Cada publicación Web beta o estable. |
-| CLI_VERSION | Release de Calendary CLI | Independiente de Web; primera distribución propia pendiente. |
+| CLI_VERSION | Release de Calendary CLI | Independiente de Web; GitHub Release ZIP autónomo. |
 | document.appVersion | Metadato legado opaco | No se incrementa con mutaciones ni se usa como compatibilidad, productor o último escritor. |
 | SCHEMA_VERSION | Formato persistido del calendario | Cuando cambia el formato o las reglas necesarias para leer/escribir documentos; debe existir migración o bloqueo explícito. |
 | CONTRACT_VERSION | Respuesta e invariantes de la frontera de operaciones | Cuando cambia de forma incompatible la API de packages/platform/src/calendar-contract.js o la CLI. |
@@ -234,114 +204,52 @@ con el esquema 4, respaldos, CLI y persistencia local. La promoción de la líne
 estable a Supabase; stable y beta mantienen calendarios lógicos separados
 dentro del mismo proyecto. Estas versiones no describen el corte actual.
 
-## 7. Canales de distribución
+## 7. Canales y publicación independientes
 
-- La raíz de GitHub Pages usa el tag indicado por stable-version.txt.
-- /beta/ usa la versión de main y muestra la insignia BETA; durante una pausa
-  explícita puede conservar temporalmente la última versión estable hasta que
-  se inicie la siguiente línea prerelease.
-- El hecho de que package.json en main cambie no modifica la raíz: ésta sigue
-  el tag indicado por stable-version.txt.
-- Supabase se activa en estable y beta cuando Pages inyecta la configuración
-  pública; el archivo local conserva IndexedDB sin autenticación.
-- URL, canal, versión visible, revision y perfil ayudan a verificar la operación.
-  La compatibilidad se valida por `document.schemaVersion` y backup
-  `formatVersion`; `document.appVersion` no acepta ni rechaza un documento.
-  El envelope `backup.appVersion` identifica al Web exportador explícito.
+Web se distribuye por GitHub Pages: raíz desde el tag normal `web-v...`
+indicado en stable-version.txt; `/beta/` desde main. Supabase se configura
+con las variables públicas del workflow. URL/canal/versión visibles se
+verifican en un despliegue autorizado; el repositorio no prueba estado remoto.
 
-Las rutas públicas documentadas son referencias de configuración. Sólo una
-verificación explícita de Pages y del smoke autenticado puede demostrar un
-despliegue o un resultado remoto; la coincidencia de versiones en el repositorio
-no lo demuestra.
+Una nueva release Web actualiza exclusivamente su manifiesto/WEB_VERSION,
+el espejo workspace de package-lock.json, changelog y HTML generado. Tras
+aprobar CI e integrar, se etiqueta el commit productor como `web-v<version>`.
+`npm run release:web:check` comprueba fuentes y artefactos del tag; no requiere
+HEAD igual al tag si sólo cambió infraestructura. Para promover a estable,
+se crea la versión sin beta y se cambia el puntero mediante PR; se mantienen
+las puertas visuales, responsive y operativas de promoción vigentes.
 
-## 8. Flujo de publicación beta
+CLI se distribuye por GitHub Release mediante `cli-v<version>`. Una nueva
+release CLI cambia su manifiesto/CLI_VERSION y espejo workspace del lock,
+pruebas y documentación pertinentes. Tras CI, aprobación e integración se
+etiqueta el commit aceptado. `npm run release:cli:check` exige tag/versión y
+HEAD exactos; en Actions valida además ref y SHA. El workflow publica ZIP +
+checksum y marca prerelease cuando corresponde. No publica npm.
 
-1. Clasificar el cambio con la matriz de la sección 2 y redactar su alcance.
-2. Elegir la versión objetivo. Una nueva línea comienza en beta.1.
-3. Actualizar package.json, package-lock.json y WEB_VERSION.
-4. Actualizar CHANGELOG.md, documentación y pruebas que describan el contrato.
-5. Ejecutar npm run goal:check y las pruebas de navegador requeridas. goal:check
-   incluye build, version:check, auditoría, pruebas de código y pruebas de CLI.
-6. Revisar git diff --check, git status y que dist/ sólo sea salida generada.
-7. Abrir un PR hacia main con el alcance, la versión y las evidencias.
-8. Esperar CI, integrar el PR y crear el tag beta sobre el commit exacto
-   integrado: v<version>. El tag se crea después de integrar, nunca sobre una
-   rama o commit distinto del que CI aprobó.
-9. Ejecutar `npm run release:check -- --require-current-tag`. Esta variante
-   resuelve el commit de `v<version>` y lo compara con `HEAD`; no basta con que
-   el tag exista. Probar `/beta/`
-   sólo cuando exista un despliegue autorizado y registrar la versión visible,
-   el canal y el resultado de las pruebas; no inferirlo desde el tag o `dist/`.
-10. Para otra beta de la misma versión normal, repetir desde el paso 2 con
-    beta.N + 1. Si el contenido de la siguiente release requiere otra versión
-    normal según la sección 2, iniciar beta.1 de esa nueva base.
+## 8. Puertas mínimas
 
-## 9. Flujo de promoción a estable
+`npm run goal:check` incluye `npm run verify` y pruebas CLI/distribución.
+`npm run version:check` valida autoridades por producto, Platform interno y
+puntero stable. `npm run release:web:check` valida la release Web;
+`npm run release:cli:check` valida la release CLI. Los tags se crean sobre
+commits aceptados, no se mueven ni se reescriben después de publicar.
+CI completa permanece sin optimización por paths porque Platform afecta ambos.
 
-La promoción es una publicación separada de la beta:
+## 9. Corte actual y migración
 
-1. Seleccionar el commit beta aceptado y congelar su alcance.
-2. Crear un commit de promoción con la versión normal, sin sufijo beta, en
-   package.json, package-lock.json y WEB_VERSION.
-3. Regenerar dist/ y ejecutar todas las validaciones de estable.
-4. Crear el tag estable sobre ese commit: `v<version>` sin prerelease.
-5. Actualizar stable-version.txt al tag normal promovido mediante un PR hacia
-   main.
-6. Esperar el despliegue y verificar la raíz estable y /beta/.
-7. Si el canal beta continúa, iniciar en `main` la siguiente línea MINOR que
-   corresponda a su alcance. Si se pausa, documentar explícitamente la pausa.
+Workstream 3 parte de `2ec67437646db431363961ee18bbecd000b25dba` y completa
+Architecture V2 sin cambiar versiones ni comportamiento. Web `0.18.0-beta.2`,
+CLI `0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1,
+backup formatVersion 1. No se cambia Supabase.
 
-El tag estable no debe apuntar a un commit cuyo WEB_VERSION aún tenga
-el sufijo beta.
+`web-v0.17.0` aliasa el commit de `v0.17.0`; `web-v0.18.0-beta.2` aliasa el
+commit de `v0.18.0-beta.2`. Se resuelven con `git rev-parse <tag>^{commit}`
+y se verifica igualdad exacta antes/después del push. Los aliases se crean
+tras todos los gates; no son nuevas releases Web ni disparan builds.
+El puntero cambia a `web-v0.17.0` sin promoción ni cambio de bytes stable.
 
-## 10. Puertas mínimas
-
-Para cualquier publicación:
-
-- package.json, package-lock.json y WEB_VERSION coinciden; CLI_VERSION se valida
-  por separado como SemVer, sin exigir igualdad con Web;
-- stable-version.txt tiene un tag normal vMAJOR.MINOR.PATCH;
-- npm run version:check pasa;
-- npm run verify pasa;
-- dist/ es autocontenido, idéntico en sus dos archivos y proviene del build;
-- CI pasa y el PR conserva trazabilidad;
-- el tag apunta al commit exacto de la versión publicada, comprobado con
-  `npm run release:check -- --require-current-tag`.
-
-Para promover a estable, además:
-
-- se pasan las pruebas de navegador en estable y beta;
-- se prueban los seis viewports responsive;
-- se revisan accesibilidad, contraste, teclado, claro, oscuro, impresión y
-  exportación PNG cuando corresponda;
-- se compara explícitamente contra la estable vigente;
-- se documenta la decisión de promoción y la compatibilidad de esquema,
-  respaldos, CLI y persistencia.
-
-## 11. Corte estable actual e historial
-
-La stable promovida el 2026-09-20 sigue en `v0.17.0`; el puntero
-`stable-version.txt` conserva ese tag normal. La promoción se mantiene como
-historial en el changelog.
-
-El baseline certificado de este workstream es
-`40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`, con beta histórica
-`v0.18.0-beta.1` y stable `v0.17.0` ya certificadas. Workstream 1 desacopla
-las fuentes Web/CLI; Web avanza a `0.18.0-beta.2` porque al integrar en `main`
-Pages publica `/beta/`. CLI permanece en `0.18.0-beta.1`; el tag beta.1 queda
-inmutable y `v0.18.0-beta.2` se crea sobre el commit integrado. El modelo
-`v...` sigue autoritativo temporalmente y `release:check` conserva sus verificaciones.
-Workstream 2 (PR #53) ya implementa la topología física de workspaces
-`apps/web`, `apps/cli` y `packages/platform`; la raíz queda como orquestación y
-Supabase permanece en la raíz. Web sigue en `0.18.0-beta.2`, CLI en
-`0.18.0-beta.1`; `packages/platform` usa `0.0.0` como identidad interna de
-mecánica de workspace, no de release. La beta vigente de Web sigue siendo el tag
-histórico `v0.18.0-beta.2` y este refactor no crea otra release Web porque su
-artefacto generado es idéntico byte a byte. Workstream 3 sigue pendiente y
-definirá distribución CLI, namespaces de tags `web-v...` / `cli-v...` y
-topología de CI.
-
-Las versiones `0.14.0`, `0.14.1`, `0.15.0-beta.3` y las demás que aparecen en
-los ejemplos o en el changelog se conservan como historial. No deben leerse
-como la versión estable o beta actual. Esta separación evita confundir la
-versión de `main`, el puntero stable y los HTML generados en `dist/`.
+La primera release CLI mantiene `0.18.0-beta.1`. Su tag no se crea durante
+implementación: pertenece al commit integrado tras Human Merge approval.
+Los ejemplos anteriores y CHANGELOG conservan historia; no describen releases
+nuevas de este workstream. No se añade una entrada de producto al changelog
+porque su convención vigente sólo contiene versiones publicadas.
