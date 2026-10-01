@@ -69,7 +69,7 @@ compartido por estable y beta; los datos operativos siguen aislados por canal.
 
 ### Tokens de referencia
 
-Los tokens viven en las variables CSS de `src/styles.css`, incluidos los
+Los tokens viven en las variables CSS de `apps/web/src/styles.css`, incluidos los
 tokens de piloto beta al final del archivo. Las nuevas reglas deben reutilizar
 roles, no introducir colores literales sin justificación.
 

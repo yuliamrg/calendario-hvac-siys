@@ -1,9 +1,10 @@
 # Arquitectura de Calendary
 
-Workstream 1 de Platform Architecture V2 separa identidades sin mover archivos.
-`package.json.version` sigue la release Web/repositorio; la distribución CLI
-independiente queda pendiente del Workstream 3. El layout futuro pertenece al
-Workstream 2. Los tags históricos `v...` siguen vigentes, sin nueva publicación.
+Workstream 2 de Platform Architecture V2 materializa tres workspaces privados
+con npm workspaces: `apps/web`, `apps/cli` y `packages/platform`. La raíz sigue
+orquestando y `package.json.version` sigue la release Web/repositorio; la
+distribución CLI independiente queda pendiente del Workstream 3. Los tags
+históricos `v...` siguen vigentes, sin nueva publicación.
 
 ## Propósito y restricciones
 
@@ -19,8 +20,9 @@ dos maneras sin divergencias:
 
 La refactorización conserva el comportamiento, el esquema de datos, el contrato
 de operaciones, los identificadores del DOM y el formato de distribución. Las
-fachadas públicas `src/core.js`, `src/calendar-contract.js` y `src/importer.js`
-se mantienen estables para la interfaz, la CLI y consumidores externos.
+fachadas `packages/platform/src/core.js`,
+`packages/platform/src/calendar-contract.js` y `apps/web/src/importer.js`
+conservan sus símbolos para la interfaz y la CLI.
 
 Para orientarse en el sistema completo, empezar por [mapa del sistema](SISTEMA.md),
 [modelo de datos y estados](MODELO_ESTADOS.md) y [build, distribución y releases](BUILD_RELEASE.md).
@@ -30,23 +32,28 @@ Para orientarse en el sistema completo, empezar por [mapa del sistema](SISTEMA.m
 Las dependencias avanzan de arriba hacia abajo; una capa de dominio no debe
 importar código de interfaz, persistencia ni CLI.
 
-1. **Dominio compartido (`src/domain/`)**: texto, fechas, festivos, filtros,
-   orden, CSV y mezcla de documentos como funciones puras.
-2. **Núcleo (`src/core.js`)**: modelo del documento, reglas de calendario,
-   validación, migraciones, respaldos y operaciones puras.
-3. **Contrato (`src/calendar-contract.js`)**: comandos atómicos consumidos por
-   la interfaz y la CLI; traduce entradas a operaciones del núcleo.
-4. **Aplicación (`src/application/`)**: comandos de caso de uso que reciben
-   dependencias explícitas, delegan en el contrato y conservan invariantes de
-   documento, rollback y undo sin conocer DOM ni infraestructura.
-5. **Importación (`src/import/`, con fachada `src/importer.js`)**: lectura
-   tabular, Base Operativa y programación separadas de la conciliación.
-6. **Persistencia (`src/persistence/` y `src/cloud.js`)**: preferencias,
-   IndexedDB, bloqueo de edición y adaptador REST de Supabase.
-7. **Presentación (`src/ui/` y `src/app.js`)**: formato visible, DOM, eventos,
-   diálogos y coordinación del estado de la página.
-8. **CLI (`src/cli/`)**: adaptación entre argumentos, `CloudCalendarSource` y
-   contrato. Supabase es la única autoridad del calendario: la CLI lee y
+Fronteras de workspace: Web y CLI dependen de Platform; Platform no depende de
+ninguno; Web y CLI no se importan entre sí.
+
+1. **Dominio compartido (`packages/platform/src/domain/`)**: texto, fechas,
+   festivos, filtros, orden, CSV y mezcla de documentos como funciones puras.
+2. **Núcleo (`packages/platform/src/core.js`)**: modelo del documento, reglas de
+   calendario, validación, migraciones, respaldos y operaciones puras.
+3. **Contrato (`packages/platform/src/calendar-contract.js`)**: comandos
+   atómicos consumidos por la interfaz y la CLI; traduce entradas a operaciones
+   del núcleo.
+4. **Aplicación (`apps/web/src/application/`)**: comandos de caso de uso que
+   reciben dependencias explícitas, delegan en el contrato y conservan
+   invariantes de documento, rollback y undo sin conocer DOM ni infraestructura.
+5. **Importación (`apps/web/src/import/`, con fachada
+   `apps/web/src/importer.js`)**: lectura tabular, Base Operativa y programación
+   separadas de la conciliación.
+6. **Persistencia (`apps/web/src/persistence/` y `apps/web/src/cloud.js`)**:
+   preferencias, IndexedDB, bloqueo de edición y adaptador REST de Supabase.
+7. **Presentación (`apps/web/src/ui/` y `apps/web/src/app.js`)**: formato
+   visible, DOM, eventos, diálogos y coordinación del estado de la página.
+8. **CLI (`apps/cli/src/`)**: adaptación entre argumentos, `CloudCalendarSource`
+   y contrato. Supabase es la única autoridad del calendario: la CLI lee y
    persiste por el RPC atómico compartido; autenticación y transporte PostgREST
    están separados del dominio. Los archivos JSON sólo entran como operando
    (`--backup-file`, `--payload-file`) o salida (`--csv-output`).
@@ -73,16 +80,17 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 - `core.js` reexporta las utilidades de dominio que ya formaban parte de su API.
 - El contrato de `executeCalendarOperation()` es la única ruta compartida de
   mutaciones entre la CLI y la interfaz.
-- `src/application/` puede depender del contrato, núcleo y dominio; no puede
-  depender de UI, persistencia, cloud, CLI ni composición. La UI puede usar
-  sus comandos sin conocer cómo se persiste el documento.
-- `WEB_VERSION` vive en `src/ui/web-version.js` y `CLI_VERSION` en
-  `src/cli/version.js`; actualmente valen `0.18.0-beta.2` y
+- `apps/web/src/application/` puede depender del contrato, núcleo y dominio; no
+  puede depender de UI, persistencia, cloud, CLI ni composición. La UI puede
+  usar sus comandos sin conocer cómo se persiste el documento.
+- `WEB_VERSION` vive en `apps/web/src/ui/web-version.js` y `CLI_VERSION` en
+  `apps/cli/src/version.js`; actualmente valen `0.18.0-beta.2` y
   `0.18.0-beta.1`, independientes
   de `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y backup `formatVersion = 1`.
-- Las reglas por capa prohíben imports de UI/CLI desde dominio, núcleo y
-  contrato; CLI no puede importar UI y `app.js` no puede importar CLI.
-  La guardia también rechaza constantes de release en capas compartidas.
+- `scripts/architecture-check.mjs` prohíbe Platform → Web/CLI, Web → CLI,
+  CLI → Web, imports `node:` en dominio/núcleo/contrato y constantes de release
+  en capas compartidas. `packages/platform` no expone `./*`; sólo las entradas
+  consumidas por las apps.
 - `document.appVersion` es metadato legado opaco: mutaciones e importaciones
   lo conservan, restore usa el del respaldo y merge conserva el actual.
   `createDefaultDocument(today, now, { appVersion })` acepta un valor explícito;
@@ -102,9 +110,9 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 - Las fachadas existentes reexportan símbolos movidos para no romper imports.
 - El orden de `applicationModulePaths` en `scripts/build.mjs` sigue el grafo de
   dependencias. Los imports locales se eliminan únicamente en el bundle inline.
-- `src/styles.css`, `src/styles/responsive.css` y
-  `src/styles/channel-contract.css` se concatenan en ese orden para conservar
-  exactamente la cascada del archivo original.
+- `apps/web/src/styles.css`, `apps/web/src/styles/responsive.css` y
+  `apps/web/src/styles/channel-contract.css` se concatenan en ese orden para
+  conservar exactamente la cascada del archivo original.
 - Una extracción debe conservar las pruebas existentes y, si crea una API pura
   nueva, añadir pruebas directas cuando aporten cobertura distinta.
 - Los módulos de aplicación deben recibir sus dependencias por argumentos y
@@ -117,20 +125,12 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 
 ## Corte local actual
 
-El siguiente inventario fue comprobado en el worktree local el 2026-08-23; no
-es una certificación de despliegue remoto ni de una release publicada:
-
-- `npm test` terminó con 190 pruebas aprobadas en el corte documentado; el
-  número de pruebas no es un límite de diseño.
-- El conteo de líneas es: `src/app.js` 4.823, `src/core.js` 1.315 y
-  `src/importer.js` 11. Son métricas descriptivas del corte, no límites de
-  diseño.
-- El manifiesto de la aplicación contiene 30 módulos JavaScript del navegador;
-  `src/` también contiene módulos de CLI que no se incluyen en ese HTML.
-- El `HEAD` local contiene `d27383a`, que regeneró `dist/` después de la última
-  frontera de imports. La presencia de esos artefactos no certifica el
-  despliegue remoto; la validación de integración está en
-  [build, distribución y releases](BUILD_RELEASE.md).
+Corte de Workstream 2: la reorganización es física. La guardia reporta 44
+módulos entre `apps/web`, `apps/cli` y `packages/platform`, y el build produce
+el mismo artefacto HTML certificado que el baseline. El manifiesto del bundle
+incluye únicamente módulos de Web y Platform; `apps/cli/` queda excluido por
+completo. La validación de integración está en
+[build, distribución y releases](BUILD_RELEASE.md).
 
 ## Fases medibles de refactorización
 

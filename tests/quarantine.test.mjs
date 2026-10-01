@@ -21,11 +21,11 @@ import {
   sanitizeDocument,
   validateActivity,
   validatePlanningDate
-} from "../src/core.js";
+} from "../packages/platform/src/core.js";
 import {
   applyProgrammingImport,
   parseProgrammingWorkbook
-} from "../src/importer.js";
+} from "../apps/web/src/importer.js";
 
 function makeSheet(rows) {
   const sheet = { __rows: rows };

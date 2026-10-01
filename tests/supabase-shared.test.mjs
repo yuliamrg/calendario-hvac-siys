@@ -6,7 +6,7 @@ import {
   createSupabaseTransport,
   isSupabaseConfigComplete,
   normalizeSupabaseConfig
-} from "../src/supabase/transport.js";
+} from "../packages/platform/src/supabase/transport.js";
 
 const BASE_CONFIG = Object.freeze({
   url: "https://project.supabase.co",

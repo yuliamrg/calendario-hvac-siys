@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseBackup } from "../core.js";
+import { parseBackup } from "@siys-sync/platform/core.js";
 
 export const MAX_INPUT_BYTES = 25 * 1024 * 1024;
 

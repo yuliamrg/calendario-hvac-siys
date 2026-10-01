@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const stylesPath = fileURLToPath(new URL("../src/styles.css", import.meta.url));
-const channelContractPath = fileURLToPath(new URL("../src/styles/channel-contract.css", import.meta.url));
+const stylesPath = fileURLToPath(new URL("../apps/web/src/styles.css", import.meta.url));
+const channelContractPath = fileURLToPath(new URL("../apps/web/src/styles/channel-contract.css", import.meta.url));
 const styles = readFileSync(stylesPath, "utf8");
 const channelContract = readFileSync(channelContractPath, "utf8");
 

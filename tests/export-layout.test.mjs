@@ -8,7 +8,7 @@ import {
   buildExportActivityRow,
   layoutExportActivityRow,
   wrapExportText
-} from "../src/ui/export-layout.js";
+} from "../apps/web/src/ui/export-layout.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -83,6 +83,6 @@ test("el layout usa el contexto falso, mide las cuatro líneas y restaura la fue
 });
 
 test("el módulo es puro y no depende del navegador", () => {
-  const source = readFileSync(resolve(root, "src", "ui", "export-layout.js"), "utf8");
+  const source = readFileSync(resolve(root, "apps", "web", "src", "ui", "export-layout.js"), "utf8");
   assert.doesNotMatch(source, /\b(?:document|window|navigator)\b/);
 });

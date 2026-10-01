@@ -1,4 +1,4 @@
-import { normalizeText } from "../domain/text.js";
+import { normalizeText } from "@siys-sync/platform/domain/text.js";
 
 export function normalizedHeader(value) {
   return normalizeText(value).replace(/[^a-z0-9]+/g, "");

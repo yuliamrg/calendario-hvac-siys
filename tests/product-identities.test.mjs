@@ -4,13 +4,14 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import * as core from "../src/core.js";
-import { CONTRACT_VERSION, executeCalendarOperation } from "../src/calendar-contract.js";
-import { WEB_VERSION } from "../src/ui/web-version.js";
-import { CLI_VERSION } from "../src/cli/version.js";
-import { applicationModuleRelativePaths, discoverApplicationModules } from "../scripts/build.mjs";
+import * as core from "../packages/platform/src/core.js";
+import { CONTRACT_VERSION, executeCalendarOperation } from "../packages/platform/src/calendar-contract.js";
+import { WEB_VERSION } from "../apps/web/src/ui/web-version.js";
+import { CLI_VERSION } from "../apps/cli/src/version.js";
+import { applicationModulePaths, discoverApplicationModules } from "../scripts/build.mjs";
 
 const root = resolve(import.meta.dirname, "..");
+const CLI_BIN = "apps/cli/bin/calendary.js";
 const NOW = "2026-09-01T10:00:00.000Z";
 const makeDocument = (appVersion = "0.6.0") => core.createDefaultDocument("2026-09-01", NOW, { appVersion });
 const operate = (document, operation, payload) => executeCalendarOperation(document, { operation, payload }, { now: NOW });
@@ -26,7 +27,20 @@ test("Web and CLI expose explicit transitional identities; shared core owns no r
   for (const symbol of ["APP_VERSION", "WEB_VERSION", "CLI_VERSION"]) assert.equal(symbol in core, false);
   assert.equal(core.SCHEMA_VERSION, 4);
   assert.equal(CONTRACT_VERSION, 1);
-  assert.equal(execFileSync(process.execPath, ["bin/calendary.js", "--version"], { cwd: root, encoding: "utf8" }), `${CLI_VERSION}\n`);
+  assert.equal(execFileSync(process.execPath, [CLI_BIN, "--version"], { cwd: root, encoding: "utf8" }), `${CLI_VERSION}\n`);
+});
+
+test("the Web workspace identity matches its package manifest and the platform keeps no release identity", async () => {
+  const webPackage = (await import("../apps/web/package.json", { with: { type: "json" } })).default;
+  const cliPackage = (await import("../apps/cli/package.json", { with: { type: "json" } })).default;
+  const platformPackage = (await import("../packages/platform/package.json", { with: { type: "json" } })).default;
+  assert.equal(webPackage.version, WEB_VERSION);
+  assert.equal(cliPackage.version, CLI_VERSION);
+  assert.equal(webPackage.private, true);
+  assert.equal(cliPackage.private, true);
+  assert.equal(platformPackage.private, true);
+  assert.equal("WEB_VERSION" in core, false);
+  assert.equal("CLI_VERSION" in core, false);
 });
 
 test("default construction accepts explicit legacy metadata and otherwise claims no product", () => {
@@ -89,34 +103,48 @@ test("restore uses backup legacy metadata; merge retains current metadata, inclu
 });
 
 test("Web wiring uses its identity only for new documents, UI and explicit backup export; manifest excludes CLI", async () => {
-  const app = await readFile(resolve(root, "src/app.js"), "utf8");
+  const app = await readFile(resolve(root, "apps", "web", "src", "app.js"), "utf8");
   assert.match(app, /createDefaultDocument\(undefined, undefined, \{ appVersion: WEB_VERSION \}\)/);
   assert.match(app, /exporterVersion: WEB_VERSION/);
   assert.match(app, /versionLabel\.textContent = `Versión \$\{WEB_VERSION\}/);
   assert.doesNotMatch(app, /\.appVersion\s*=/);
   const discovery = await discoverApplicationModules();
-  assert.ok(discovery.modules.includes("ui/web-version.js"));
-  for (const paths of [discovery.modules, applicationModuleRelativePaths]) {
-    assert.equal(paths.some((path) => path.startsWith("cli/")), false);
+  assert.ok(discovery.modules.includes("apps/web/src/ui/web-version.js"));
+  for (const paths of [discovery.modules, applicationModulePaths]) {
+    assert.equal(paths.some((path) => path.startsWith("apps/cli/")), false);
+    assert.equal(paths.some((path) => path.startsWith("packages/platform/")), true);
   }
 });
 
 test("a source-controlled differing CLI version changes --version while Web checks and historical tag gates still pass", async () => {
   const fixture = await mkdtemp(resolve(tmpdir(), "siys-product-identities-"));
   try {
-    for (const path of ["src", "bin", "package.json", "package-lock.json", "stable-version.txt"]) {
+    for (const path of ["apps", "packages", "package.json", "package-lock.json", "stable-version.txt"]) {
       await cp(resolve(root, path), resolve(fixture, path), { recursive: true });
     }
     await mkdir(resolve(fixture, "tests"));
     await cp(resolve(root, "tests/cli.test.mjs"), resolve(fixture, "tests/cli.test.mjs"));
     await mkdir(resolve(fixture, "scripts"));
     await cp(resolve(root, "scripts/version-check.mjs"), resolve(fixture, "scripts/version-check.mjs"));
+    await mkdir(resolve(fixture, "node_modules", "@siys-sync"), { recursive: true });
+    await cp(
+      resolve(root, "packages", "platform"),
+      resolve(fixture, "node_modules", "@siys-sync", "platform"),
+      { recursive: true }
+    );
     await mkdir(resolve(fixture, "dist"));
     const dist = `export const WEB_VERSION = "${WEB_VERSION}";`;
     for (const name of ["index.html", "calendario-hvac-siys.html"]) await writeFile(resolve(fixture, "dist", name), dist);
     // Hypothetical fixture only: this is not a selected CLI release number.
     const hypothetical = "9.8.7-beta.2";
-    await writeFile(resolve(fixture, "src/cli/version.js"), `export const CLI_VERSION = "${hypothetical}";`);
+    const writeCliVersion = async (value) => {
+      await writeFile(resolve(fixture, "apps/cli/src/version.js"), `export const CLI_VERSION = "${value}";`);
+      const cliPackagePath = resolve(fixture, "apps", "cli", "package.json");
+      const cliPackage = JSON.parse(await readFile(cliPackagePath, "utf8"));
+      cliPackage.version = value;
+      await writeFile(cliPackagePath, `${JSON.stringify(cliPackage, null, 2)}\n`);
+    };
+    await writeCliVersion(hypothetical);
     const git = (...args) => execFileSync("git", args, { cwd: fixture, stdio: "pipe" });
     git("init");
     git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", "fixture");
@@ -131,13 +159,13 @@ test("a source-controlled differing CLI version changes --version while Web chec
     assert.equal(result.distEqual, true);
     assert.equal(result.currentTag, `v${WEB_VERSION}`);
     assert.equal(result.currentTagMatchesHead, true);
-    assert.equal(execFileSync(process.execPath, ["bin/calendary.js", "--version"], { cwd: fixture, encoding: "utf8" }), `${hypothetical}\n`);
+    assert.equal(execFileSync(process.execPath, [CLI_BIN, "--version"], { cwd: fixture, encoding: "utf8" }), `${hypothetical}\n`);
     const smoke = spawnSync(process.execPath, ["--test", "tests/cli.test.mjs"], { cwd: fixture, encoding: "utf8" });
     assert.equal(smoke.status, 0, smoke.stdout + smoke.stderr);
     // Independent validation must still reject invalid CLI SemVer and incorrect Web artifacts.
-    await writeFile(resolve(fixture, "src/cli/version.js"), 'export const CLI_VERSION = "invalid";');
+    await writeCliVersion("invalid");
     assert.match(JSON.parse(check().stdout).failures.join(" "), /CLI_VERSION.*Semantic Versioning/);
-    await writeFile(resolve(fixture, "src/cli/version.js"), `export const CLI_VERSION = "${hypothetical}";`);
+    await writeCliVersion(hypothetical);
     await writeFile(resolve(fixture, "dist/index.html"), "stale Web artifact");
     assert.match(JSON.parse(check().stdout).failures.join(" "), /no son idénticos/);
     for (const name of ["index.html", "calendario-hvac-siys.html"]) await writeFile(resolve(fixture, "dist", name), "stale Web artifact");

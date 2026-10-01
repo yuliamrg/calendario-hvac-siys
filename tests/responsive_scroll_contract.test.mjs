@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const css = readFileSync(resolve(root, "src", "styles", "responsive.css"), "utf8");
+const css = readFileSync(resolve(root, "apps", "web", "src", "styles", "responsive.css"), "utf8");
 
 test("F-03 define un propietario de scroll para calendario, catálogo y drawer", () => {
   assert.match(css, /\.calendar-panel,\s*\.catalog-panel\s*\{[\s\S]*?overflow:\s*hidden;[\s\S]*?overscroll-behavior:\s*contain;/);

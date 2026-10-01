@@ -2,52 +2,58 @@
 
 ## Alcance y corte verificado
 
-Este documento describe el cierre de Workstream 1 de Platform Architecture V2
-desde el main certificado `40f7e908cbfa87a92da5d00fac2bf9bc451ccc1d`. Web
-publica `0.18.0-beta.2` al integrar en `main`, porque Pages despliega con cada
-push; CLI conserva `0.18.0-beta.1`. Stable sigue en `v0.17.0` y
-`v0.18.0-beta.1` conserva su snapshot certificado histórico.
+Este documento describe Workstream 2 de Platform Architecture V2 desde el main
+certificado `0fc36da64fb69b5ccb09eb93edeb31473cd4e104`. La reorganización física
+introduce `apps/web`, `apps/cli` y `packages/platform` como npm workspaces
+privados; el artefacto público generado se conserva byte a byte idéntico al
+certificado. Web publica `0.18.0-beta.2`; CLI conserva `0.18.0-beta.1`. Stable
+sigue en `v0.17.0` y `v0.18.0-beta.1` conserva su snapshot histórico.
 
 ## Fuentes autoritativas
 
 | Dato | Fuente autoritativa | Hecho verificado |
 | --- | --- | --- |
 | Release Web/repositorio | `package.json`, campo `version` | `0.18.0-beta.2`; no versiona CLI |
-| Versión de Calendary CLI | `src/cli/version.js`, `CLI_VERSION` | `0.18.0-beta.1`, independiente de Web |
-| Versión Web visible y del exportador de respaldos | `src/ui/web-version.js`, `WEB_VERSION` | `0.18.0-beta.2`, igual a `package.json` |
+| Versión de Calendary CLI | `apps/cli/src/version.js`, `CLI_VERSION` y `apps/cli/package.json` | `0.18.0-beta.1`, independiente de Web |
+| Versión Web visible y del exportador de respaldos | `apps/web/src/ui/web-version.js`, `WEB_VERSION` y `apps/web/package.json` | `0.18.0-beta.2`, igual a `package.json` |
+| Identidad de workspace Platform | `packages/platform/package.json` | `0.0.0`, privada y sin release |
 | Espejo de npm | `package-lock.json`, raíz y `packages[""]` | Ambas versiones son `0.18.0-beta.2` |
 | Puntero estable | `stable-version.txt` | `v0.17.0`, tag normal promovido |
 | Historial de cambios | `CHANGELOG.md` | La entrada actual prepara `0.18.0-beta.2`; conserva beta.1 y la promoción estable como historial |
-| Manifiesto y algoritmo de empaquetado | `scripts/build.mjs` | La lista se expresa relativa a `src/` y se valida contra el grafo de `src/app.js` |
-| Fuente de ejecución web | `src/app.js` y sus módulos locales | Se concatena en un HTML; los imports locales se eliminan después de incluir los módulos |
+| Manifiesto y algoritmo de empaquetado | `scripts/build.mjs` | La lista usa rutas de repositorio (`apps/web/src/...`, `packages/platform/src/...`) y se valida contra el grafo de `apps/web/src/app.js` |
+| Fuente de ejecución web | `apps/web/src/app.js` y sus módulos Web/Platform | Se concatena en un HTML; los imports relativos y `@siys-sync/platform/...` se eliminan después de incluir los módulos |
 
-`src/core.js` también mantiene `SCHEMA_VERSION = 4`,
-`src/calendar-contract.js` mantiene `CONTRACT_VERSION = 1` y el ruleset de
-festivos se identifica por `HOLIDAY_RULESET_VERSION`. No son sustitutos de
-`WEB_VERSION`.
+`packages/platform/src/core.js` mantiene `SCHEMA_VERSION = 4`,
+`packages/platform/src/calendar-contract.js` mantiene `CONTRACT_VERSION = 1` y
+el ruleset de festivos se identifica por `HOLIDAY_RULESET_VERSION`. No son
+sustitutos de `WEB_VERSION`.
 
 ## Manifiesto de la aplicación
 
-El punto de entrada es `src/app.js`. `scripts/build.mjs` mantiene un orden
-dependencia-primero para los 32 módulos del navegador. Las entradas, siempre
-relativas a `src/`, son:
+El punto de entrada es `apps/web/src/app.js`. `scripts/build.mjs` mantiene un
+orden dependencia-primero para los 32 módulos del navegador, tomados de
+`apps/web/src` y `packages/platform/src`. Las entradas usan rutas de repositorio:
 
-- dominio: `domain/text.js`, `domain/responsible-ranking.js`,
-  `domain/dates.js`, `domain/calendar-enums.js`, `domain/activity-order.js`,
-  `domain/activity-filters.js`, `domain/import-merge.js`,
-  `domain/backup-merge.js`, `domain/csv-export.js`, `domain/holidays.js`;
-- importación: `import/xlsx-table.js`, `import/workbook-table.js`,
-  `import/programming.js`, `import/base-operativa.js`, `importer.js`;
-- persistencia y transporte: `supabase/transport.js`,
-  `persistence/indexed-document-store.js`,
+- Platform dominio: `packages/platform/src/domain/text.js`,
+  `domain/responsible-ranking.js`, `domain/dates.js`, `domain/calendar-enums.js`,
+  `domain/activity-order.js`, `domain/activity-filters.js`,
+  `domain/import-merge.js`, `domain/backup-merge.js`, `domain/csv-export.js`,
+  `domain/holidays.js`;
+- Platform fachadas y transporte: `packages/platform/src/core.js`,
+  `packages/platform/src/calendar-contract.js`,
+  `packages/platform/src/supabase/transport.js`;
+- Web importación: `apps/web/src/import/xlsx-table.js`,
+  `import/workbook-table.js`, `import/programming.js`, `import/base-operativa.js`,
+  `importer.js`;
+- Web persistencia: `apps/web/src/persistence/indexed-document-store.js`,
   `persistence/json-preferences.js`;
-- aplicación: `application/calendar-commands.js`,
+- Web aplicación: `apps/web/src/application/calendar-commands.js`,
   `application/import-commands.js`;
-- interfaz: `ui/web-version.js`, `ui/three-motion.js`, `ui/calendar-constants.js`,
-  `ui/presentation.js`, `ui/activity-presentation.js`,
-  `ui/export-layout.js`, `ui/mutation-controller.js`, `ui/view-state.js`;
-- fachadas y arranque: `core.js`, `calendar-contract.js`, `cloud.js`,
-  `app.js`.
+- Web interfaz: `apps/web/src/ui/web-version.js`, `ui/three-motion.js`,
+  `ui/calendar-constants.js`, `ui/presentation.js`,
+  `ui/activity-presentation.js`, `ui/export-layout.js`,
+  `ui/mutation-controller.js`, `ui/view-state.js`;
+- Web arranque y adaptador cloud: `apps/web/src/cloud.js`, `apps/web/src/app.js`.
 
 `ui/activity-presentation.js` precede a `ui/export-layout.js` porque el segundo
 reutiliza la presentación de actividad. `importer.js` precede a `app.js` y
@@ -56,25 +62,29 @@ explícita de efectos laterales: instala `globalThis.calendaryThreeMotion` y
 `app.js` consume ese global, aunque no exista un import estático entre ambos.
 
 La validación exportada por `scripts/build.mjs` recorre los imports `import` y
-`export ... from` locales de `src/app.js` y sus dependencias, resuelve cada
-ruta relativa y comprueba que esté en el manifiesto. También rechaza
+`export ... from` de `apps/web/src/app.js` y sus dependencias, resuelve rutas
+relativas dentro del workspace y los especificadores
+`@siys-sync/platform/...`, y comprueba que cada módulo esté en el manifiesto.
+Cualquier otro especificador sin resolver falla cerrado. También rechaza
 duplicados y dependencias listadas después de su importador. Que un import
 interno se elimine al concatenar no lo convierte en faltante: si su módulo ya
-está listado y precede al importador, la relación es válida.
+está listado y precede al importador, la relación es válida. Como las líneas de
+import se eliminan en el bundle, el artefacto generado no cambia.
 
 La prueba focalizada es `tests/build-manifest.test.mjs`. Comprueba el grafo
-actual, el orden de los módulos nuevos y una omisión simulada de
-`ui/export-layout.js`.
+actual, el orden de los módulos, la exclusión de `apps/cli/` y una omisión
+simulada de `apps/web/src/ui/export-layout.js`.
 
 ## Qué genera el build
 
 El comando `npm run build` ejecuta `scripts/build.mjs` y:
 
-1. lee `src/index.template.html`, los estilos `src/styles.css`,
-   `src/styles/responsive.css` y `src/styles/channel-contract.css`;
-2. incluye localmente `vendor/xlsx.full.min.js`,
-   `node_modules/three/build/three.cjs`, `vendor/LICENSE.txt`,
-   `vendor/NOTICE.txt` y `src/assets/siys-sync-icon.svg`;
+1. lee `apps/web/src/index.template.html`, los estilos
+   `apps/web/src/styles.css`, `apps/web/src/styles/responsive.css` y
+   `apps/web/src/styles/channel-contract.css`;
+2. incluye localmente `apps/web/vendor/xlsx.full.min.js`,
+   `node_modules/three/build/three.cjs`, `apps/web/vendor/LICENSE.txt`,
+   `apps/web/vendor/NOTICE.txt` y `apps/web/src/assets/siys-sync-icon.svg`;
 3. valida los marcadores de la plantilla, la ausencia de dependencias remotas,
    la sintaxis del bundle JavaScript y la ausencia de marcadores sin resolver;
 4. escribe dos HTML autocontenidos e idénticos:
@@ -110,7 +120,9 @@ público recibe la configuración.
 
 La política operativa está en `docs/VERSIONAMIENTO.md`:
 
-- `package.json > version` y `src/ui/web-version.js > WEB_VERSION` deben coincidir;
+- `package.json > version` y `apps/web/src/ui/web-version.js > WEB_VERSION` deben coincidir;
+- `apps/web/package.json > version` debe coincidir con `WEB_VERSION` y
+  `apps/cli/package.json > version` con `CLI_VERSION`;
 - `package-lock.json` es un espejo generado, no una decisión independiente;
 - los tags usan `v<version>`;
 - stable usa una versión normal y beta usa `-beta.N`;
@@ -165,11 +177,13 @@ build, `version:check`, `audit` y verifica que el build no deje diferencias en
 
 ## Frontera CLI e identidades independientes
 
-La CLI corre localmente bajo Node.js >=20 desde `bin/calendary.js`;
-`src/cli/*` queda fuera del manifiesto HTML. `package.json` sigue privado y
-sin workspaces y sin reorganización física. Web usa `0.18.0-beta.2` y CLI
-`0.18.0-beta.1`, como prueba concreta de identidades independientes. La distribución CLI
-independiente queda para Workstream 3; la estructura física, para Workstream 2.
+La CLI corre localmente bajo Node.js >=20 desde `apps/cli/bin/calendary.js`;
+`apps/cli/*` queda fuera del manifiesto HTML. La raíz conserva un `bin`
+conveniente (`calendary`) y el script `npm run cli` apuntando al workspace.
+Cada paquete es `private: true`; `packages/platform` usa `0.0.0` como identidad
+interna de workspace, no de release. Web usa `0.18.0-beta.2` y CLI
+`0.18.0-beta.1`, como prueba concreta de identidades independientes. La
+distribución CLI independiente queda para Workstream 3.
 El modelo antiguo de tags `v...` sigue temporalmente autoritativo.
 `document.appVersion` es metadato legado, conservado en mutaciones; la
 compatibilidad sigue en `schemaVersion` y `formatVersion = 1`. Web pasa su

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createMutationController } from "../src/ui/mutation-controller.js";
+import { createMutationController } from "../apps/web/src/ui/mutation-controller.js";
 
 function fixture({ importAdapter = (source, payload) => ({ ...structuredClone(source), value: payload.value ?? 4 }) } = {}) {
   let document = {

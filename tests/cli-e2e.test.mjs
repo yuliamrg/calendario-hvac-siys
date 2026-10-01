@@ -4,10 +4,10 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { PassThrough } from "node:stream";
-import { CALENDAR_OPERATIONS } from "../src/calendar-contract.js";
-import { createBackupEnvelope, createDefaultDocument } from "../src/core.js";
-import { createSupabaseAuthClient } from "../src/cli/cloud-auth.js";
-import { runCli } from "../src/cli/main.js";
+import { CALENDAR_OPERATIONS } from "../packages/platform/src/calendar-contract.js";
+import { createBackupEnvelope, createDefaultDocument } from "../packages/platform/src/core.js";
+import { createSupabaseAuthClient } from "../apps/cli/src/cloud-auth.js";
+import { runCli } from "../apps/cli/src/main.js";
 
 const CONFIG = { url: "https://example.supabase.co", publishableKey: "sb_publishable_fixture" };
 const USER = { id: "11111111-1111-4111-8111-111111111111", email: "fixture@example.com" };

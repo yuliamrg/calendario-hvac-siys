@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createDefaultDocument } from "../src/core.js";
+import { createDefaultDocument } from "../packages/platform/src/core.js";
 import {
   applyProgrammingImport,
   applyParsedImport,
   buildImportPreview,
   parseBaseWorkbook,
   parseProgrammingWorkbook
-} from "../src/importer.js";
+} from "../apps/web/src/importer.js";
 
 function encodeColumn(index) {
   let value = index + 1;

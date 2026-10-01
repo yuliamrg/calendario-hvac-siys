@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
-import { CALENDAR_OPERATIONS } from "../calendar-contract.js";
+import { CALENDAR_OPERATIONS } from "@siys-sync/platform/calendar-contract.js";
 
 export async function confirmDestructive(operation, values, stdin, stdout) {
   if (!CALENDAR_OPERATIONS[operation].destructive || values.yes) return;

@@ -30,7 +30,7 @@ import {
   runtimeChannelForLocation,
   sanitizeDocument,
   startOfMondayWeek
-} from "../src/core.js";
+} from "../packages/platform/src/core.js";
 
 test("el calendario mensual siempre inicia lunes y contiene 42 días", () => {
   const grid = monthGridDates(2026, 7);

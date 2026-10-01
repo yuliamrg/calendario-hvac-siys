@@ -1,5 +1,5 @@
-import { parseISODate } from "../domain/dates.js";
-import { safeText } from "../domain/text.js";
+import { parseISODate } from "@siys-sync/platform/domain/dates.js";
+import { safeText } from "@siys-sync/platform/domain/text.js";
 
 export function createElement(tagName, className = "", text = "") {
   const element = document.createElement(tagName);

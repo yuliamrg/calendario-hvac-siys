@@ -19,16 +19,21 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 
 - **package.json > version**: identidad de release Web/repositorio durante
   esta transición; no es la autoridad de versión CLI.
-- **src/ui/web-version.js > WEB_VERSION**: versión del ejecutable Web, visible
-  en la interfaz y pasada explícitamente al envelope de nuevos respaldos.
-- **src/cli/version.js > CLI_VERSION**: identidad del ejecutable Calendary CLI,
-  usada por `calendary --version`, sin importar código Web.
+- **apps/web/src/ui/web-version.js > WEB_VERSION**: versión del ejecutable Web,
+  visible en la interfaz y pasada explícitamente al envelope de nuevos respaldos.
+  `apps/web/package.json > version` debe coincidir con ella.
+- **apps/cli/src/version.js > CLI_VERSION**: identidad del ejecutable Calendary
+  CLI, usada por `calendary --version`, sin importar código Web.
+  `apps/cli/package.json > version` debe coincidir con ella.
 
 Package y Web deben coincidir. Web y CLI son independientes y actualmente
 identifican Web como `0.18.0-beta.2` y CLI como `0.18.0-beta.1`. La integración
 en `main` publica la beta Web porque Pages se ejecuta con cada push a `main`.
-El layout raíz sigue igual. La distribución CLI independiente queda pendiente
-del Workstream 3. Véase [arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
+El repositorio ya usa npm workspaces privados `apps/web`, `apps/cli` y
+`packages/platform`; `packages/platform` usa `0.0.0` como identidad interna de
+mecánica de workspace, no de release. La distribución CLI independiente queda
+pendiente del Workstream 3. Véase
+[arquitectura de productos](ARQUITECTURA_PRODUCTOS.md).
 
 ### Espejos y punteros
 
@@ -49,11 +54,12 @@ La validación automatizada está disponible con:
 npm run version:check
 ~~~
 
-En el corte local comprobado el 2026-08-23, la rama de release declara
-`0.17.0-beta.1` en `package.json` y `src/core.js`, los dos valores de versión
-de `package-lock.json` coinciden y `stable-version.txt` contiene `v0.15.0`. Es
-un estado del repositorio local: no certifica qué HTML está sirviendo
-actualmente GitHub Pages.
+En el corte de Workstream 2, `package.json` declara `0.18.0-beta.2` igual a
+`WEB_VERSION`, `apps/web/package.json` coincide con Web, `apps/cli/package.json`
+coincide con CLI (`0.18.0-beta.1`), los dos valores raíz de `package-lock.json`
+coinciden y `stable-version.txt` contiene `v0.17.0`. Es un estado del
+repositorio local: no certifica qué HTML está sirviendo actualmente GitHub
+Pages.
 
 ## 2. Regla base de Semantic Versioning
 
@@ -181,9 +187,9 @@ identifican con mensajes Conventional Commits, por ejemplo `docs:`, `test:`,
 mero hecho de crear un commit ni se edita `dist/` manualmente.
 
 Un commit de release es distinto: actualiza de forma coordinada
-`package.json`, `package-lock.json`, `src/core.js`, `CHANGELOG.md` y los
-artefactos requeridos, ejecuta los gates y recibe el tag `v<version>` después
-de integrar el PR. Un cambio documental que acompaña una versión pendiente se
+`package.json`, `package-lock.json`, `apps/web/src/ui/web-version.js`,
+`apps/web/package.json`, `CHANGELOG.md` y los artefactos requeridos, ejecuta los
+gates y recibe el tag `v<version>` después de integrar el PR. Un cambio documental que acompaña una versión pendiente se
 queda en la misma línea y se integra como commit revisable separado.
 
 ## 5. Prereleases y promoción
@@ -217,7 +223,7 @@ primero como beta.
 | CLI_VERSION | Release de Calendary CLI | Independiente de Web; primera distribución propia pendiente. |
 | document.appVersion | Metadato legado opaco | No se incrementa con mutaciones ni se usa como compatibilidad, productor o último escritor. |
 | SCHEMA_VERSION | Formato persistido del calendario | Cuando cambia el formato o las reglas necesarias para leer/escribir documentos; debe existir migración o bloqueo explícito. |
-| CONTRACT_VERSION | Respuesta e invariantes de la frontera de operaciones | Cuando cambia de forma incompatible la API de src/calendar-contract.js o la CLI. |
+| CONTRACT_VERSION | Respuesta e invariantes de la frontera de operaciones | Cuando cambia de forma incompatible la API de packages/platform/src/calendar-contract.js o la CLI. |
 | formatVersion | Envoltura del respaldo JSON | Cuando cambia la estructura del envelope del respaldo. |
 | calendarMeta.revision | Estado de un cronograma | Aumenta por una mutación real del documento; no es una release. |
 | HOLIDAY_RULESET_VERSION | Reglas legales de festivos | Cambia cuando cambia la tabla o regla legal; se documenta aparte de SemVer. |
@@ -325,8 +331,15 @@ las fuentes Web/CLI; Web avanza a `0.18.0-beta.2` porque al integrar en `main`
 Pages publica `/beta/`. CLI permanece en `0.18.0-beta.1`; el tag beta.1 queda
 inmutable y `v0.18.0-beta.2` se crea sobre el commit integrado. El modelo
 `v...` sigue autoritativo temporalmente y `release:check` conserva sus verificaciones.
-Workstream 2 reorganizará archivos; Workstream 3 definirá distribución CLI y
-tags `web-v...` / `cli-v...`. Ninguno se implementa aquí.
+Workstream 2 (PR #53) ya implementa la topología física de workspaces
+`apps/web`, `apps/cli` y `packages/platform`; la raíz queda como orquestación y
+Supabase permanece en la raíz. Web sigue en `0.18.0-beta.2`, CLI en
+`0.18.0-beta.1`; `packages/platform` usa `0.0.0` como identidad interna de
+mecánica de workspace, no de release. La beta vigente de Web sigue siendo el tag
+histórico `v0.18.0-beta.2` y este refactor no crea otra release Web porque su
+artefacto generado es idéntico byte a byte. Workstream 3 sigue pendiente y
+definirá distribución CLI, namespaces de tags `web-v...` / `cli-v...` y
+topología de CI.
 
 Las versiones `0.14.0`, `0.14.1`, `0.15.0-beta.3` y las demás que aparecen en
 los ejemplos o en el changelog se conservan como historial. No deben leerse

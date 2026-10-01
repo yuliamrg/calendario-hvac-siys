@@ -1,7 +1,7 @@
 # Contrato de operaciones del calendario
 
-`src/calendar-contract.js` es la única frontera de escritura compartida por la
-interfaz y la CLI. Recibe un documento, una solicitud y opciones de ejecución;
+`packages/platform/src/calendar-contract.js` es la única frontera de escritura
+compartida por la interfaz y la CLI. Recibe un documento, una solicitud y opciones de ejecución;
 no lee IndexedDB, archivos, red ni variables de entorno.
 
 ```js

@@ -1,4 +1,4 @@
-import { normalizeText, safeText } from "../domain/text.js";
+import { normalizeText, safeText } from "@siys-sync/platform/domain/text.js";
 import { findHeader, worksheetRows } from "./xlsx-table.js";
 
 export function isPresentCell(value) {

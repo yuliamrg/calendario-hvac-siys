@@ -4,7 +4,7 @@ import {
   normalizeKey,
   normalizeText,
   safeText
-} from "../core.js";
+} from "@siys-sync/platform/core.js";
 import {
   findHeader,
   rowValue

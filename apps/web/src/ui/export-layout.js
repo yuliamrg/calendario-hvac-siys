@@ -1,5 +1,5 @@
-import { SERVICE_TYPES } from "../domain/calendar-enums.js";
-import { safeText } from "../domain/text.js";
+import { SERVICE_TYPES } from "@siys-sync/platform/domain/calendar-enums.js";
+import { safeText } from "@siys-sync/platform/domain/text.js";
 import { SERVICE_CODES } from "./calendar-constants.js";
 import {
   activityResponsiblePresentation,

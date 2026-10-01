@@ -9,7 +9,7 @@ import {
   normalizeText,
   parseISODate,
   safeText
-} from "../core.js";
+} from "@siys-sync/platform/core.js";
 import { findHeader, rowValue } from "./xlsx-table.js";
 import {
   cleanLabel,

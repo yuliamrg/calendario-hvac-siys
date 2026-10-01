@@ -5,7 +5,7 @@ import {
   VIEW_CLASSES,
   deriveViewClasses,
   applyViewClasses
-} from "../src/ui/view-state.js";
+} from "../apps/web/src/ui/view-state.js";
 
 function state(overrides = {}) {
   return {

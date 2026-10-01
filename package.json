@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Calendario local autocontenido para programación de servicios HVAC SI&S.",
+  "workspaces": [
+    "apps/web",
+    "apps/cli",
+    "packages/platform"
+  ],
   "bin": {
-    "calendary": "./bin/calendary.js"
-  },
-  "exports": {
-    ".": "./src/calendar-contract.js",
-    "./core": "./src/core.js"
+    "calendary": "./apps/cli/bin/calendary.js"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -19,7 +20,7 @@
     "verify": "npm run test && npm run architecture:check && npm run build && npm run version:check && npm run audit",
     "version:check": "node scripts/version-check.mjs",
     "release:check": "node scripts/version-check.mjs --require-stable-tag",
-    "cli": "node bin/calendary.js",
+    "cli": "node apps/cli/bin/calendary.js",
     "cli:smoke": "node --test tests/cli.test.mjs",
     "cli:e2e": "node --test tests/cli-e2e.test.mjs",
     "test:cli": "npm run cli:smoke && npm run cli:e2e",
@@ -30,8 +31,5 @@
   },
   "devDependencies": {
     "supabase": "^2.111.0"
-  },
-  "dependencies": {
-    "three": "^0.185.1"
   }
 }

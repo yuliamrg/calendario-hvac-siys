@@ -43,8 +43,9 @@ no sustituyen las fuentes del código actual.
 Cuando exista una diferencia, se debe comprobar en este orden:
 
 1. código y pruebas para el comportamiento;
-2. `package.json`, `src/core.js`, `stable-version.txt` y `scripts/build.mjs`
-   para versión, canales y empaquetado;
+2. `package.json`, `apps/web/src/ui/web-version.js`, `apps/cli/src/version.js`,
+   `stable-version.txt` y `scripts/build.mjs` para versión, canales y
+   empaquetado;
 3. esta documentación para explicar el uso y las decisiones;
 4. planes y reportes históricos sólo como contexto.
 

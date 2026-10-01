@@ -1,12 +1,19 @@
 # SIYS Sync
 
-Platform Architecture V2, Workstream 1: SIYS Sync Web usa
+Platform Architecture V2, Workstream 2: SIYS Sync Web usa
 `0.18.0-beta.2` y Calendary CLI conserva `0.18.0-beta.1`. Sus identidades son
-independientes: `src/ui/web-version.js > WEB_VERSION` identifica Web y
-`src/cli/version.js > CLI_VERSION` identifica CLI. La versión raíz de
-`package.json` sigue representando la release Web/repositorio. Integrar este
-workstream en `main` publica el Web beta en `/beta/` mediante Pages.
-El layout físico sigue igual, sin workspaces ni distribución CLI independiente.
+independientes: `apps/web/src/ui/web-version.js > WEB_VERSION` identifica Web y
+`apps/cli/src/version.js > CLI_VERSION` identifica CLI. La versión raíz de
+`package.json` sigue representando la release Web/repositorio mientras
+Workstream 3 no separe la distribución.
+
+El repositorio es un monorepo con npm workspaces privados: `apps/web`,
+`apps/cli` y `packages/platform`. `packages/platform` agrupa dominio, contrato
+y transporte runtime-neutral compartido; Web y CLI dependen de él y ninguna de
+las dos aplicaciones puede importar a la otra. Supabase y las migraciones
+permanecen en la raíz. La raíz sigue orquestando `npm ci`, `npm test`,
+`npm run build`, `npm run architecture:check` y `npm run cli`.
+
 El modelo de tags `v...` sigue siendo autoritativo temporalmente;
 `v0.18.0-beta.1` permanece como snapshot histórico inmutable, el tag
 `v0.18.0-beta.2` se crea sobre el commit integrado y stable conserva
@@ -30,8 +37,8 @@ canal local: conserva IndexedDB y hereda la interfaz visual aprobada de la beta.
 Sólo las rutas pública estable y beta activan Supabase.
 
 Web estática y CLI son clientes distintos del mismo backend Supabase. La CLI
-`calendary` corre localmente bajo Node.js >=20 desde `bin/calendary.js`; no
-está incluida en el HTML ni servida por GitHub Pages.
+`calendary` corre localmente bajo Node.js >=20 desde `apps/cli/bin/calendary.js`;
+no está incluida en el HTML ni servida por GitHub Pages.
 
 El repositorio también incluye la CLI `calendary`. Para operar el calendario
 exige `--source cloud`: Supabase es la única autoridad y la CLI lee o muta el
@@ -251,8 +258,8 @@ La matriz y la ruta e2e de la CLI están documentadas en
 [Pruebas CLI](docs/PRUEBAS_CLI.md).
 
 El HTML incorpora localmente SheetJS Community Edition 0.20.3 para leer
-archivos Excel. Su licencia y aviso se encuentran en `vendor/` y también están
-incluidos dentro del HTML generado.
+archivos Excel. Su licencia y aviso se encuentran en `apps/web/vendor/` y
+también están incluidos dentro del HTML generado.
 
 Documentación:
 

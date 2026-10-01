@@ -2,8 +2,8 @@ import {
   ACTIVITY_STATUSES,
   RESPONSIBLE_TYPES,
   SERVICE_TYPES
-} from "../domain/calendar-enums.js";
-import { safeText } from "../domain/text.js";
+} from "@siys-sync/platform/domain/calendar-enums.js";
+import { safeText } from "@siys-sync/platform/domain/text.js";
 import { STATUS_ICONS } from "./calendar-constants.js";
 import { displayInitialsFor } from "./presentation.js";
 

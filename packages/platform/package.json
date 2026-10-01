@@ -1,0 +1,16 @@
+{
+  "name": "@siys-sync/platform",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lógica compartida runtime-neutral SIYS (dominio, contrato y transporte).",
+  "exports": {
+    "./core.js": "./src/core.js",
+    "./calendar-contract.js": "./src/calendar-contract.js",
+    "./domain/text.js": "./src/domain/text.js",
+    "./domain/dates.js": "./src/domain/dates.js",
+    "./domain/calendar-enums.js": "./src/domain/calendar-enums.js",
+    "./domain/responsible-ranking.js": "./src/domain/responsible-ranking.js",
+    "./supabase/transport.js": "./src/supabase/transport.js"
+  }
+}

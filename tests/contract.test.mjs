@@ -4,8 +4,8 @@ import {
   CONTRACT_VERSION,
   CalendarContractError,
   executeCalendarOperation
-} from "../src/calendar-contract.js";
-import { createDefaultDocument } from "../src/core.js";
+} from "../packages/platform/src/calendar-contract.js";
+import { createDefaultDocument } from "../packages/platform/src/core.js";
 
 const NOW = "2026-08-03T12:00:00.000Z";
 

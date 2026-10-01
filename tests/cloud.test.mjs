@@ -9,8 +9,8 @@ import {
   SupabaseCloudConflictError,
   SupabaseCloudError,
   supabaseCalendarKeyForChannel
-} from "../src/cloud.js";
-import { SupabaseTransportError } from "../src/supabase/transport.js";
+} from "../apps/web/src/cloud.js";
+import { SupabaseTransportError } from "../packages/platform/src/supabase/transport.js";
 
 function response(payload, status = 200) {
   return {
