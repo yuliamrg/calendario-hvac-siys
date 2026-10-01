@@ -29,16 +29,18 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
 | Producto/canal | Fuente | Distribución |
 | --- | --- | --- |
-| Web stable | `stable-version.txt = web-v0.17.0` | Raíz GitHub Pages |
-| Web beta | main, `0.18.0-beta.2` | `/beta/` GitHub Pages |
+| Web stable publicada | `stable-version.txt = web-v0.17.0` | Raíz GitHub Pages |
+| Web candidato beta | main, candidato `0.18.0` | `/beta/` GitHub Pages |
 | Web local | Build HTML | Archivo autocontenido |
-| Calendary CLI | `cli-v<version>`, primera `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
+| Calendary CLI | `cli-v<version>`, publicada `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
 | Platform | `packages/platform`, `0.0.0` privado | Interno, sin tags/releases propios |
 
 Web usa tags `web-v...`; CLI usa `cli-v...`. Los tags `v...` son historial
 inmutable. `web-v0.17.0` y `web-v0.18.0-beta.2` aliasan exactamente sus
 commits históricos. Cambiar el puntero stable no promueve ni cambia Web stable.
-Los aliases no disparan Pages ni GitHub Releases.
+Los aliases no disparan Pages ni GitHub Releases. Mientras el candidato
+`0.18.0` no pase el Human Gate, `web-v0.18.0` no existe y la raíz estable
+sigue publicando `0.17.0`.
 
 ## Instalar Calendary CLI
 
@@ -53,9 +55,10 @@ node bin/calendary.js --help
 El ZIP incluye CLI y `node_modules/@siys-sync/platform` desde el runtime
 compartido original. No requiere clonar ni npm install; no incluye Web,
 migraciones ni configuración Supabase. Use las variables públicas existentes
-y cloud login. Consulte [CLI](CLI.md). La primera publicación se hará desde
-el tag del commit integrado, tras aprobación del Human Merge Gate.
-No se publica npm: el ZIP satisface el canal requerido sin registro ni auth npm.
+y cloud login. Consulte [CLI](CLI.md). La primera publicación se realizó con
+`cli-v0.18.0-beta.1` y se conserva sin cambios en la preparación de Web
+`0.18.0`. No se publica npm: el ZIP satisface el canal requerido sin registro
+ni auth npm.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
 mientras Pages sirve el HTML. La raíz estable y el canal beta usan el mismo

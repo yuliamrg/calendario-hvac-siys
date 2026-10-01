@@ -1,10 +1,11 @@
 # Arquitectura de Calendary
 
-Workstream 2 de Platform Architecture V2 materializa tres workspaces privados
-con npm workspaces: `apps/web`, `apps/cli` y `packages/platform`. La raíz sigue
-orquestando y `package.json.version` sigue la release Web/repositorio; la
-distribución CLI independiente queda pendiente del Workstream 3. Los tags
-históricos `v...` siguen vigentes, sin nueva publicación.
+Platform Architecture V2 está completa: sus tres workstreams materializaron los
+tres workspaces privados con npm workspaces (`apps/web`, `apps/cli` y
+`packages/platform`), la separación física y las releases independientes. La
+raíz es orquestación privada sin versión de producto; Web se identifica por
+`apps/web/package.json` + `WEB_VERSION` y CLI por `apps/cli/package.json` +
+`CLI_VERSION`. Los tags históricos `v...` siguen vigentes.
 
 ## Propósito y restricciones
 
@@ -84,7 +85,7 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
   puede depender de UI, persistencia, cloud, CLI ni composición. La UI puede
   usar sus comandos sin conocer cómo se persiste el documento.
 - `WEB_VERSION` vive en `apps/web/src/ui/web-version.js` y `CLI_VERSION` en
-  `apps/cli/src/version.js`; actualmente valen `0.18.0-beta.2` y
+  `apps/cli/src/version.js`; actualmente valen `0.18.0` y
   `0.18.0-beta.1`, independientes
   de `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y backup `formatVersion = 1`.
 - `scripts/architecture-check.mjs` prohíbe Platform → Web/CLI, Web → CLI,
@@ -125,11 +126,11 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
 
 ## Corte local actual
 
-Corte de Workstream 2: la reorganización es física. La guardia reporta 44
-módulos entre `apps/web`, `apps/cli` y `packages/platform`, y el build produce
-el mismo artefacto HTML certificado que el baseline. El manifiesto del bundle
-incluye únicamente módulos de Web y Platform; `apps/cli/` queda excluido por
-completo. La validación de integración está en
+Corte local actual: la topología física de tres workspaces está implementada.
+La guardia de arquitectura recorre los módulos de `apps/web`, `apps/cli` y
+`packages/platform`, y el build produce el HTML certificado. El manifiesto del
+bundle incluye únicamente módulos de Web y Platform; `apps/cli/` queda excluido
+por completo. La validación de integración está en
 [build, distribución y releases](BUILD_RELEASE.md).
 
 ## Fases medibles de refactorización

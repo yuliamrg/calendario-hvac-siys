@@ -7,7 +7,7 @@ const root = resolve(import.meta.dirname, "..");
 test("versionamiento valida Web y CLI independientemente sin autoridad raíz", () => {
   const result = JSON.parse(execFileSync(process.execPath, ["scripts/version-check.mjs", "--skip-dist"], { cwd: root, encoding: "utf8" }));
   assert.equal(result.status, "ok");
-  assert.equal(result.webVersion, "0.18.0-beta.2");
+  assert.equal(result.webVersion, "0.18.0");
   assert.equal(result.cliVersion, "0.18.0-beta.1");
   assert.equal(result.platformVersion, "0.0.0");
   assert.equal(result.distEqual, null);
@@ -16,7 +16,7 @@ test("versionamiento valida Web y CLI independientemente sin autoridad raíz", (
 });
 
 test("release CLI rechaza tags de otro producto y no depende del artefacto Web", () => {
-  const check = spawnSync(process.execPath, ["scripts/version-check.mjs", "--product", "cli", "--require-tag", "--require-head", "--tag", "web-v0.18.0-beta.2"], { cwd: root, encoding: "utf8" });
+  const check = spawnSync(process.execPath, ["scripts/version-check.mjs", "--product", "cli", "--require-tag", "--require-head", "--tag", "web-v0.18.0"], { cwd: root, encoding: "utf8" });
   assert.notEqual(check.status, 0);
   const result = JSON.parse(check.stdout);
   assert.equal(result.distEqual, null);
