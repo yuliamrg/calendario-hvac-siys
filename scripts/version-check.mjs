@@ -4,12 +4,12 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const args = new Set(process.argv.slice(2));
+const args = process.argv.slice(2);
 const failures = [];
-const skipDist = args.has("--skip-dist");
-
-const readText = (relativePath) => readFile(resolve(root, relativePath), "utf8");
-
+const option = (name) => args.includes(name) ? args[args.indexOf(name) + 1] : undefined;
+const product = option("--product");
+const readText = (path) => readFile(resolve(root, path), "utf8");
+const readJson = async (path) => JSON.parse(await readText(path));
 const isNonNegativeInteger = (value) =>
   /^\d+$/.test(value) && (value === "0" || !value.startsWith("0"));
 
@@ -38,170 +38,86 @@ const parseVersion = (value, label) => {
   return { major: Number(major), minor: Number(minor), patch: Number(patch), prerelease };
 };
 
-const gitRevision = (ref) => {
-  try {
-    return execFileSync("git", ["rev-parse", "--verify", ref], {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"]
-    }).trim();
-  } catch {
-    return null;
-  }
+const git = (...args) => {
+  try { return execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "ignore"] }); }
+  catch { return null; }
 };
-
-const localTagExists = (tag) => Boolean(gitRevision("refs/tags/" + tag));
-
-const [
-  packageSource,
-  lockSource,
-  webSource,
-  cliSource,
-  webPackageSource,
-  cliPackageSource,
-  stableSource,
-  namedDist,
-  pagesDist
-] = await Promise.all([
-  readText("package.json"),
-  readText("package-lock.json"),
-  readText("apps/web/src/ui/web-version.js"),
-  readText("apps/cli/src/version.js"),
-  readText("apps/web/package.json"),
-  readText("apps/cli/package.json"),
-  readText("stable-version.txt"),
-  readFile(resolve(root, "dist", "calendario-hvac-siys.html")),
-  readFile(resolve(root, "dist", "index.html"))
+const revision = (ref) => git("rev-parse", "--verify", ref)?.toString().trim() ?? null;
+const atTag = (tag, path) => git("show", `refs/tags/${tag}:${path}`);
+const versionConstant = (source, name) => source?.toString().match(new RegExp(`export const ${name} = "([^"\n]+)";`))?.[1];
+const [orchestrator, lock, webPackage, cliPackage, platform, webSource, cliSource, stableSource] = await Promise.all([
+  readJson("package.json"), readJson("package-lock.json"), readJson("apps/web/package.json"),
+  readJson("apps/cli/package.json"), readJson("packages/platform/package.json"),
+  readText("apps/web/src/ui/web-version.js"), readText("apps/cli/src/version.js"), readText("stable-version.txt")
 ]);
-
-let packageJson;
-let lockJson;
-let webPackageJson;
-let cliPackageJson;
-try {
-  packageJson = JSON.parse(packageSource);
-} catch (error) {
-  failures.push("package.json no es JSON válido: " + error.message);
+const webVersion = versionConstant(webSource, "WEB_VERSION");
+const cliVersion = versionConstant(cliSource, "CLI_VERSION");
+parseVersion(webVersion, "WEB_VERSION");
+parseVersion(cliVersion, "CLI_VERSION");
+for (const [name, pkg, version] of [["Web", webPackage, webVersion], ["CLI", cliPackage, cliVersion]]) {
+  if (pkg.version !== version) failures.push(`${name} package/version no coinciden.`);
+  if (pkg.private !== true) failures.push(`${name} debe permanecer privado (sin publicación npm).`);
 }
-try {
-  lockJson = JSON.parse(lockSource);
-} catch (error) {
-  failures.push("package-lock.json no es JSON válido: " + error.message);
+if (orchestrator.private !== true || "version" in orchestrator || "version" in lock || "version" in lock.packages[""]) {
+  failures.push("La raíz privada y su lock no deben poseer una versión de producto.");
 }
-try {
-  webPackageJson = JSON.parse(webPackageSource);
-} catch (error) {
-  failures.push("apps/web/package.json no es JSON válido: " + error.message);
+if (platform.version !== "0.0.0" || platform.private !== true) failures.push("Platform debe permanecer interno, privado y en 0.0.0.");
+for (const [path, pkg] of [["apps/web", webPackage], ["apps/cli", cliPackage], ["packages/platform", platform]]) {
+  if (lock.packages[path]?.version !== pkg.version) failures.push(`Lock de ${path} no coincide con su manifiesto.`);
 }
-try {
-  cliPackageJson = JSON.parse(cliPackageSource);
-} catch (error) {
-  failures.push("apps/cli/package.json no es JSON válido: " + error.message);
-}
-
-const packageVersion = packageJson?.version;
-const parsedPackage = parseVersion(packageVersion, "package.json > version");
-const webMatch = webSource.match(/export const WEB_VERSION = "([^"]+)";/);
-const webVersion = webMatch?.[1];
-if (!webMatch) failures.push("apps/web/src/ui/web-version.js no declara WEB_VERSION con el formato esperado.");
-parseVersion(webVersion, "apps/web/src/ui/web-version.js > WEB_VERSION");
-
-const cliMatch = cliSource.match(/export const CLI_VERSION = "([^"]+)";/);
-const cliVersion = cliMatch?.[1];
-if (!cliMatch) failures.push("apps/cli/src/version.js no declara CLI_VERSION con el formato esperado.");
-parseVersion(cliVersion, "apps/cli/src/version.js > CLI_VERSION");
-
-if (packageVersion && webVersion && packageVersion !== webVersion) {
-  failures.push("package.json (" + packageVersion + ") y WEB_VERSION (" + webVersion + ") no coinciden.");
-}
-if (webPackageJson && webVersion && webPackageJson.version !== webVersion) {
-  failures.push("apps/web/package.json (" + webPackageJson.version + ") y WEB_VERSION (" + webVersion + ") no coinciden.");
-}
-if (cliPackageJson && cliVersion && cliPackageJson.version !== cliVersion) {
-  failures.push("apps/cli/package.json (" + cliPackageJson.version + ") y CLI_VERSION (" + cliVersion + ") no coinciden.");
-}
-if (webPackageJson && webPackageJson.private !== true) {
-  failures.push("apps/web/package.json debe ser privado hasta Workstream 3.");
-}
-if (cliPackageJson && cliPackageJson.private !== true) {
-  failures.push("apps/cli/package.json debe ser privado hasta Workstream 3.");
-}
-if (lockJson?.version !== undefined && lockJson.version !== packageVersion) {
-  failures.push("package-lock.json > version (" + lockJson.version + ") no coincide con package.json (" + packageVersion + ").");
-}
-if (lockJson?.packages?.[""]?.version !== undefined &&
-    lockJson.packages[""].version !== packageVersion) {
-  failures.push("package-lock.json > packages[\"\"].version (" + lockJson.packages[""].version + ") no coincide con package.json (" + packageVersion + ").");
-}
-
 const stableTag = stableSource.trim();
-const stableMatch = stableTag.match(/^v(.+)$/);
-const parsedStable = parseVersion(stableMatch?.[1], "stable-version.txt");
-if (!stableMatch) {
-  failures.push("stable-version.txt debe contener un tag como v0.14.0: " + (stableTag || "(vacío)") + ".");
-} else if (parsedStable?.prerelease) {
-  failures.push("stable-version.txt no puede apuntar a una prerelease: " + stableTag + ".");
-}
-
-if (parsedPackage?.prerelease) {
-  const betaMatch = parsedPackage.prerelease.match(/^beta\.(\d+)$/);
-  if (!betaMatch || !isNonNegativeInteger(betaMatch[1]) || Number(betaMatch[1]) < 1) {
-    failures.push("La prerelease actual debe tener el formato beta.N con N >= 1: " + packageVersion + ".");
-  }
-}
+const stableMatch = stableTag.match(/^web-v(.+)$/);
+const stableVersion = parseVersion(stableMatch?.[1], "stable-version.txt");
+if (!stableMatch || stableVersion?.prerelease) failures.push("stable-version.txt debe contener web-v<stable-semver> sin prerelease.");
+const stableTagCommit = revision(`refs/tags/${stableTag}^{commit}`);
+if (args.includes("--require-stable-tag") && !stableTagCommit) failures.push(`El tag estable ${stableTag} no existe.`);
 
 let distEqual = null;
 let distSha256 = null;
-if (!skipDist) {
-  distEqual = namedDist.equals(pagesDist);
+// CLI releases do not depend on Web artifacts or Web release tags.
+if (!args.includes("--skip-dist") && product !== "cli") {
+  const [named, pages] = await Promise.all([readFile(resolve(root, "dist/calendario-hvac-siys.html")), readFile(resolve(root, "dist/index.html"))]);
+  distEqual = named.equals(pages);
   if (!distEqual) failures.push("Los dos artefactos de dist/ no son idénticos.");
-  const distText = namedDist.toString("utf8");
-  if (packageVersion && !distText.includes('WEB_VERSION = "' + packageVersion + '"')) {
-    failures.push("dist/ no contiene WEB_VERSION " + packageVersion + "; regenere con npm run build.");
+  if (versionConstant(named, "WEB_VERSION") !== webVersion) failures.push(`dist/ no contiene WEB_VERSION ${webVersion}.`);
+  distSha256 = createHash("sha256").update(named).digest("hex");
+}
+
+let releaseTag = null;
+let releaseTagCommit = null;
+let taggedArtifactSha256 = null;
+const headCommit = revision("HEAD");
+if (product) {
+  if (!["web", "cli"].includes(product)) failures.push("--product debe ser web o cli.");
+  const version = product === "web" ? webVersion : cliVersion;
+  const expected = `${product}-v${version}`;
+  releaseTag = option("--tag") ?? expected;
+  if (releaseTag !== expected) failures.push(`Tag ${releaseTag} no coincide con ${expected}.`);
+  releaseTagCommit = revision(`refs/tags/${releaseTag}^{commit}`);
+  if (args.includes("--require-tag") && !releaseTagCommit) failures.push(`El tag ${releaseTag} no existe.`);
+  if (releaseTagCommit && releaseTag === expected) {
+    const pkgSource = atTag(releaseTag, `apps/${product}/package.json`);
+    // Migration aliases refer to certified commits before physical workspaces.
+    const legacy = product === "web" && !pkgSource;
+    const taggedPackage = pkgSource ?? (legacy ? atTag(releaseTag, "package.json") : null);
+    const taggedSource = atTag(releaseTag, legacy ? "src/ui/web-version.js" : product === "web" ? "apps/web/src/ui/web-version.js" : "apps/cli/src/version.js");
+    if (!taggedPackage || JSON.parse(taggedPackage).version !== version || versionConstant(taggedSource, product === "web" ? "WEB_VERSION" : "CLI_VERSION") !== version) {
+      failures.push(`El tag ${releaseTag} no contiene la versión solicitada de ${product}.`);
+    }
+    if (product === "web") {
+      const artifact = atTag(releaseTag, "dist/index.html");
+      const named = atTag(releaseTag, "dist/calendario-hvac-siys.html");
+      if (!artifact || !named || !artifact.equals(named) || versionConstant(artifact, "WEB_VERSION") !== version) failures.push("El artefacto Web etiquetado no corresponde a la release.");
+      if (artifact) taggedArtifactSha256 = createHash("sha256").update(artifact).digest("hex");
+      if (distSha256 && taggedArtifactSha256 !== distSha256) failures.push("El artefacto Web actual difiere del etiquetado; requiere su propia release.");
+    }
   }
-  distSha256 = createHash("sha256").update(namedDist).digest("hex");
+  if (args.includes("--require-head") && (!releaseTagCommit || releaseTagCommit !== headCommit)) failures.push(`El tag ${releaseTag} debe corresponder al commit exacto de HEAD.`);
+  if (product === "cli" && process.env.GITHUB_ACTIONS === "true" && (process.env.GITHUB_REF !== `refs/tags/${releaseTag}` || process.env.GITHUB_SHA !== headCommit)) {
+    failures.push("El ref/SHA de GitHub no corresponde a la release CLI solicitada.");
+  }
 }
-
-const stableTagPresent = stableTag ? localTagExists(stableTag) : false;
-if (args.has("--require-stable-tag") && !stableTagPresent) {
-  failures.push("El tag estable " + stableTag + " no existe en el repositorio local.");
-}
-
-const currentTag = packageVersion ? "v" + packageVersion : null;
-const currentTagPresent = currentTag ? localTagExists(currentTag) : false;
-const headCommit = gitRevision("HEAD");
-const stableTagCommit = stableTag ? gitRevision("refs/tags/" + stableTag + "^{commit}") : null;
-const currentTagCommit = currentTag ? gitRevision("refs/tags/" + currentTag + "^{commit}") : null;
-const currentTagMatchesHead = Boolean(currentTagCommit && headCommit && currentTagCommit === headCommit);
-if (args.has("--require-current-tag") && !currentTagPresent) {
-  failures.push("El tag de la versión actual " + currentTag + " no existe en el repositorio local.");
-} else if (args.has("--require-current-tag") && !currentTagMatchesHead) {
-  failures.push(
-    "El tag de la versión actual " + currentTag +
-    " debe apuntar al commit exacto de HEAD. Tag: " +
-    (currentTagCommit || "(no resoluble)") + "; HEAD: " +
-    (headCommit || "(no resoluble)") + "."
-  );
-}
-
-const result = {
-  status: failures.length ? "error" : "ok",
-  version: packageVersion ?? null,
-  webVersion: webVersion ?? null,
-  cliVersion: cliVersion ?? null,
-  channel: parsedPackage?.prerelease ? "beta" : "stable",
-  stableTag,
-  stableTagPresent,
-  stableTagCommit,
-  currentTag,
-  currentTagPresent,
-  currentTagCommit,
-  headCommit,
-  currentTagMatchesHead,
-  distEqual,
-  distSha256,
-  failures
-};
-
-console.log(JSON.stringify(result, null, 2));
+console.log(JSON.stringify({ status: failures.length ? "error" : "ok", webVersion, cliVersion, platformVersion: platform.version,
+  stableTag, stableTagPresent: Boolean(stableTagCommit), stableTagCommit, headCommit, product: product ?? null,
+  releaseTag, releaseTagCommit, taggedArtifactSha256, distEqual, distSha256, failures }, null, 2));
 if (failures.length) process.exitCode = 1;

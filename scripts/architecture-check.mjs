@@ -160,6 +160,7 @@ export const SUPABASE_RUNTIME_IMPORT_PREFIX = "node:";
 
 export function classifyModule(modulePath) {
   const normalized = normalizeModulePath(modulePath);
+  if (normalized.startsWith("apps/cli/bin/")) return "cli";
   const workspace = workspaceForModulePath(normalized);
   if (!workspace) return null;
   const relativePath = normalized.slice(workspace.sourceRoot.length + 1);
@@ -304,6 +305,7 @@ export async function discoverSourceModules() {
   for (const workspace of Object.values(WORKSPACES)) {
     await collectSourceFiles(resolve(projectRoot, workspace.sourceRoot), projectRoot, files);
   }
+  await collectSourceFiles(resolve(projectRoot, "apps/cli/bin"), projectRoot, files);
   return files.sort();
 }
 
