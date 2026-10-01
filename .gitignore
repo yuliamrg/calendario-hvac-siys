@@ -34,3 +34,6 @@ programacion-hvac-*.csv
 cronograma-hvac-*.png
 plantilla-programacion-hvac*.xlsx
 programacion-importar*.xlsx
+
+# Standalone CLI release staging and archives
+releases/
