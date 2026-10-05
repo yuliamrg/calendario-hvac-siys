@@ -96,7 +96,7 @@ Web y CLI tienen versiones independientes. El checker valida cada pareja de
 manifiesto/constante sin exigir igualdad entre productos.
 El núcleo compartido no exporta `APP_VERSION` ni posee una release de producto.
 Se mantienen `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`, backup
-`formatVersion = 1` y `stable-version.txt = web-v0.17.0`.
+`formatVersion = 1` y `stable-version.txt = web-v0.18.0`.
 
 ## Semántica del documento y del respaldo
 
@@ -124,10 +124,10 @@ Un envelope Web actual puede contener un documento con `appVersion` antiguo.
    independientes. No se introduce otro workstream ni framework de releases.
 
 Web usa `web-v<version>` y GitHub Pages. Beta se construye desde `main`;
-stable desde `stable-version.txt = web-v0.17.0`. Los aliases
+stable desde `stable-version.txt = web-v0.18.0`. Los tags históricos
 `web-v0.17.0` y `web-v0.18.0-beta.2` conservan exactamente los commits de
-`v0.17.0` y `v0.18.0-beta.2`. Los tags históricos `v...` no se reescriben. El
-candidato Web `0.18.0` todavía no está etiquetado como `web-v0.18.0`.
+`v0.17.0` y `v0.18.0-beta.2`; los tags históricos `v...` no se reescriben.
+El tag certificado `web-v0.18.0` identifica la release Web estable.
 
 CLI usa `cli-v<version>` y GitHub Release. `scripts/build-cli-release.mjs`
 copia runtime CLI y Platform desde sus fuentes, sin segunda copia mantenida.
@@ -140,4 +140,4 @@ la frontera CLI: permite internals CLI y prohíbe Web, persistencia browser y
 versión Web. Platform sigue interno y Supabase no cambia.
 
 La primera release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva sin
-cambios en la preparación de Web `0.18.0`; su tag no se mueve.
+cambios en la promoción de Web `0.18.0`; su tag no se mueve.

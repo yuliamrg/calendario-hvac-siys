@@ -23,7 +23,7 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
   sin tags ni releases propios.
 - Raíz: `package.json` privado, sin versión; sólo orquestación. `package-lock.json`
   refleja versiones de workspaces, no contiene versión raíz.
-- `stable-version.txt = web-v0.17.0`: puntero Web estable, no versión de main.
+- `stable-version.txt = web-v0.18.0`: puntero Web estable, no versión de main.
 - dist: salida generada del build, nunca autoridad ni edición manual.
 
 `npm run version:check` valida cada producto independientemente y el formato
@@ -239,16 +239,17 @@ CI completa permanece sin optimización por paths porque Platform afecta ambos.
 
 Workstream 3 completó Architecture V2 e integró versionado, tags y releases
 independientes sin cambiar el comportamiento de producto. Estado actual: Web
-candidato `0.18.0` (promoción de la línea validada `0.18.0-beta.2`), CLI
+estable `0.18.0` (promovida desde la línea validada `0.18.0-beta.2`), CLI
 `0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1,
 backup formatVersion 1. No se cambia Supabase.
 
-`web-v0.17.0` aliasa el commit de `v0.17.0`; `web-v0.18.0-beta.2` aliasa el
-commit de `v0.18.0-beta.2`. Se resuelven con `git rev-parse <tag>^{commit}`.
-Los aliases no son nuevas releases Web ni disparan builds. El puntero continúa
-en `web-v0.17.0`: la preparación del candidato `0.18.0` no lo mueve y
-`web-v0.18.0` no se crea antes del Human Gate.
+`web-v0.17.0` conserva su commit histórico y `web-v0.18.0-beta.2` conserva el
+commit de `v0.18.0-beta.2`. El tag certificado `web-v0.18.0` identifica la
+release Web estable en `a9c946e934f7cb9ac3609f22ed6c0d2f373a3651`, y
+`stable-version.txt` apunta a ese tag. Todos se resuelven con
+`git rev-parse <tag>^{commit}`. Web se distribuye por GitHub Pages, sin GitHub
+Release; el cambio del puntero se integra mediante un PR normal.
 
 La release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva intacta.
-Los ejemplos anteriores y CHANGELOG conservan historia y no describen releases
-nuevas de este workstream.
+Los ejemplos anteriores y CHANGELOG conservan historia; el apartado actual del
+CHANGELOG registra la promoción estable de Web `0.18.0`.

@@ -2,7 +2,7 @@
 
 Platform Architecture V2 está completa. La raíz privada no tiene versión:
 orquesta scripts, npm workspaces, bin y Node >=20. Las autoridades son
-`apps/web/package.json` + `WEB_VERSION` (candidato Web `0.18.0`) y
+`apps/web/package.json` + `WEB_VERSION` (Web estable `0.18.0`) y
 `apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
 interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
 
@@ -90,10 +90,10 @@ posterior puede conservar la misma release. `--tag web-v<version>` permite
 indicar explícitamente el tag y `--require-stable-tag` comprueba el puntero.
 Los aliases históricos anteriores a workspaces se leen en sus rutas originales.
 
-Pages continúa con push a `main`: raíz desde `web-v0.17.0` y `/beta/` desde
-main. El puntero cambia de namespace, sin promoción. El checkout stable es
-el mismo commit histórico; las copias a Pages se comparan byte a byte.
-Los aliases no disparan builds ni GitHub Releases. No hay Web GitHub Release.
+Pages se ejecuta con push a `main`: la raíz se construye desde el tag
+`web-v0.18.0` señalado por `stable-version.txt` y `/beta/` desde `main`. Las
+copias del HTML estable a Pages se comparan byte a byte. Los tags no disparan
+builds ni GitHub Releases; no hay Web GitHub Release.
 
 ## CLI: GitHub Release
 
@@ -164,17 +164,19 @@ Con core.autocrlf=true y la misma configuración pública de CI, el mismo
 contenido produce los mismos bytes tanto con LF como con CRLF. El SHA-256
 también depende de la configuración pública embebida: el artefacto
 `0.18.0-beta.2` fue
-`ED6F3202AAFB15B8BA175E93F137F78698D867CD5FD3E20B90F3A80CB3FA90A1`, mientras
-que el candidato `0.18.0` cambia ese hash al cambiar `WEB_VERSION`. La
-verificación definitiva del hash corresponde a CI con la configuración pública.
+`ED6F3202AAFB15B8BA175E93F137F78698D867CD5FD3E20B90F3A80CB3FA90A1`; Web estable
+`0.18.0` tiene el SHA-256
+`001CFA87502818311B18EB68AF5E3259D556644FD68A29666F2E3A14620DE468` bajo la
+misma configuración pública de build. La verificación definitiva del hash
+corresponde a CI con esa configuración.
 Sin configuración Supabase se produce intencionalmente otro HTML local.
 
 ## Migración y Human Merge Gate
 
-Tags `v...`: historial inmutable. Los aliases existentes son `web-v0.17.0` y
-`web-v0.18.0-beta.2`, sobre los commits resueltos mediante
-`git rev-parse <tag>^{commit}`. Sólo se crean/pushean tras todos los gates.
-La release CLI `cli-v0.18.0-beta.1` ya está publicada y no se mueve. El tag
-`web-v0.18.0` no se crea en esta preparación: la promoción de Web `0.18.0`
-queda supeditada al Human Gate. No se fusiona la PR ni se publica release
-CLI/Pages manualmente.
+Tags `v...`: historial inmutable. Los tags históricos `web-v0.17.0` y
+`web-v0.18.0-beta.2` conservan sus commits, resueltos mediante
+`git rev-parse <tag>^{commit}`. `web-v0.18.0` ya identifica la release Web
+certificada en el merge commit `a9c946e934f7cb9ac3609f22ed6c0d2f373a3651`.
+La release CLI `cli-v0.18.0-beta.1` ya está publicada y no se mueve. Web no
+crea GitHub Release; el PR de promoción actualiza el puntero y esta documentación,
+y su merge dispara el despliegue automático de Pages.
