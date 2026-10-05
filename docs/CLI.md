@@ -1,7 +1,7 @@
 # CLI `calendary`
 
 `calendary --version` usa `apps/cli/src/version.js > CLI_VERSION`, hoy
-`0.18.0-beta.1`, independiente de `WEB_VERSION` (hoy `0.18.0-beta.2`).
+`0.18.0-beta.1`, independiente de `WEB_VERSION` (hoy `0.18.0`).
 El chequeo Web no requiere que CLI coincida.
 La CLI no importa versión Web ni pasa `document.appVersion` al contrato para
 sellar mutaciones. Ese campo es metadato legado opaco, no compatibilidad ni
@@ -31,8 +31,8 @@ En los ejemplos de esta guía, sustituya `npm run cli --` por
 
 Para actualizar, extraiga la nueva release en otra carpeta. Para desinstalar,
 elimine esa carpeta; gestione la sesión externa mediante `cloud logout`.
-El workflow publicará la primera release después del Human Merge Gate;
-la implementación no crea el tag CLI ni publica manualmente.
+La primera release `cli-v0.18.0-beta.1` ya está publicada; la preparación de
+Web `0.18.0` no mueve el tag CLI ni republica manualmente.
 
 La CLI es una capa local y portable sobre el mismo contrato de la interfaz.
 Supabase es la única autoridad del calendario: la CLI autentica, lee el

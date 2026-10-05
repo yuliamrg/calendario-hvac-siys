@@ -1,11 +1,12 @@
 # Operación de respaldos JSON
 
-Corte Workstream 2: `WEB_VERSION` (`apps/web/src/ui/web-version.js`) y
-`CLI_VERSION` (`apps/cli/src/version.js`) son independientes y actualmente valen
-`0.18.0-beta.2` y `0.18.0-beta.1`. El repositorio usa npm workspaces privados
-`apps/web`, `apps/cli` y `packages/platform`. Package raíz sigue representando
-Web/repositorio; tags `v...` temporalmente autoritativos y distribución CLI
-propia pendiente del Workstream 3. Stable conserva `v0.17.0`.
+`WEB_VERSION` (`apps/web/src/ui/web-version.js`) y `CLI_VERSION`
+(`apps/cli/src/version.js`) son independientes y actualmente valen `0.18.0`
+(candidato Web en preparación) y `0.18.0-beta.1`. El repositorio usa npm
+workspaces privados `apps/web`, `apps/cli` y `packages/platform`, con Platform
+Architecture V2 completa. La raíz es orquestación privada sin versión. Cada
+producto se identifica con sus tags `web-v...` o `cli-v...`; la raíz estable
+sigue en `web-v0.17.0`.
 
 `document.appVersion` es metadato legado opaco: no determina compatibilidad,
 backend, productor o último escritor. Se conserva saneado; ausente/inválido
@@ -89,16 +90,15 @@ calendario lógico distinto. El archivo sólo debe volver al
 mismo canal y perfil del que salió, salvo que se haya autorizado un traslado
 explícito.
 
-En la promoción estable comprobada, `package.json` y `WEB_VERSION` declararon
-la versión Web, `package-lock.json` coincidió y `stable-version.txt` contiene
-`v0.17.0`. `schemaVersion` vigente es 4 y `formatVersion` de la envoltura de
-respaldo es 1. Estos datos locales no prueban qué versión o contenido están
-sirviendo las URLs públicas.
+El puntero estable `stable-version.txt` contiene `web-v0.17.0`; el candidato
+Web en preparación es `0.18.0` y CLI sigue en `0.18.0-beta.1`. `schemaVersion`
+vigente es 4 y `formatVersion` de la envoltura de respaldo es 1. Estos datos
+locales no prueban qué versión o contenido están sirviendo las URLs públicas.
 
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
-| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `stable-version.txt` → `v0.17.0` | Supabase/Auth si el despliegue recibe configuración |
-| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → `0.17.0` durante la pausa beta; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
+| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `stable-version.txt` → `web-v0.17.0` | Supabase/Auth si el despliegue recibe configuración |
+| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → candidato `0.18.0`; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
 | Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | IndexedDB y sin autenticación |
 
 Las URLs de la tabla son referencias configuradas, no evidencia de un
