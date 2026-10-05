@@ -154,8 +154,10 @@ test("a source-controlled differing CLI version changes --version while Web chec
     git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", "fixture");
     git("add", "apps", "packages", "dist");
     git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "product sources");
-    git("tag", "web-v0.17.0");
-    git("tag", `web-v${WEB_VERSION}`);
+    const stableTag = (await readFile(resolve(fixture, "stable-version.txt"), "utf8")).trim();
+    const webReleaseTag = `web-v${WEB_VERSION}`;
+    git("tag", stableTag);
+    if (webReleaseTag !== stableTag) git("tag", webReleaseTag);
     const check = (...args) => spawnSync(process.execPath, ["scripts/version-check.mjs", ...args], { cwd: fixture, encoding: "utf8", env: { ...process.env, GITHUB_ACTIONS: "false" } });
     const passing = check("--require-stable-tag", "--product", "web", "--require-tag");
     assert.equal(passing.status, 0, passing.stdout + passing.stderr);
@@ -185,8 +187,9 @@ test("a source-controlled differing CLI version changes --version while Web chec
     assert.match(JSON.parse(check().stdout).failures.join(" "), /no son idénticos/);
     for (const name of ["index.html", "calendario-hvac-siys.html"]) await writeFile(resolve(fixture, "dist", name), "stale Web artifact");
     assert.match(JSON.parse(check().stdout).failures.join(" "), /dist.*WEB_VERSION/);
-    git("tag", "-d", "web-v0.17.0");
+    git("tag", "-d", stableTag);
     assert.match(JSON.parse(check("--skip-dist", "--require-stable-tag").stdout).failures.join(" "), /tag estable.*no existe/);
+    git("tag", stableTag);
     git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "--allow-empty", "-m", "later");
     assert.equal(check("--skip-dist", "--product", "web", "--require-tag").status, 0);
     assert.match(JSON.parse(cliCheck().stdout).failures.join(" "), /commit exacto/);

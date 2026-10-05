@@ -29,18 +29,18 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
 | Producto/canal | Fuente | Distribución |
 | --- | --- | --- |
-| Web stable publicada | `stable-version.txt = web-v0.17.0` | Raíz GitHub Pages |
-| Web candidato beta | main, candidato `0.18.0` | `/beta/` GitHub Pages |
+| Web stable publicada | `stable-version.txt = web-v0.18.0`, versión `0.18.0` | Raíz GitHub Pages |
+| Web beta publicada | main, versión actual `0.18.0` | `/beta/` GitHub Pages |
 | Web local | Build HTML | Archivo autocontenido |
 | Calendary CLI | `cli-v<version>`, publicada `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
 | Platform | `packages/platform`, `0.0.0` privado | Interno, sin tags/releases propios |
 
 Web usa tags `web-v...`; CLI usa `cli-v...`. Los tags `v...` son historial
-inmutable. `web-v0.17.0` y `web-v0.18.0-beta.2` aliasan exactamente sus
-commits históricos. Cambiar el puntero stable no promueve ni cambia Web stable.
-Los aliases no disparan Pages ni GitHub Releases. Mientras el candidato
-`0.18.0` no pase el Human Gate, `web-v0.18.0` no existe y la raíz estable
-sigue publicando `0.17.0`.
+inmutable. `web-v0.17.0` y `web-v0.18.0-beta.2` conservan exactamente sus
+commits históricos. El tag certificado `web-v0.18.0` identifica la release Web
+estable; `stable-version.txt` selecciona el tag que Pages publica en la raíz.
+El puntero no altera el contenido del tag. Los tags por sí solos no disparan
+Pages ni GitHub Releases; el merge del cambio de puntero a `main` dispara Pages.
 
 ## Instalar Calendary CLI
 

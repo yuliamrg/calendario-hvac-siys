@@ -1,9 +1,10 @@
 # Sistema actual: Calendary / SIYS Sync
 
-Estado de esta página: Platform Architecture V2 completa, desde main
-certificado `4309fb93cbca67a0b1164e1eb2383caad06b976b`. Web prepara el
-candidato estable `0.18.0` (promoción de `0.18.0-beta.2`) y CLI conserva
-`0.18.0-beta.1` con identidades independientes.
+Estado de esta página: Platform Architecture V2 completa. SIYS Sync Web
+`0.18.0` está publicado como estable, identificado por `web-v0.18.0` en el
+commit `a9c946e934f7cb9ac3609f22ed6c0d2f373a3651`; Calendary CLI conserva
+`0.18.0-beta.1` con identidad independiente. El cambio de puntero stable se
+integra mediante un PR que no modifica el producto.
 Describe el sistema que está en el código y la configuración actuales; no
 certifica que `dist/` sea publicable ni que el Supabase remoto tenga exactamente
 las migraciones del repositorio.
@@ -404,14 +405,14 @@ Estas reglas describen las fronteras existentes; no proponen componentes nuevos.
 | --- | --- | --- |
 | **Antecedente histórico** | S-03 y los commits posteriores añadieron `application/calendar-commands.js`, `application/import-commands.js`, `ui/view-state.js`, `activity-presentation.js`, `export-layout.js`, `importer.js` y validación automática del manifiesto. | El manifiesto fuente contiene 30 módulos y el `HEAD` local incluye `d27383a`, que regeneró `dist/`. La integración debe repetir el gate antes de publicar. |
 | **Antecedente histórico** | El worktree inicial tenía cambios en README, dist/, docs, src/, estilos y tests, además de nuevos módulos y planes. | La evidencia de esta página es local y mezclada; no debe presentarse como una release limpia. El maestro debe clasificar antes de integrar. |
-| **Transición actual** | WEB_VERSION y dist declaran el candidato Web `0.18.0`; CLI_VERSION conserva `0.18.0-beta.1`; el puntero `stable-version.txt` mantiene `web-v0.17.0`; esquema, contrato y formato de respaldo sin cambio. | Platform Architecture V2 está completa: Workstream 1 separó identidades, Workstream 2 la topología física de tres workspaces y Workstream 3 el versionado, tags y distribución independientes. El candidato `0.18.0` espera el Human Gate; `web-v0.18.0` todavía no existe. |
-| **Hecho verificado** | [docs/DISTRIBUCION.md](DISTRIBUCION.md), [docs/OPERACION_RESPALDOS_JSON.md](OPERACION_RESPALDOS_JSON.md) y [docs/VERSIONAMIENTO.md](VERSIONAMIENTO.md) fueron sincronizados: las versiones antiguas quedaron marcadas como historia y el estado actual remite a las fuentes autoritativas. | Sigue pendiente validar el contenido remoto de GitHub Pages y Supabase; la documentación local ya no presenta esos ejemplos históricos como estado actual. |
+| **Estado actual** | WEB_VERSION y dist declaran Web `0.18.0`; el tag certificado `web-v0.18.0` identifica el commit de release y `stable-version.txt` apunta a ese tag; CLI_VERSION conserva `0.18.0-beta.1`; esquema, contrato, formato de respaldo y Supabase no cambian. | Platform Architecture V2 está completa: Workstream 1 separó identidades, Workstream 2 la topología física de tres workspaces y Workstream 3 el versionado, tags y distribución independientes. La release Web `0.18.0` se sirve en stable; `/beta/` continúa desde `main` con `0.18.0` hasta abrir otra línea. |
+| **Hecho verificado** | [docs/DISTRIBUCION.md](DISTRIBUCION.md), [docs/OPERACION_RESPALDOS_JSON.md](OPERACION_RESPALDOS_JSON.md) y [docs/VERSIONAMIENTO.md](VERSIONAMIENTO.md) fueron sincronizados: las versiones antiguas quedaron marcadas como historia y el estado actual remite a las fuentes autoritativas. | GitHub Pages se verifica con su ejecución de despliegue y los hashes de release. Supabase es independiente: el workflow de Pages no aplica migraciones ni modifica datos. |
 | **Antecedente histórico** | [docs/ARQUITECTURA.md](ARQUITECTURA.md) registra el corte local actual: `app.js` 4.823 líneas, `core.js` 1.315, `importer.js` 11 y 190 pruebas. | Las métricas son descriptivas del corte, no límites de diseño; deben actualizarse sólo cuando cambie el corte verificable. |
 | **Hecho verificado** | `cloud.js` persiste mediante `persist_calendar_document`: CAS por revisión de fila, documento y metadata en una transacción. | La migración fue aplicada y certificada en desarrollo en el workstream previo; esta fase no modifica el backend. |
 | **Hecho verificado** | La lista cloud se refresca cada 30 s, al foco, al volver a la pestaña y manualmente; no existe Realtime ni lectura periódica del documento abierto. | La interfaz no ofrece sincronización inmediata de cambios externos; sólo el conflicto de revisión fuerza una recarga del documento. |
 | **Hecho verificado / pendiente** | README identifica el proyecto lógico remoto como `calendario-hvac-siys-dev` con referencia `toxeasjfwxbniuuwfimz`; `supabase/config.toml` usa el `project_id` local `calendario-hvac-siys` y `.temp/project-ref` conserva la referencia remota. | La diferencia de nombre puede ser local frente a remoto; no se debe aplicar una migración hasta comprobar el proyecto enlazado y sus políticas. |
 | **Antecedente histórico** | La promoción `0.17.0` verificó cuatro migraciones alineadas. El workstream cloud posterior certificó además el RPC atómico en desarrollo. | La evidencia previa no equivale a una nueva comprobación del backend en esta fase ni a despliegue de Pages. |
-| **Hecho verificado / pendiente** | Los gates locales previos a la publicación pasan; el smoke autenticado cloud requiere una cuenta de prueba autorizada que no está disponible en las variables locales. | Debe repetirse `npm run goal:check` después del commit de release y completar el smoke autenticado antes de promover el PR. |
+| **Límite de verificación** | Las credenciales de cuenta de prueba para el smoke cloud autenticado no están configuradas en el entorno local. | La verificación autenticada de Supabase no se atribuye a esta publicación; se usa el smoke público no autenticado establecido, sin modificar calendarios ni catálogos. |
 
 ## 12. Evidencia y documentos relacionados
 

@@ -1,10 +1,10 @@
 # Modelo de datos y estados — esquema 4
 
 Web y CLI tienen identidades independientes, `WEB_VERSION` y `CLI_VERSION`,
-actualmente `0.18.0` (candidato Web en preparación) y `0.18.0-beta.1`. La raíz
-es orquestación privada sin versión y cada producto usa sus tags
-`web-v...`/`cli-v...`; la distribución CLI independiente ya está publicada y la
-raíz estable sigue en `web-v0.17.0`.
+actualmente `0.18.0` (Web estable publicada) y `0.18.0-beta.1`. La raíz es
+orquestación privada sin versión y cada producto usa sus tags
+`web-v...`/`cli-v...`; la distribución CLI independiente ya está publicada y
+`stable-version.txt` apunta a `web-v0.18.0`.
 
 El `appVersion` superior del envelope describe al Web exportador explícito
 (`exporterVersion: WEB_VERSION`), separado de `document.appVersion` legado.
