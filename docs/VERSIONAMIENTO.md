@@ -16,7 +16,7 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 ## 1. Fuentes de versión y artefactos
 
 - Web: `apps/web/package.json.version` = `WEB_VERSION` en
-  `apps/web/src/ui/web-version.js`, hoy `0.18.0`.
+  `apps/web/src/ui/web-version.js`, hoy `0.18.1-beta.1` (estable publicada `0.18.0`).
 - CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
   `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
 - Platform: `packages/platform/package.json.version = 0.0.0`, privado e interno,
@@ -239,9 +239,11 @@ CI completa permanece sin optimización por paths porque Platform afecta ambos.
 
 Workstream 3 completó Architecture V2 e integró versionado, tags y releases
 independientes sin cambiar el comportamiento de producto. Estado actual: Web
-estable `0.18.0` (promovida desde la línea validada `0.18.0-beta.2`), CLI
-`0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1,
-backup formatVersion 1. No se cambia Supabase.
+estable `0.18.0` (promovida desde la línea validada `0.18.0-beta.2`); beta Web
+`0.18.1-beta.1` preparada como parche de rendimiento que reutiliza el índice de
+cobertura de responsables sin alterar el orden visible. CLI `0.18.0-beta.1`,
+Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1, backup formatVersion 1.
+No se cambia Supabase.
 
 `web-v0.17.0` conserva su commit histórico y `web-v0.18.0-beta.2` conserva el
 commit de `v0.18.0-beta.2`. El tag certificado `web-v0.18.0` identifica la
@@ -252,4 +254,5 @@ Release; el cambio del puntero se integra mediante un PR normal.
 
 La release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva intacta.
 Los ejemplos anteriores y CHANGELOG conservan historia; el apartado actual del
-CHANGELOG registra la promoción estable de Web `0.18.0`.
+CHANGELOG registra la promoción estable de Web `0.18.0` y la beta de
+rendimiento `0.18.1-beta.1`.

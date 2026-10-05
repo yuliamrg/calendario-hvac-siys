@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import {
   createResponsibleCoverageIndex,
   responsibleCoverageScore,
   sortResponsiblesByCoverage,
 } from "../packages/platform/src/domain/responsible-ranking.js";
+
+const root = resolve(import.meta.dirname, "..");
 
 const catalog = [
   {
@@ -114,6 +118,80 @@ test("mantiene zona, ciudad base, cobertura individual, nacional, favoritos y no
     "Nacional",
     "Sin cobertura",
   ]);
+});
+
+function legacyWebOrder(city, responsibles = catalog) {
+  return Array.from(responsibles)
+    .sort((a, b) => {
+      const score = responsibleCoverageScore(a, city, responsibles)
+        - responsibleCoverageScore(b, city, responsibles);
+      if (score) return score;
+      if (Boolean(a.favorite) !== Boolean(b.favorite)) return a.favorite ? -1 : 1;
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""), "es");
+    })
+    .map(({ name }) => name);
+}
+
+function countingCatalog(size) {
+  let groupReads = 0;
+  let coverageReads = 0;
+  const responsibles = [];
+  for (let index = 0; index < size; index += 1) {
+    const name = `Responsable ${String(index).padStart(4, "0")}`;
+    const group = index % 3 === 0 ? "Zona Cafetera" : `Zona ${index % 5}`;
+    const baseCity = `Ciudad ${index % 7}`;
+    const coverage = index % 4 === 0 ? ["Pereira"] : [`Ciudad ${index % 11}`];
+    const favorite = index % 10 === 0;
+    responsibles.push({
+      get name() { return name; },
+      get group() { groupReads += 1; return group; },
+      get baseCity() { return baseCity; },
+      get coverage() { coverageReads += 1; return coverage; },
+      get favorite() { return favorite; },
+      get responsibleType() { return index % 2 ? "payroll" : "contractor"; },
+    });
+  }
+  return {
+    responsibles,
+    reset() { groupReads = 0; coverageReads = 0; },
+    reads() { return groupReads + coverageReads; },
+  };
+}
+
+test("el orden con índice reutilizable coincide con el camino anterior en cada ciudad", () => {
+  for (const city of ["Pereira", "Armenia", "Manizales", "Bogotá", "Nacional", ""]) {
+    const index = createResponsibleCoverageIndex(catalog);
+    assert.deepEqual(namesFor(city, index), legacyWebOrder(city), `difiere para la ciudad ${city || "(vacía)"}`);
+  }
+});
+
+test("la integración Web reutiliza un índice por orden en vez de reconstruirlo por comparador", () => {
+  const { responsibles, reset, reads } = countingCatalog(300);
+  const city = "Pereira";
+
+  reset();
+  const legacy = legacyWebOrder(city, responsibles);
+  const legacyReads = reads();
+
+  reset();
+  const index = createResponsibleCoverageIndex(responsibles);
+  const optimized = sortResponsiblesByCoverage(responsibles, city, index).map(({ name }) => name);
+  const optimizedReads = reads();
+
+  assert.deepEqual(optimized, legacy);
+  assert.ok(legacyReads > 0 && optimizedReads > 0);
+  assert.ok(
+    optimizedReads * 20 < legacyReads,
+    `el índice reutilizable debe leer cobertura mucho menos (${optimizedReads} vs ${legacyReads})`,
+  );
+});
+
+test("la Web construye un único índice reutilizable y no vuelve a responsibleCoverageScore por comparador", async () => {
+  const app = await readFile(resolve(root, "apps", "web", "src", "app.js"), "utf8");
+  assert.match(app, /createResponsibleCoverageIndex\(appDocument\.catalog\.responsibles\)/);
+  assert.match(app, /sortResponsiblesByCoverage\(/);
+  assert.doesNotMatch(app, /responsibleCoverageScore/);
+  assert.equal((app.match(/createResponsibleCoverageIndex\(/g) ?? []).length, 1);
 });
 
 test("sortResponsiblesByCoverage acepta el mismo índice en varias ordenaciones", () => {
