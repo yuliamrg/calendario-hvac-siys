@@ -177,75 +177,89 @@ def check_responsible_selector(page, *, expect_beta: bool) -> dict:
     }
 
 
+def redact(text: str, secrets: list[str]) -> str:
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "[REDACTED]")
+    return text
+
+
 def run_cloud_smoke(args, artifact_dir: Path) -> None:
-    email = args.cloud_email or os.environ.get("SIYS_SMOKE_EMAIL")
+    email = os.environ.get("SIYS_SMOKE_EMAIL")
     password = os.environ.get(args.cloud_password_env)
     if not email or not password:
         raise SystemExit(
-            "El smoke cloud requiere --cloud-email o SIYS_SMOKE_EMAIL y "
-            f"la variable {args.cloud_password_env}."
+            "El smoke cloud requiere las variables de entorno "
+            f"SIYS_SMOKE_EMAIL y {args.cloud_password_env}."
         )
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel="chrome", headless=True)
-        context = browser.new_context(accept_downloads=True, locale="es-CO")
-        page_errors: list[str] = []
-        console_errors: list[str] = []
-        bad_responses: list[tuple[str, int]] = []
-        rest_mutations: list[str] = []
-        page = context.new_page()
-        page.on("pageerror", lambda error: page_errors.append(str(error)))
-        page.on(
-            "console",
-            lambda message: console_errors.append(message.text)
-            if message.type == "error" and not message.text.startswith("Failed to load resource:")
-            else None,
-        )
-        page.on(
-            "response",
-            lambda response: bad_responses.append((response.url, response.status))
-            if response.status >= 400
-            else None,
-        )
-        context.on(
-            "request",
-            lambda request: rest_mutations.append(
-                f"{request.method} {urlsplit(request.url).path}"
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            context = browser.new_context(accept_downloads=True, locale="es-CO")
+            page_errors: list[str] = []
+            console_errors: list[str] = []
+            bad_responses: list[tuple[str, int]] = []
+            rest_mutations: list[str] = []
+            page = context.new_page()
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            page.on(
+                "console",
+                lambda message: console_errors.append(message.text)
+                if message.type == "error" and not message.text.startswith("Failed to load resource:")
+                else None,
             )
-            if is_supabase_rest_mutation(request)
-            else None,
-        )
-        stable_backup = cloud_backup(page, args.url, email, password, artifact_dir, "stable")
-        selector = None
-        if args.beta_url:
-            beta_page = context.new_page()
-            beta_backup = cloud_backup(beta_page, args.beta_url, email, password, artifact_dir, "beta")
-            assert beta_backup["channel"] == "beta"
-            if args.check_responsibles:
+            page.on(
+                "response",
+                lambda response: bad_responses.append((response.url, response.status))
+                if response.status >= 400
+                else None,
+            )
+            context.on(
+                "request",
+                lambda request: rest_mutations.append(
+                    f"{request.method} {urlsplit(request.url).path}"
+                )
+                if is_supabase_rest_mutation(request)
+                else None,
+            )
+            stable_backup = cloud_backup(page, args.url, email, password, artifact_dir, "stable")
+            selector = None
+            if args.beta_url:
+                beta_page = context.new_page()
+                beta_backup = cloud_backup(beta_page, args.beta_url, email, password, artifact_dir, "beta")
+                assert beta_backup["channel"] == "beta"
+                if args.check_responsibles:
+                    rest_mutations.clear()
+                    selector = check_responsible_selector(beta_page, expect_beta=True)
+                    assert not rest_mutations, rest_mutations
+                beta_page.close()
+            elif args.check_responsibles:
                 rest_mutations.clear()
-                selector = check_responsible_selector(beta_page, expect_beta=True)
+                selector = check_responsible_selector(page, expect_beta=False)
                 assert not rest_mutations, rest_mutations
-            beta_page.close()
-        elif args.check_responsibles:
-            rest_mutations.clear()
-            selector = check_responsible_selector(page, expect_beta=False)
-            assert not rest_mutations, rest_mutations
-        assert stable_backup["channel"] == "stable"
-        assert not page_errors, page_errors
-        assert not console_errors, console_errors
-        assert all(url.endswith("/favicon.ico") and status == 404 for url, status in bad_responses), bad_responses
-        page.screenshot(path=str(artifact_dir / "pages-cloud.png"), full_page=True)
-        context.close()
-        browser.close()
-    print(json.dumps({
-        "status": "ok",
-        "mode": "cloud-read-authenticated",
-        "stableChannel": stable_backup["channel"],
-        "betaChannel": bool(args.beta_url),
-        "supabase": True,
-        "responsibleSelector": selector,
-        "restMutationsDuringSelector": len(rest_mutations) if selector is not None else None,
-        "artifacts": str(artifact_dir.resolve())
-    }, ensure_ascii=False, indent=2))
+            assert stable_backup["channel"] == "stable"
+            assert not page_errors, page_errors
+            assert not console_errors, console_errors
+            assert all(url.endswith("/favicon.ico") and status == 404 for url, status in bad_responses), bad_responses
+            context.close()
+            browser.close()
+        payload = {
+            "status": "ok",
+            "mode": "cloud-read-authenticated",
+            "stableChannel": stable_backup["channel"],
+            "betaChannel": bool(args.beta_url),
+            "supabase": True,
+            "responsibleSelector": selector,
+            "restMutationsDuringSelector": len(rest_mutations) if selector is not None else None,
+            "authenticatedScreenshots": 0,
+            "artifacts": str(artifact_dir.resolve())
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    except SystemExit:
+        raise
+    except Exception as error:
+        message = redact(f"{type(error).__name__}: {error}", [email, password])
+        raise SystemExit(message) from None
 
 
 def main() -> None:
@@ -257,9 +271,10 @@ def main() -> None:
     parser.add_argument("--artifacts", type=Path)
     parser.add_argument("--expect-cloud", action="store_true")
     parser.add_argument("--check-responsibles", action="store_true")
-    parser.add_argument("--cloud-email")
     parser.add_argument("--cloud-password-env", default="SIYS_SMOKE_PASSWORD")
     args = parser.parse_args()
+    if args.check_responsibles and not args.expect_cloud:
+        parser.error("--check-responsibles requiere --expect-cloud")
     artifact_dir = args.artifacts or Path(tempfile.mkdtemp(prefix="calendario-pages-"))
     artifact_dir.mkdir(parents=True, exist_ok=True)
     if args.expect_cloud:
