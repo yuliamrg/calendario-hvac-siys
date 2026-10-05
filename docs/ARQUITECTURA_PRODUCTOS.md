@@ -84,9 +84,10 @@ clientes; Web stable y beta conservan calendarios lógicos separados.
 
 ## Identidades independientes
 
-- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.18.0"`.
+- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.18.1-beta.1"` (estable
+  publicada `0.18.0`).
 - CLI: `apps/cli/src/version.js > CLI_VERSION = "0.18.0-beta.1"`.
-- Manifiestos: `apps/web/package.json` = `0.18.0` y
+- Manifiestos: `apps/web/package.json` = `0.18.1-beta.1` y
   `apps/cli/package.json` = `0.18.0-beta.1`, ambos `private: true`.
 - La raíz privada no posee versión; `package-lock.json` sólo refleja versiones
   de workspaces, sin identidad de producto raíz.
@@ -123,11 +124,11 @@ Un envelope Web actual puede contener un documento con `appVersion` antiguo.
 3. Workstream 3 completó Architecture V2 con versionado, tags y distribución
    independientes. No se introduce otro workstream ni framework de releases.
 
-Web usa `web-v<version>` y GitHub Pages. Beta se construye desde `main`;
-stable desde `stable-version.txt = web-v0.18.0`. Los tags históricos
-`web-v0.17.0` y `web-v0.18.0-beta.2` conservan exactamente los commits de
-`v0.17.0` y `v0.18.0-beta.2`; los tags históricos `v...` no se reescriben.
-El tag certificado `web-v0.18.0` identifica la release Web estable.
+Web usa `web-v<version>` y GitHub Pages. Beta se construye desde `main` (beta
+actual `0.18.1-beta.1`); stable desde `stable-version.txt = web-v0.18.0`. Los
+tags históricos `web-v0.17.0` y `web-v0.18.0-beta.2` conservan exactamente los
+commits de `v0.17.0` y `v0.18.0-beta.2`; los tags históricos `v...` no se
+reescriben. El tag certificado `web-v0.18.0` identifica la release Web estable.
 
 CLI usa `cli-v<version>` y GitHub Release. `scripts/build-cli-release.mjs`
 copia runtime CLI y Platform desde sus fuentes, sin segunda copia mantenida.

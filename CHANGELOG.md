@@ -1,5 +1,23 @@
 # Historial de cambios
 
+## [0.18.1-beta.1] - 2026-10-05
+
+### Rendimiento de selección de responsables
+
+- La selección de responsables de Web reutiliza el índice de cobertura que ya
+  existe en Platform: se construye un único snapshot por render y se usa tanto
+  para ordenar como para mostrar, en vez de reconstruir los mapas de cobertura
+  en cada comparación y en cada fila.
+- Las reglas visibles de ranking no cambian: cobertura por grupo, ciudad base,
+  cobertura directa, cobertura nacional, favoritos y orden alfabético producen
+  exactamente el mismo orden que antes.
+- Es una beta de rendimiento y usabilidad de Web. Calendary CLI permanece en
+  `0.18.0-beta.1` y Platform en `0.0.0`.
+- Se conservan `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`, el formato de
+  respaldo `formatVersion = 1` y el backend Supabase; no hay migraciones.
+- Web estable continúa en `0.18.0`; esta beta queda preparada en la feature,
+  pendiente de PR, integración y certificación.
+
 ## [0.18.0] - 2026-10-05
 
 ### Publicación estable en GitHub Pages

@@ -2,8 +2,8 @@
 
 Platform Architecture V2 está completa. La raíz privada no tiene versión:
 orquesta scripts, npm workspaces, bin y Node >=20. Las autoridades son
-`apps/web/package.json` + `WEB_VERSION` (Web estable `0.18.0`) y
-`apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
+`apps/web/package.json` + `WEB_VERSION` (beta Web `0.18.1-beta.1`; estable
+`0.18.0`) y `apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
 interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
 
 ## Manifiesto de la aplicación
@@ -166,7 +166,9 @@ también depende de la configuración pública embebida: el artefacto
 `0.18.0-beta.2` fue
 `ED6F3202AAFB15B8BA175E93F137F78698D867CD5FD3E20B90F3A80CB3FA90A1`; Web estable
 `0.18.0` tiene el SHA-256
-`001CFA87502818311B18EB68AF5E3259D556644FD68A29666F2E3A14620DE468` bajo la
+`001CFA87502818311B18EB68AF5E3259D556644FD68A29666F2E3A14620DE468` y la beta
+`0.18.1-beta.1` tiene
+`51770F50DCABFC16517AF12A00B5600498979251992054D5DEDC5C4EA9AA3A8B` bajo la
 misma configuración pública de build. La verificación definitiva del hash
 corresponde a CI con esa configuración.
 Sin configuración Supabase se produce intencionalmente otro HTML local.

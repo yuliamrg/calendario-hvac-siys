@@ -98,7 +98,8 @@ import {
 import { createIndexedDocumentStore } from "./persistence/indexed-document-store.js";
 import { createJsonPreferences } from "./persistence/json-preferences.js";
 import {
-  responsibleCoverageScore
+  createResponsibleCoverageIndex,
+  sortResponsiblesByCoverage
 } from "@siys-sync/platform/domain/responsible-ranking.js";
 
 const RUNTIME_CHANNEL = runtimeChannelForLocation(location);
@@ -2874,36 +2875,31 @@ function populateSiteSelect(clientId, selectedSiteId = "") {
   dom.activitySiteText.value = sites.find((site) => site.id === selectedSiteId)?.name ?? "";
 }
 
-function responsibleScore(responsible, city) {
-  return responsibleCoverageScore(responsible, city, appDocument.catalog.responsibles);
-}
-
 function renderResponsiblePicker(selectedIds = null) {
   const checked = new Set(
     selectedIds ?? [...dom.responsiblePicker.querySelectorAll("input:checked")].map((input) => input.value)
   );
   const city = dom.activityCity.value;
   const query = normalizeText(dom.responsibleSearch?.value || "");
-  const active = appDocument.catalog.responsibles
-    .filter((item) => item.active !== false || checked.has(item.id))
-    .filter((item) => {
-      if (!query) return true;
-      if (checked.has(item.id)) return true;
-      return normalizeText([
-        item.name,
-        item.baseCity,
-        item.group,
-        item.company,
-        ...(item.coverage ?? []),
-        ...(item.responsibleGroups ?? [])
-      ].filter(Boolean).join(" ")).includes(query);
-    })
-    .sort((a, b) => {
-      const score = responsibleScore(a, city) - responsibleScore(b, city);
-      if (score) return score;
-      if (Boolean(a.favorite) !== Boolean(b.favorite)) return a.favorite ? -1 : 1;
-      return a.name.localeCompare(b.name, "es");
-    });
+  const coverageIndex = createResponsibleCoverageIndex(appDocument.catalog.responsibles);
+  const active = sortResponsiblesByCoverage(
+    appDocument.catalog.responsibles
+      .filter((item) => item.active !== false || checked.has(item.id))
+      .filter((item) => {
+        if (!query) return true;
+        if (checked.has(item.id)) return true;
+        return normalizeText([
+          item.name,
+          item.baseCity,
+          item.group,
+          item.company,
+          ...(item.coverage ?? []),
+          ...(item.responsibleGroups ?? [])
+        ].filter(Boolean).join(" ")).includes(query);
+      }),
+    city,
+    coverageIndex
+  );
   const groups = [
     ["payroll", "Personal de nómina"],
     ["contractor", "Contratistas"]
@@ -2915,7 +2911,7 @@ function renderResponsiblePicker(selectedIds = null) {
     const items = active.filter((item) => item.responsibleType === type);
     if (!items.length) group.append(createElement("p", "field-note", query ? "Sin coincidencias." : "Sin registros activos."));
     for (const responsible of items) {
-      const score = responsibleScore(responsible, city);
+      const score = coverageIndex.score(responsible, city);
       const label = createElement("label", `responsible-option ${score < 4 ? "recommended" : ""}`.trim());
       const input = document.createElement("input");
       input.type = "checkbox";
