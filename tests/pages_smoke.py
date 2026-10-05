@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -78,55 +80,186 @@ def cloud_backup(page, url: str, email: str, password: str, artifact_dir: Path, 
     return {**backup, "calendarCount": calendar_count}
 
 
+def is_supabase_rest_mutation(request) -> bool:
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return False
+    return urlsplit(request.url).path.startswith("/rest/v1/")
+
+
+def check_responsible_selector(page, *, expect_beta: bool) -> dict:
+    click_menu_action(page, "helpButton")
+    page.wait_for_selector("#helpDialog", state="visible", timeout=10_000)
+    page.wait_for_selector("#versionLabel", state="visible", timeout=10_000)
+    version_text = page.locator("#versionLabel").inner_text()
+    assert re.search(r"Versión \d+\.\d+\.\d+", version_text), version_text
+    page.locator('[data-close-dialog="helpDialog"]').last.click()
+    page.wait_for_selector("#helpDialog", state="hidden", timeout=10_000)
+    if expect_beta:
+        page.wait_for_selector("#betaBadge", state="visible", timeout=10_000)
+    else:
+        page.wait_for_selector("#betaBadge", state="hidden", timeout=10_000)
+
+    page.locator("#newActivityButton").click()
+    page.wait_for_selector("#activityDialog", state="visible", timeout=10_000)
+    picker = page.locator("#responsiblePicker")
+    page.wait_for_selector("#responsiblePicker", state="visible", timeout=10_000)
+    page.wait_for_function(
+        "() => Number(document.querySelector('#responsiblePicker')?.dataset.filteredCount || 0) > 0",
+        timeout=10_000,
+    )
+    initial_count = int(picker.get_attribute("data-filtered-count"))
+    assert initial_count > 1, initial_count
+    initial_ids = picker.locator('input[name="responsibleIds"]').evaluate_all(
+        "els => els.map(el => el.value)"
+    )
+    assert len(initial_ids) == len(set(initial_ids)), "responsables duplicados en el selector"
+
+    name = picker.locator(".responsible-option strong").first.inner_text().lstrip("★").strip()
+    assert name, "el selector no expone nombres de responsables"
+    page.locator("#responsibleSearch").fill(name)
+    page.wait_for_function(
+        "(expected) => {"
+        " const count = Number(document.querySelector('#responsiblePicker')?.dataset.filteredCount || 0);"
+        " return count > 0 && count < expected;"
+        " }",
+        arg=initial_count,
+        timeout=10_000,
+    )
+    filtered_count = int(picker.get_attribute("data-filtered-count"))
+    filtered_ids = picker.locator('input[name="responsibleIds"]').evaluate_all(
+        "els => els.map(el => el.value)"
+    )
+    assert filtered_ids, "el filtro de responsables no devolvió coincidencias"
+    assert len(filtered_ids) == len(set(filtered_ids)), "responsables duplicados al filtrar"
+
+    page.locator("#responsibleSearch").fill("")
+    page.wait_for_function(
+        "(expected) => Number(document.querySelector('#responsiblePicker')?.dataset.filteredCount || 0) === expected",
+        arg=initial_count,
+        timeout=10_000,
+    )
+    restored_ids = picker.locator('input[name="responsibleIds"]').evaluate_all(
+        "els => els.map(el => el.value)"
+    )
+    assert set(restored_ids) == set(initial_ids), "el filtro no restauró el listado de responsables"
+
+    recommended = page.locator("#responsiblePicker .responsible-option.recommended")
+    assert recommended.count() == 0, "sin ciudad no debería haber responsables sugeridos"
+    detail_texts = picker.locator(".responsible-option small").evaluate_all(
+        "els => els.map(el => el.textContent || '')"
+    )
+    derived = [text.split("·")[0].strip() for text in detail_texts]
+    datalist = page.locator("#citySuggestions option").evaluate_all(
+        "els => els.map(el => el.value).filter(Boolean)"
+    )
+    city_candidates = list(dict.fromkeys([city for city in derived + datalist if city]))
+    city_checked = False
+    for candidate in city_candidates[:40]:
+        page.locator("#activityCity").fill(candidate)
+        page.wait_for_timeout(200)
+        if recommended.count() > 0:
+            city_checked = True
+            break
+    assert city_checked, "cambiar la ciudad no marcó responsables sugeridos"
+    page.locator("#activityCity").fill("")
+    page.wait_for_timeout(200)
+
+    page.locator('[data-close-dialog="activityDialog"]').first.click()
+    page.wait_for_selector("#activityDialog", state="hidden", timeout=10_000)
+
+    return {
+        "version": version_text,
+        "initialCount": initial_count,
+        "filteredCount": filtered_count,
+        "restoredCount": len(restored_ids),
+        "duplicates": 0,
+        "cityChecked": city_checked,
+    }
+
+
+def redact(text: str, secrets: list[str]) -> str:
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "[REDACTED]")
+    return text
+
+
 def run_cloud_smoke(args, artifact_dir: Path) -> None:
-    email = args.cloud_email or os.environ.get("SIYS_SMOKE_EMAIL")
+    email = os.environ.get("SIYS_SMOKE_EMAIL")
     password = os.environ.get(args.cloud_password_env)
     if not email or not password:
         raise SystemExit(
-            "El smoke cloud requiere --cloud-email o SIYS_SMOKE_EMAIL y "
-            f"la variable {args.cloud_password_env}."
+            "El smoke cloud requiere las variables de entorno "
+            f"SIYS_SMOKE_EMAIL y {args.cloud_password_env}."
         )
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel="chrome", headless=True)
-        context = browser.new_context(accept_downloads=True, locale="es-CO")
-        page_errors: list[str] = []
-        console_errors: list[str] = []
-        bad_responses: list[tuple[str, int]] = []
-        page = context.new_page()
-        page.on("pageerror", lambda error: page_errors.append(str(error)))
-        page.on(
-            "console",
-            lambda message: console_errors.append(message.text)
-            if message.type == "error" and not message.text.startswith("Failed to load resource:")
-            else None,
-        )
-        page.on(
-            "response",
-            lambda response: bad_responses.append((response.url, response.status))
-            if response.status >= 400
-            else None,
-        )
-        stable_backup = cloud_backup(page, args.url, email, password, artifact_dir, "stable")
-        if args.beta_url:
-            beta_page = context.new_page()
-            beta_backup = cloud_backup(beta_page, args.beta_url, email, password, artifact_dir, "beta")
-            assert beta_backup["channel"] == "beta"
-            beta_page.close()
-        assert stable_backup["channel"] == "stable"
-        assert not page_errors, page_errors
-        assert not console_errors, console_errors
-        assert all(url.endswith("/favicon.ico") and status == 404 for url, status in bad_responses), bad_responses
-        page.screenshot(path=str(artifact_dir / "pages-cloud.png"), full_page=True)
-        context.close()
-        browser.close()
-    print(json.dumps({
-        "status": "ok",
-        "mode": "cloud-read-authenticated",
-        "stableChannel": stable_backup["channel"],
-        "betaChannel": bool(args.beta_url),
-        "supabase": True,
-        "artifacts": str(artifact_dir.resolve())
-    }, ensure_ascii=False, indent=2))
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            context = browser.new_context(accept_downloads=True, locale="es-CO")
+            page_errors: list[str] = []
+            console_errors: list[str] = []
+            bad_responses: list[tuple[str, int]] = []
+            rest_mutations: list[str] = []
+            page = context.new_page()
+            page.on("pageerror", lambda error: page_errors.append(str(error)))
+            page.on(
+                "console",
+                lambda message: console_errors.append(message.text)
+                if message.type == "error" and not message.text.startswith("Failed to load resource:")
+                else None,
+            )
+            page.on(
+                "response",
+                lambda response: bad_responses.append((response.url, response.status))
+                if response.status >= 400
+                else None,
+            )
+            context.on(
+                "request",
+                lambda request: rest_mutations.append(
+                    f"{request.method} {urlsplit(request.url).path}"
+                )
+                if is_supabase_rest_mutation(request)
+                else None,
+            )
+            stable_backup = cloud_backup(page, args.url, email, password, artifact_dir, "stable")
+            selector = None
+            if args.beta_url:
+                beta_page = context.new_page()
+                beta_backup = cloud_backup(beta_page, args.beta_url, email, password, artifact_dir, "beta")
+                assert beta_backup["channel"] == "beta"
+                if args.check_responsibles:
+                    rest_mutations.clear()
+                    selector = check_responsible_selector(beta_page, expect_beta=True)
+                    assert not rest_mutations, rest_mutations
+                beta_page.close()
+            elif args.check_responsibles:
+                rest_mutations.clear()
+                selector = check_responsible_selector(page, expect_beta=False)
+                assert not rest_mutations, rest_mutations
+            assert stable_backup["channel"] == "stable"
+            assert not page_errors, page_errors
+            assert not console_errors, console_errors
+            assert all(url.endswith("/favicon.ico") and status == 404 for url, status in bad_responses), bad_responses
+            context.close()
+            browser.close()
+        payload = {
+            "status": "ok",
+            "mode": "cloud-read-authenticated",
+            "stableChannel": stable_backup["channel"],
+            "betaChannel": bool(args.beta_url),
+            "supabase": True,
+            "responsibleSelector": selector,
+            "restMutationsDuringSelector": len(rest_mutations) if selector is not None else None,
+            "authenticatedScreenshots": 0,
+            "artifacts": str(artifact_dir.resolve())
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    except SystemExit:
+        raise
+    except Exception as error:
+        message = redact(f"{type(error).__name__}: {error}", [email, password])
+        raise SystemExit(message) from None
 
 
 def main() -> None:
@@ -137,9 +270,11 @@ def main() -> None:
     parser.add_argument("--local-html", required=True, type=Path)
     parser.add_argument("--artifacts", type=Path)
     parser.add_argument("--expect-cloud", action="store_true")
-    parser.add_argument("--cloud-email")
+    parser.add_argument("--check-responsibles", action="store_true")
     parser.add_argument("--cloud-password-env", default="SIYS_SMOKE_PASSWORD")
     args = parser.parse_args()
+    if args.check_responsibles and not args.expect_cloud:
+        parser.error("--check-responsibles requiere --expect-cloud")
     artifact_dir = args.artifacts or Path(tempfile.mkdtemp(prefix="calendario-pages-"))
     artifact_dir.mkdir(parents=True, exist_ok=True)
     if args.expect_cloud:
