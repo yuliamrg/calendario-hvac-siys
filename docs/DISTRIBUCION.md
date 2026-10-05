@@ -30,7 +30,7 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 | Producto/canal | Fuente | Distribución |
 | --- | --- | --- |
 | Web stable publicada | `stable-version.txt = web-v0.18.0`, versión `0.18.0` | Raíz GitHub Pages |
-| Web beta publicada | main, versión actual `0.18.1-beta.1` | `/beta/` GitHub Pages |
+| Web candidato beta | main, candidato `0.18.1` | `/beta/` GitHub Pages |
 | Web local | Build HTML | Archivo autocontenido |
 | Calendary CLI | `cli-v<version>`, publicada `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
 | Platform | `packages/platform`, `0.0.0` privado | Interno, sin tags/releases propios |
@@ -57,7 +57,7 @@ compartido original. No requiere clonar ni npm install; no incluye Web,
 migraciones ni configuración Supabase. Use las variables públicas existentes
 y cloud login. Consulte [CLI](CLI.md). La primera publicación se realizó con
 `cli-v0.18.0-beta.1` y se conserva sin cambios en la preparación de Web
-`0.18.0`. No se publica npm: el ZIP satisface el canal requerido sin registro
+`0.18.1`. No se publica npm: el ZIP satisface el canal requerido sin registro
 ni auth npm.
 
 GitHub Pages no sirve el backend: Supabase proporciona Auth y la base de datos,
