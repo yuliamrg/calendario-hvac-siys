@@ -97,6 +97,7 @@ import {
   applyViewClasses
 } from "./ui/view-state.js";
 import { createIndexedDocumentStore } from "./persistence/indexed-document-store.js";
+import { createBeforeUnloadGuard, createSaveQueue } from "./persistence/save-queue.js";
 import { createJsonPreferences } from "./persistence/json-preferences.js";
 import {
   createResponsibleCoverageIndex,
@@ -132,9 +133,6 @@ const dom = Object.fromEntries(
 
 let appDocument = createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
 let database = null;
-let saveTimer = null;
-let saveChain = Promise.resolve();
-let saveWaiters = [];
 let selectedActivityIds = new Set();
 let catalogTab = "sites";
 let activeDrawer = null;
@@ -177,6 +175,20 @@ const compactLayoutQuery = window.matchMedia?.("(max-width: 899px)") ?? null;
 const editChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(`calendario-hvac-siys-edit-lock-${RUNTIME_CHANNEL}`)
   : null;
+const saveExitGuard = createBeforeUnloadGuard(window);
+const saveQueue = createSaveQueue({
+  getSnapshot: () => clone(appDocument),
+  persist: (snapshot) => writeStoredDocument(snapshot),
+  canSave: () => storageAvailable && hasEditControl,
+  onSaving: () => setSaveIndicator("saving", "Guardando…"),
+  onSaved: (_state, generation, latestGeneration) => {
+    if (generation === latestGeneration) {
+      setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
+    }
+  },
+  onError: handleSaveError,
+  onStateChange: ({ pending }) => saveExitGuard.update(pending)
+});
 
 function clone(value) {
   return structuredClone(value);
@@ -710,71 +722,51 @@ function clearStoredDocuments() {
   return localDocumentStore.clearDocuments(database);
 }
 
-function scheduleSave({ immediate = false } = {}) {
-  if (!storageAvailable || !hasEditControl) return Promise.resolve();
-  setSaveIndicator("saving", "Guardando…");
-  if (saveTimer) clearTimeout(saveTimer);
-  const delay = immediate ? 0 : 250;
-  return new Promise((resolve) => {
-    saveWaiters.push(resolve);
-    saveTimer = setTimeout(() => {
-      saveTimer = null;
-      const snapshot = clone(appDocument);
-      saveChain = saveChain
-        .then(() => writeStoredDocument(snapshot))
-        .then(() => {
-          setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
-          const waiters = saveWaiters;
-          saveWaiters = [];
-          waiters.forEach((waiter) => waiter());
-        })
-        .catch(async (error) => {
-          if (CLOUD_MODE && error instanceof SupabaseCloudConflictError) {
-            try {
-              const latest = await cloudPersistence.read();
-              if (latest?.document) {
-                appDocument = sanitizeDocument(latest.document);
-                renderAll();
-                setSaveIndicator("error", "Se requiere recargar");
-                showToast("Otro dispositivo guardó cambios. Se cargó la versión más reciente; revisa antes de editar de nuevo.", {
-                  type: "error",
-                  duration: 11000
-                });
-              }
-            } catch (reloadError) {
-              showToast(`No se pudo actualizar desde Supabase: ${reloadError.message}`, {
-                type: "error",
-                duration: 9000
-              });
-            }
-          } else {
-            storageAvailable = false;
-            setSaveIndicator("error", CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local");
-            showToast(`${CLOUD_MODE ? "No se pudo guardar en Supabase" : "No se pudo guardar en el navegador"}: ${error.message}`, {
-              type: "error",
-              duration: 9000
-            });
-          }
-          const waiters = saveWaiters;
-          saveWaiters = [];
-          waiters.forEach((waiter) => waiter());
-        });
-    }, delay);
+function scheduleSave(options = {}) {
+  const completion = saveQueue.scheduleSave(options);
+  // Most UI mutations intentionally save in the background. Mark the rejection
+  // handled here while returning the original promise to callers such as backups.
+  completion.catch((error) => {
+    if (options.immediate && !saveQueue.hasPendingChanges()) {
+      showToast(`No se pudo confirmar el guardado: ${error.message}`, { type: "error" });
+    }
   });
+  return completion;
 }
 
-async function flushSave() {
-  if (saveTimer) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-    const snapshot = clone(appDocument);
-    saveChain = saveChain.then(() => writeStoredDocument(snapshot)).finally(() => {
-      const waiters = saveWaiters;
-      saveWaiters = [];
-      waiters.forEach((waiter) => waiter());
-    });
+function flushSave() {
+  return saveQueue.flushSave();
+}
+
+async function handleSaveError(error) {
+  if (CLOUD_MODE && error instanceof SupabaseCloudConflictError) {
+    try {
+      const latest = await cloudPersistence.read();
+      if (latest?.document) {
+        appDocument = sanitizeDocument(latest.document);
+        renderAll();
+        setSaveIndicator("error", "Se requiere recargar");
+        showToast("Otro dispositivo guardó cambios. Se cargó la versión más reciente; revisa antes de editar de nuevo.", {
+          type: "error",
+          duration: 11000
+        });
+      }
+    } catch (reloadError) {
+      showToast(`No se pudo actualizar desde Supabase: ${reloadError.message}`, {
+        type: "error",
+        duration: 9000
+      });
+      setSaveIndicator("error", "Se requiere recargar");
+    }
+    return;
   }
-  await saveChain;
+
+  storageAvailable = false;
+  setSaveIndicator("error", CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local");
+  showToast(`${CLOUD_MODE ? "No se pudo guardar en Supabase" : "No se pudo guardar en el navegador"}: ${error.message}`, {
+    type: "error",
+    duration: 9000
+  });
 }
 
 function appendAudit(action, detail) {
@@ -3596,10 +3588,17 @@ async function createBackup() {
   appDocument.settings.lastBackupAt = new Date().toISOString();
   appendAudit("backup_created", "Respaldo JSON descargado");
   renderBackupReminder();
-  await scheduleSave({ immediate: true });
-  const fileIdentity = normalizeKey(appDocument.calendarMeta.coordinator || appDocument.calendarMeta.name) || "cronograma";
-  const envelope = createBackupEnvelope(appDocument, {
-    exportedAt: appDocument.settings.lastBackupAt,
+  const backupSnapshot = clone(appDocument);
+  let persistenceFailed = false;
+  try {
+    await scheduleSave({ immediate: true });
+  } catch {
+    // The manual backup remains a recovery path; the save queue keeps its failure state.
+    persistenceFailed = true;
+  }
+  const fileIdentity = normalizeKey(backupSnapshot.calendarMeta.coordinator || backupSnapshot.calendarMeta.name) || "cronograma";
+  const envelope = createBackupEnvelope(backupSnapshot, {
+    exportedAt: backupSnapshot.settings.lastBackupAt,
     origin: `${runtimeMode()} · ${location.origin}`,
     channel: RUNTIME_CHANNEL,
     exporterVersion: WEB_VERSION
@@ -3609,7 +3608,12 @@ async function createBackup() {
     "application/json;charset=utf-8",
     `${timestampForFile()}_respaldo-cronograma_${fileIdentity}.json`
   );
-  showToast("Copia del cronograma descargada.");
+  showToast(
+    persistenceFailed
+      ? "No se pudo confirmar el guardado; se descargó una copia de recuperación."
+      : "Copia del cronograma descargada.",
+    persistenceFailed ? { type: "error", duration: 9000 } : {}
+  );
 }
 
 function openResetDataDialog() {
@@ -4460,8 +4464,8 @@ function bindPrimaryActionEvents() {
       .catch((error) => showToast(error.message, { type: "error" }));
   });
   dom.emptyImportButton.addEventListener("click", () => dom.baseFileInput.click());
-  dom.backupButton.addEventListener("click", createBackup);
-  dom.backupBannerButton.addEventListener("click", createBackup);
+  dom.backupButton.addEventListener("click", () => { createBackup().catch(() => {}); });
+  dom.backupBannerButton.addEventListener("click", () => { createBackup().catch(() => {}); });
   dom.restoreButton.addEventListener("click", () => dom.restoreFileInput.click());
   dom.mergeJsonButton.addEventListener("click", () => dom.mergeJsonFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
@@ -4717,11 +4721,8 @@ function bindGlobalInteractionEvents() {
     applyCatalogPreference();
     renderCalendar();
   });
-  window.addEventListener("beforeunload", () => {
-    if (saveTimer && storageAvailable) {
-      clearTimeout(saveTimer);
-      writeStoredDocument(clone(appDocument)).catch(() => {});
-    }
+  window.addEventListener("pagehide", (event) => {
+    if (event.persisted) return;
     if (editLockTimer) clearInterval(editLockTimer);
     if (cloudCalendarRefreshTimer) clearInterval(cloudCalendarRefreshTimer);
     releaseEditLock().catch(() => {});

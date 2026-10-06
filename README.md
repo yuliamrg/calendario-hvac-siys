@@ -4,8 +4,9 @@ Platform Architecture V2 está completa: identidades, estructura física y
 releases independientes. SIYS Sync Web `0.18.1` está publicado como estable,
 promovido desde la beta validada `0.18.1-beta.1`, un parche de rendimiento que
 reutiliza el índice de cobertura de responsables sin cambiar el orden visible.
-La línea de `main` avanza a la beta `0.19.0-beta.1`, que agrega búsqueda temporal
-de opciones en los filtros de Cliente, Sede y Responsable.
+La beta `0.19.0-beta.2` corrige la confirmación por generación de los guardados
+y protege las salidas interactivas mientras el último cambio no esté guardado.
+La beta anterior `0.19.0-beta.1` agregó búsqueda temporal en los filtros.
 Calendary CLI permanece independiente en `0.18.0-beta.1`.
 
 | Producto | Autoridad | Tag | Distribución |
@@ -22,7 +23,7 @@ Los tags históricos `v...` son inmutables. `web-v0.17.0`,
 `web-v0.18.0-beta.2` y `web-v0.18.0` conservan sus commits históricos; el tag
 certificado `web-v0.18.1` identifica la release Web estable actual.
 `stable-version.txt` apunta a `web-v0.18.1`; la raíz estable sirve Web `0.18.1` y
-`/beta/` publica la beta Web `0.19.0-beta.1` desde `main`. No se crea una GitHub
+`/beta/` publica la beta Web `0.19.0-beta.2` desde `main`. No se crea una GitHub
 Release para Web.
 
 Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su

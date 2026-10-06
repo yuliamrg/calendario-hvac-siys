@@ -2,7 +2,7 @@
 
 Platform Architecture V2 está completa. La raíz privada no tiene versión:
 orquesta scripts, npm workspaces, bin y Node >=20. Las autoridades son
-`apps/web/package.json` + `WEB_VERSION` (beta en main `0.19.0-beta.1`; Web
+`apps/web/package.json` + `WEB_VERSION` (beta en main `0.19.0-beta.2`; Web
 estable `0.18.1`) y
 `apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
 interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
@@ -10,7 +10,7 @@ interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
 ## Manifiesto de la aplicación
 
 El punto de entrada es `apps/web/src/app.js`. `scripts/build.mjs` mantiene un
-orden dependencia-primero para los 33 módulos del navegador, tomados de
+orden dependencia-primero para los 34 módulos del navegador, tomados de
 `apps/web/src` y `packages/platform/src`. Las entradas usan rutas de repositorio:
 
 - Platform dominio: `packages/platform/src/domain/text.js`,

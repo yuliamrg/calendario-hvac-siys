@@ -50,6 +50,7 @@ export const applicationModulePaths = Object.freeze([
   "packages/platform/src/calendar-contract.js",
   "packages/platform/src/supabase/transport.js",
   "apps/web/src/cloud.js",
+  "apps/web/src/persistence/save-queue.js",
   "apps/web/src/app.js"
 ]);
 

@@ -1,5 +1,19 @@
 # Historial de cambios
 
+## [0.19.0-beta.2] - 2026-10-06
+
+### Durabilidad de guardado Web
+
+- Cada guardado confirma únicamente la generación que alcanzó persistencia; una
+  escritura anterior deja pendientes los waiters de una edición posterior.
+- La copia de respaldo y `flushSave()` esperan la persistencia de su snapshot y
+  propagan fallos sin descargar una copia presentada como guardada.
+- La página activa la confirmación estándar del navegador durante una salida
+  interactiva si hay cambios sin confirmar; la protección permanece ante fallos
+  y desaparece cuando persiste la generación más reciente.
+- No se cambian Supabase, RPC, Schema 4, Contract 1, formato de respaldo 1 ni
+  Calendary CLI `0.18.0-beta.1`; Web estable continúa en `0.18.1`.
+
 ## [0.19.0-beta.1] - 2026-10-05
 
 ### Búsqueda temporal dentro de los filtros
