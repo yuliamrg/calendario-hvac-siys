@@ -2,8 +2,8 @@
 
 Platform Architecture V2 está completa. La raíz privada no tiene versión:
 orquesta scripts, npm workspaces, bin y Node >=20. Las autoridades son
-`apps/web/package.json` + `WEB_VERSION` (candidato Web `0.18.1`; estable
-`0.18.0`) y `apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
+`apps/web/package.json` + `WEB_VERSION` (Web estable `0.18.1`) y
+`apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
 interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
 
 ## Manifiesto de la aplicación
@@ -91,7 +91,7 @@ indicar explícitamente el tag y `--require-stable-tag` comprueba el puntero.
 Los aliases históricos anteriores a workspaces se leen en sus rutas originales.
 
 Pages se ejecuta con push a `main`: la raíz se construye desde el tag
-`web-v0.18.0` señalado por `stable-version.txt` y `/beta/` desde `main`. Las
+`web-v0.18.1` señalado por `stable-version.txt` y `/beta/` desde `main`. Las
 copias del HTML estable a Pages se comparan byte a byte. Los tags no disparan
 builds ni GitHub Releases; no hay Web GitHub Release.
 
@@ -168,8 +168,8 @@ también depende de la configuración pública embebida: el artefacto
 `0.18.0` tiene el SHA-256
 `001CFA87502818311B18EB68AF5E3259D556644FD68A29666F2E3A14620DE468`; la beta
 `0.18.1-beta.1` fue
-`51770F50DCABFC16517AF12A00B5600498979251992054D5DEDC5C4EA9AA3A8B` y el
-candidato estable `0.18.1` tiene
+`51770F50DCABFC16517AF12A00B5600498979251992054D5DEDC5C4EA9AA3A8B` y Web
+estable `0.18.1` tiene
 `FA62BC0FE53557223C71345DA559023A6EEB46F1D70FC227D10DF8D1D327B063` bajo la
 misma configuración pública de build. La verificación definitiva del hash
 corresponde a CI con esa configuración.
@@ -177,13 +177,10 @@ Sin configuración Supabase se produce intencionalmente otro HTML local.
 
 ## Migración y Human Merge Gate
 
-Tags `v...`: historial inmutable. Los tags históricos `web-v0.17.0` y
-`web-v0.18.0-beta.2` conservan sus commits, resueltos mediante
-`git rev-parse <tag>^{commit}`. `web-v0.18.0` ya identifica la release Web
-certificada en el merge commit `a9c946e934f7cb9ac3609f22ed6c0d2f373a3651`.
-La release CLI `cli-v0.18.0-beta.1` ya está publicada y no se mueve. El
-candidato Web `0.18.1` todavía no se etiqueta como `web-v0.18.1`: la promoción
-de stable queda supeditada al Human Gate y no forma parte de esta preparación.
-Web no
-crea GitHub Release; el PR de promoción actualiza el puntero y esta documentación,
-y su merge dispara el despliegue automático de Pages.
+Tags `v...`: historial inmutable. Los tags históricos `web-v0.17.0`,
+`web-v0.18.0-beta.2` y `web-v0.18.0` conservan sus commits, resueltos mediante
+`git rev-parse <tag>^{commit}`. El tag certificado `web-v0.18.1` identifica la
+release Web estable actual.
+La release CLI `cli-v0.18.0-beta.1` ya está publicada y no se mueve. El PR de
+promoción actualiza el puntero y esta documentación, y su merge dispara el
+despliegue automático de Pages. Web no crea GitHub Release.

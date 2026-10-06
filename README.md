@@ -1,9 +1,8 @@
 # SIYS Sync
 
 Platform Architecture V2 está completa: identidades, estructura física y
-releases independientes. SIYS Sync Web `0.18.0` está publicado como estable.
-El candidato estable `0.18.1` queda preparado como promoción de la beta validada
-`0.18.1-beta.1`, un parche de rendimiento que
+releases independientes. SIYS Sync Web `0.18.1` está publicado como estable,
+promovido desde la beta validada `0.18.1-beta.1`, un parche de rendimiento que
 reutiliza el índice de cobertura de responsables sin cambiar el orden visible.
 Calendary CLI permanece independiente en `0.18.0-beta.1`.
 
@@ -17,12 +16,11 @@ La raíz privada no tiene versión: orquesta npm workspaces, scripts, bin y
 Node >=20. `npm run cli` y los comandos habituales siguen funcionando.
 Supabase permanece como backend compartido, sin cambios.
 
-Los tags históricos `v...` son inmutables. `web-v0.17.0` y
-`web-v0.18.0-beta.2` conservan sus commits históricos; `web-v0.18.0` identifica
-la release Web certificada en `a9c946e934f7cb9ac3609f22ed6c0d2f373a3651`.
-`stable-version.txt` apunta a `web-v0.18.0`; la raíz estable sirve Web
-`0.18.0`. `/beta/` desde `main` sirve el candidato Web `0.18.1` una vez
-integrado; `web-v0.18.1` no se crea hasta el Human Gate. No se crea una GitHub
+Los tags históricos `v...` son inmutables. `web-v0.17.0`,
+`web-v0.18.0-beta.2` y `web-v0.18.0` conservan sus commits históricos; el tag
+certificado `web-v0.18.1` identifica la release Web estable actual.
+`stable-version.txt` apunta a `web-v0.18.1`; la raíz estable y `/beta/` sirven
+Web `0.18.1` desde `main`. No se crea una GitHub
 Release para Web.
 
 Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su

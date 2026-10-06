@@ -2,10 +2,10 @@
 
 ## [0.18.1] - 2026-10-05
 
-### Promoción a candidato estable
+### Publicación estable en GitHub Pages
 
-- Se promueve la línea Web validada `0.18.1-beta.1` a `0.18.1` como candidato
-  estable de SIYS Sync Web. No se agrega funcionalidad nueva: es la misma
+- Se publica SIYS Sync Web `0.18.1` como versión estable, promovida desde la
+  línea validada `0.18.1-beta.1`. No se agrega funcionalidad nueva: es la misma
   implementación de la beta, sin cambios de UI, calendario ni comportamiento.
 - El selector de responsables reutiliza el índice de cobertura que ya existe en
   Platform: se construye un único snapshot por render y se usa tanto para
@@ -20,11 +20,10 @@
   respaldo `formatVersion = 1` y el backend Supabase; no hay migraciones.
 - Calendary CLI permanece independiente en `0.18.0-beta.1`; Platform continúa
   interno en `0.0.0`. La promoción sólo afecta a Web.
-- La raíz privada no tiene versión. El puntero estable `stable-version.txt`
-  continúa en `web-v0.18.0`: la promoción efectiva de stable y la creación del
-  tag `web-v0.18.1` dependen del Human Gate y no forman parte de esta
-  preparación. Mientras el candidato no se promueva, el canal publicado sigue
-  siendo Web estable `0.18.0`.
+- La raíz privada no tiene versión. El tag certificado `web-v0.18.1` identifica
+  el commit de release y el puntero estable `stable-version.txt` apunta a ese
+  tag; la raíz GitHub Pages y `/beta/` sirven Web `0.18.1`. El tag se crea
+  después de integrar el commit que pasa CI y Pages.
 
 ## [0.18.1-beta.1] - 2026-10-05
 
