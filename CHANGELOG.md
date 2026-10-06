@@ -1,18 +1,34 @@
 # Historial de cambios
 
+## [0.19.0] - 2026-10-06
+
+### Publicación estable en GitHub Pages
+
+- Se promueve la beta certificada `0.19.0-beta.2` sin cambios funcionales
+  adicionales. Web estable pasa a `0.19.0`.
+- La raíz y `/beta/` sirven temporalmente la misma versión hasta que exista una
+  nueva capacidad beta; no se abre otra línea beta ni se crea una GitHub Release
+  para Web.
+- Calendary CLI permanece en `0.18.0-beta.1`, Platform en `0.0.0`, Schema en 4,
+  Contract en 1 y backup format en 1. No hay cambios Supabase/RPC.
+
 ## [0.19.0-beta.2] - 2026-10-06
 
 ### Durabilidad de guardado Web
 
 - Cada guardado confirma únicamente la generación que alcanzó persistencia; una
   escritura anterior deja pendientes los waiters de una edición posterior.
-- La copia de respaldo y `flushSave()` esperan la persistencia de su snapshot y
-  propagan fallos sin descargar una copia presentada como guardada.
+- El respaldo manual captura su snapshot después de registrar `lastBackupAt` y
+  `backup_created`. Si la persistencia falla, aun así descarga el JSON de
+  recuperación sin declarar el documento guardado ni limpiar la protección de
+  salida; el reset destructivo continúa bloqueado por `flushSave()`.
+- Un respaldo normal descarga después de confirmar su guardado; `flushSave()`
+  conserva la propagación de fallos y no se agregan reintentos.
 - La página activa la confirmación estándar del navegador durante una salida
   interactiva si hay cambios sin confirmar; la protección permanece ante fallos
   y desaparece cuando persiste la generación más reciente.
 - No se cambian Supabase, RPC, Schema 4, Contract 1, formato de respaldo 1 ni
-  Calendary CLI `0.18.0-beta.1`; Web estable continúa en `0.18.1`.
+  Calendary CLI `0.18.0-beta.1`; la beta se promovió a Web estable `0.19.0`.
 
 ## [0.19.0-beta.1] - 2026-10-05
 

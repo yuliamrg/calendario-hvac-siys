@@ -29,7 +29,7 @@ test("build Web con LF y CRLF conserva exactamente el HTML certificado", async (
     const certified = await readFile(join(root, "dist/index.html"));
     const config = JSON.parse(certified.toString().match(/globalThis\.__SIYS_SUPABASE_CONFIG__ = (\{[^\n]+\});/)[1]);
     const env = { ...process.env, SIYS_SUPABASE_URL: config.url, SIYS_SUPABASE_PUBLISHABLE_KEY: config.publishableKey };
-    const expected = "cef92aa8415a575ec57ae0834a815fa2585950f7606f9910f02fd1b7e2e238ec";
+    const expected = "51cdce8742b2afd30bb59a60bff274edf7621016c24fa449109de181ff8b5417";
     // This regression only certifies the current Web release/configuration.
     assert.equal(createHash("sha256").update(certified).digest("hex"), expected);
     for (const eol of ["\n", "\r\n"]) {
