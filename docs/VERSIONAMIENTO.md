@@ -16,7 +16,7 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 ## 1. Fuentes de versión y artefactos
 
 - Web: `apps/web/package.json.version` = `WEB_VERSION` en
-  `apps/web/src/ui/web-version.js`, hoy `0.19.0-beta.1` (beta en preparación
+  `apps/web/src/ui/web-version.js`, hoy `0.19.0-beta.2` (beta en preparación
   sobre main; estable publicada `0.18.1`).
 - CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
   `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
@@ -242,8 +242,10 @@ Workstream 3 completó Architecture V2 e integró versionado, tags y releases
 independientes sin cambiar el comportamiento de producto. Estado actual: Web
 estable `0.18.1` (promovida desde la línea validada `0.18.1-beta.1`, un parche
 de rendimiento que reutiliza el índice de cobertura de responsables sin alterar
-el orden visible). La línea de main avanza a la beta `0.19.0-beta.1`, que agrega
-búsqueda temporal de opciones en los filtros de Cliente, Sede y Responsable. CLI
+el orden visible). La línea de main avanza a la beta `0.19.0-beta.2`, que corrige
+la confirmación de persistencia por generación, protege la salida interactiva
+mientras haya cambios sin confirmar y espera la persistencia antes de descargar
+respaldos. La beta `0.19.0-beta.1` agregó búsqueda temporal en los filtros. CLI
 `0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1, backup
 formatVersion 1. No se cambia Supabase.
 
@@ -255,5 +257,5 @@ Release; el cambio del puntero se integra mediante un PR normal.
 
 La release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva intacta.
 Los ejemplos anteriores y CHANGELOG conservan historia; el apartado actual del
-CHANGELOG registra la beta Web `0.19.0-beta.1` (búsqueda temporal en filtros) y
-la publicación estable previa `0.18.1`.
+CHANGELOG registra la beta Web `0.19.0-beta.2` (durabilidad de guardado) y
+mantiene la entrada `0.19.0-beta.1` como versión anterior.

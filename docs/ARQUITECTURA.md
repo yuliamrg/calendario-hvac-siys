@@ -85,7 +85,7 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
   puede depender de UI, persistencia, cloud, CLI ni composición. La UI puede
   usar sus comandos sin conocer cómo se persiste el documento.
 - `WEB_VERSION` vive en `apps/web/src/ui/web-version.js` y `CLI_VERSION` en
-  `apps/cli/src/version.js`; actualmente valen `0.19.0-beta.1` (beta en main;
+  `apps/cli/src/version.js`; actualmente valen `0.19.0-beta.2` (beta en main;
   estable publicada `0.18.1`) y
   `0.18.0-beta.1`, independientes
   de `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y backup `formatVersion = 1`.

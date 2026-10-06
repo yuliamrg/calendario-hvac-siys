@@ -3331,7 +3331,7 @@ html[data-channel="stable"] .storage-banner.compact-status {
 
   </style>
   <script>
-    globalThis.__SIYS_SUPABASE_CONFIG__ = {"enabled":true,"url":"https://toxeasjfwxbniuuwfimz.supabase.co","publishableKey":"sb_publishable_58XBtUycmDw4yqTLuk_k4A_RgBnv64p"};
+    globalThis.__SIYS_SUPABASE_CONFIG__ = {"enabled":false,"url":"","publishableKey":""};
   </script>
 </head>
 <body>
@@ -84954,7 +84954,7 @@ globalThis.calendaryThreeMotion = calendaryThreeMotion;
 
 
 // SIYS Sync Web executable identity; independent of Calendary CLI and document schema.
-export const WEB_VERSION = "0.19.0-beta.1";
+export const WEB_VERSION = "0.19.0-beta.2";
 
 
 export function importDiff(existing, incoming, fields) {
@@ -90745,6 +90745,192 @@ export function createSupabasePersistence(config, {
 }
 
 
+export function createBeforeUnloadGuard(eventTarget = globalThis.window) {
+  let active = false;
+
+  const handleBeforeUnload = (event) => {
+    if (!active) return;
+    event.preventDefault();
+    event.returnValue = true;
+  };
+
+  return Object.freeze({
+    update(shouldWarn) {
+      const next = Boolean(shouldWarn);
+      if (next === active) return;
+      active = next;
+      if (active) eventTarget.addEventListener("beforeunload", handleBeforeUnload);
+      else eventTarget.removeEventListener("beforeunload", handleBeforeUnload);
+    },
+    isActive() {
+      return active;
+    },
+    dispose() {
+      if (!active) return;
+      active = false;
+      eventTarget.removeEventListener("beforeunload", handleBeforeUnload);
+    }
+  });
+}
+
+export function createSaveQueue({
+  getSnapshot,
+  persist,
+  canSave = () => true,
+  debounceMs = 250,
+  onSaving = () => {},
+  onSaved = () => {},
+  onError = () => {},
+  onStateChange = () => {},
+  setTimer = globalThis.setTimeout,
+  clearTimer = globalThis.clearTimeout
+}) {
+  if (typeof getSnapshot !== "function" || typeof persist !== "function") {
+    throw new TypeError("getSnapshot y persist deben ser funciones.");
+  }
+
+  let timer = null;
+  let saveChain = Promise.resolve();
+  let requestedGeneration = 0;
+  let persistedGeneration = 0;
+  let lastFailure = null;
+  let waiters = [];
+
+  function getState() {
+    return Object.freeze({
+      requestedGeneration,
+      persistedGeneration,
+      pending: requestedGeneration > persistedGeneration,
+      timerPending: timer !== null
+    });
+  }
+
+  function notifyState() {
+    onStateChange(getState());
+  }
+
+  function settleThrough(generation, error = null) {
+    const remaining = [];
+    for (const waiter of waiters) {
+      if (waiter.generation <= generation) {
+        if (error) waiter.reject(error);
+        else waiter.resolve();
+      } else {
+        remaining.push(waiter);
+      }
+    }
+    waiters = remaining;
+  }
+
+  function waitForGeneration(generation) {
+    if (generation <= persistedGeneration) return Promise.resolve();
+    if (
+      lastFailure &&
+      generation > persistedGeneration &&
+      generation <= lastFailure.generation
+    ) {
+      return Promise.reject(lastFailure.error);
+    }
+    return new Promise((resolve, reject) => {
+      waiters.push({ generation, resolve, reject });
+    });
+  }
+
+  async function reportError(error, generation) {
+    if (timer !== null) {
+      clearTimer(timer);
+      timer = null;
+    }
+    const failedThroughGeneration = requestedGeneration;
+    lastFailure = { generation: failedThroughGeneration, error };
+    settleThrough(failedThroughGeneration, error);
+    try {
+      await onError(error, getState(), generation);
+    } catch {
+      // Persistence failure remains the outcome if error reporting also fails.
+    }
+    notifyState();
+  }
+
+  function enqueueSnapshot(snapshot, generation) {
+    saveChain = saveChain.then(async () => {
+      if (lastFailure && generation <= lastFailure.generation) return;
+      try {
+        await persist(snapshot);
+      } catch (error) {
+        await reportError(error, generation);
+        return;
+      }
+
+      persistedGeneration = Math.max(persistedGeneration, generation);
+      if (lastFailure && lastFailure.generation <= persistedGeneration) lastFailure = null;
+      settleThrough(generation);
+      try {
+        await onSaved(getState(), generation, requestedGeneration);
+      } catch {
+        // UI reporting must not turn a confirmed persistence into a failed save.
+      }
+      notifyState();
+    });
+  }
+
+  function captureAndEnqueue(generation) {
+    try {
+      enqueueSnapshot(getSnapshot(), generation);
+    } catch (error) {
+      void reportError(error, generation);
+    }
+    notifyState();
+  }
+
+  function scheduleSave({ immediate = false } = {}) {
+    if (!canSave()) {
+      return immediate
+        ? Promise.reject(lastFailure?.error ?? new Error("No se pudo confirmar este guardado."))
+        : Promise.resolve();
+    }
+
+    requestedGeneration += 1;
+    const generation = requestedGeneration;
+    const completion = new Promise((resolve, reject) => {
+      waiters.push({ generation, resolve, reject });
+    });
+
+    if (timer !== null) clearTimer(timer);
+    timer = setTimer(() => {
+      timer = null;
+      captureAndEnqueue(requestedGeneration);
+    }, immediate ? 0 : debounceMs);
+
+    try {
+      onSaving(getState(), generation);
+    } catch {
+      // A status display failure must not prevent persistence from starting.
+    }
+    notifyState();
+
+    return completion;
+  }
+
+  function flushSave() {
+    const generation = requestedGeneration;
+    if (timer !== null) {
+      clearTimer(timer);
+      timer = null;
+      captureAndEnqueue(generation);
+    }
+    return waitForGeneration(generation);
+  }
+
+  return Object.freeze({
+    scheduleSave,
+    flushSave,
+    hasPendingChanges: () => requestedGeneration > persistedGeneration,
+    getState
+  });
+}
+
+
 const RUNTIME_CHANNEL = runtimeChannelForLocation(location);
 const DATABASE_NAME = RUNTIME_CHANNEL === "beta"
   ? "calendario-hvac-siys-beta"
@@ -90774,9 +90960,6 @@ const dom = Object.fromEntries(
 
 let appDocument = createDefaultDocument(undefined, undefined, { appVersion: WEB_VERSION });
 let database = null;
-let saveTimer = null;
-let saveChain = Promise.resolve();
-let saveWaiters = [];
 let selectedActivityIds = new Set();
 let catalogTab = "sites";
 let activeDrawer = null;
@@ -90819,6 +91002,20 @@ const compactLayoutQuery = window.matchMedia?.("(max-width: 899px)") ?? null;
 const editChannel = "BroadcastChannel" in window
   ? new BroadcastChannel(`calendario-hvac-siys-edit-lock-${RUNTIME_CHANNEL}`)
   : null;
+const saveExitGuard = createBeforeUnloadGuard(window);
+const saveQueue = createSaveQueue({
+  getSnapshot: () => clone(appDocument),
+  persist: (snapshot) => writeStoredDocument(snapshot),
+  canSave: () => storageAvailable && hasEditControl,
+  onSaving: () => setSaveIndicator("saving", "Guardando…"),
+  onSaved: (_state, generation, latestGeneration) => {
+    if (generation === latestGeneration) {
+      setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
+    }
+  },
+  onError: handleSaveError,
+  onStateChange: ({ pending }) => saveExitGuard.update(pending)
+});
 
 function clone(value) {
   return structuredClone(value);
@@ -91352,71 +91549,51 @@ function clearStoredDocuments() {
   return localDocumentStore.clearDocuments(database);
 }
 
-function scheduleSave({ immediate = false } = {}) {
-  if (!storageAvailable || !hasEditControl) return Promise.resolve();
-  setSaveIndicator("saving", "Guardando…");
-  if (saveTimer) clearTimeout(saveTimer);
-  const delay = immediate ? 0 : 250;
-  return new Promise((resolve) => {
-    saveWaiters.push(resolve);
-    saveTimer = setTimeout(() => {
-      saveTimer = null;
-      const snapshot = clone(appDocument);
-      saveChain = saveChain
-        .then(() => writeStoredDocument(snapshot))
-        .then(() => {
-          setSaveIndicator("saved", CLOUD_MODE ? "Guardado en Supabase" : "Guardado");
-          const waiters = saveWaiters;
-          saveWaiters = [];
-          waiters.forEach((waiter) => waiter());
-        })
-        .catch(async (error) => {
-          if (CLOUD_MODE && error instanceof SupabaseCloudConflictError) {
-            try {
-              const latest = await cloudPersistence.read();
-              if (latest?.document) {
-                appDocument = sanitizeDocument(latest.document);
-                renderAll();
-                setSaveIndicator("error", "Se requiere recargar");
-                showToast("Otro dispositivo guardó cambios. Se cargó la versión más reciente; revisa antes de editar de nuevo.", {
-                  type: "error",
-                  duration: 11000
-                });
-              }
-            } catch (reloadError) {
-              showToast(`No se pudo actualizar desde Supabase: ${reloadError.message}`, {
-                type: "error",
-                duration: 9000
-              });
-            }
-          } else {
-            storageAvailable = false;
-            setSaveIndicator("error", CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local");
-            showToast(`${CLOUD_MODE ? "No se pudo guardar en Supabase" : "No se pudo guardar en el navegador"}: ${error.message}`, {
-              type: "error",
-              duration: 9000
-            });
-          }
-          const waiters = saveWaiters;
-          saveWaiters = [];
-          waiters.forEach((waiter) => waiter());
-        });
-    }, delay);
+function scheduleSave(options = {}) {
+  const completion = saveQueue.scheduleSave(options);
+  // Most UI mutations intentionally save in the background. Mark the rejection
+  // handled here while returning the original promise to callers such as backups.
+  completion.catch((error) => {
+    if (options.immediate && !saveQueue.hasPendingChanges()) {
+      showToast(`No se pudo confirmar el guardado: ${error.message}`, { type: "error" });
+    }
   });
+  return completion;
 }
 
-async function flushSave() {
-  if (saveTimer) {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-    const snapshot = clone(appDocument);
-    saveChain = saveChain.then(() => writeStoredDocument(snapshot)).finally(() => {
-      const waiters = saveWaiters;
-      saveWaiters = [];
-      waiters.forEach((waiter) => waiter());
-    });
+function flushSave() {
+  return saveQueue.flushSave();
+}
+
+async function handleSaveError(error) {
+  if (CLOUD_MODE && error instanceof SupabaseCloudConflictError) {
+    try {
+      const latest = await cloudPersistence.read();
+      if (latest?.document) {
+        appDocument = sanitizeDocument(latest.document);
+        renderAll();
+        setSaveIndicator("error", "Se requiere recargar");
+        showToast("Otro dispositivo guardó cambios. Se cargó la versión más reciente; revisa antes de editar de nuevo.", {
+          type: "error",
+          duration: 11000
+        });
+      }
+    } catch (reloadError) {
+      showToast(`No se pudo actualizar desde Supabase: ${reloadError.message}`, {
+        type: "error",
+        duration: 9000
+      });
+      setSaveIndicator("error", "Se requiere recargar");
+    }
+    return;
   }
-  await saveChain;
+
+  storageAvailable = false;
+  setSaveIndicator("error", CLOUD_MODE ? "Sin conexión con Supabase" : "Sin guardado local");
+  showToast(`${CLOUD_MODE ? "No se pudo guardar en Supabase" : "No se pudo guardar en el navegador"}: ${error.message}`, {
+    type: "error",
+    duration: 9000
+  });
 }
 
 function appendAudit(action, detail) {
@@ -95102,8 +95279,8 @@ function bindPrimaryActionEvents() {
       .catch((error) => showToast(error.message, { type: "error" }));
   });
   dom.emptyImportButton.addEventListener("click", () => dom.baseFileInput.click());
-  dom.backupButton.addEventListener("click", createBackup);
-  dom.backupBannerButton.addEventListener("click", createBackup);
+  dom.backupButton.addEventListener("click", () => { createBackup().catch(() => {}); });
+  dom.backupBannerButton.addEventListener("click", () => { createBackup().catch(() => {}); });
   dom.restoreButton.addEventListener("click", () => dom.restoreFileInput.click());
   dom.mergeJsonButton.addEventListener("click", () => dom.mergeJsonFileInput.click());
   dom.exportCsvButton.addEventListener("click", exportCurrentMonthCsv);
@@ -95359,11 +95536,8 @@ function bindGlobalInteractionEvents() {
     applyCatalogPreference();
     renderCalendar();
   });
-  window.addEventListener("beforeunload", () => {
-    if (saveTimer && storageAvailable) {
-      clearTimeout(saveTimer);
-      writeStoredDocument(clone(appDocument)).catch(() => {});
-    }
+  window.addEventListener("pagehide", (event) => {
+    if (event.persisted) return;
     if (editLockTimer) clearInterval(editLockTimer);
     if (cloudCalendarRefreshTimer) clearInterval(cloudCalendarRefreshTimer);
     releaseEditLock().catch(() => {});
