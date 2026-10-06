@@ -2,7 +2,8 @@
 
 Platform Architecture V2 está completa: identidades, estructura física y
 releases independientes. SIYS Sync Web `0.18.0` está publicado como estable.
-La beta Web `0.18.1-beta.1` queda preparada como parche de rendimiento que
+El candidato estable `0.18.1` queda preparado como promoción de la beta validada
+`0.18.1-beta.1`, un parche de rendimiento que
 reutiliza el índice de cobertura de responsables sin cambiar el orden visible.
 Calendary CLI permanece independiente en `0.18.0-beta.1`.
 
@@ -20,8 +21,9 @@ Los tags históricos `v...` son inmutables. `web-v0.17.0` y
 `web-v0.18.0-beta.2` conservan sus commits históricos; `web-v0.18.0` identifica
 la release Web certificada en `a9c946e934f7cb9ac3609f22ed6c0d2f373a3651`.
 `stable-version.txt` apunta a `web-v0.18.0`; la raíz estable sirve Web
-`0.18.0`. `/beta/` desde `main` sirve la beta actual `0.18.1-beta.1` una vez
-integrada. No se crea una GitHub Release para Web.
+`0.18.0`. `/beta/` desde `main` sirve el candidato Web `0.18.1` una vez
+integrado; `web-v0.18.1` no se crea hasta el Human Gate. No se crea una GitHub
+Release para Web.
 
 Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su
 [GitHub Release](https://github.com/yuliamrg/calendario-hvac-siys/releases),
