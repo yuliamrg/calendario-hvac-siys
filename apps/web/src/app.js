@@ -91,6 +91,7 @@ import {
   layoutExportActivityRow
 } from "./ui/export-layout.js";
 import { createMutationController } from "./ui/mutation-controller.js";
+import { filterOptionsBySearch } from "./ui/filter-options.js";
 import {
   deriveViewClasses,
   applyViewClasses
@@ -1128,14 +1129,17 @@ function filterDefinitions() {
     { key: "cities", title: "Ciudades", singular: "Ciudad", options: uniqueCities.map((value) => ({ value, label: value })) },
     {
       key: "clients", title: "Clientes", singular: "Cliente",
+      searchLabel: "Buscar cliente", searchPlaceholder: "Buscar cliente...",
       options: appDocument.catalog.clients.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
     },
     {
       key: "sites", title: "Sedes", singular: "Sede",
+      searchLabel: "Buscar sede", searchPlaceholder: "Buscar sede...",
       options: appDocument.catalog.sites.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
     },
     {
       key: "responsibles", title: "Responsables", singular: "Responsable",
+      searchLabel: "Buscar responsable", searchPlaceholder: "Buscar responsable...",
       options: appDocument.catalog.responsibles.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
     },
     {
@@ -1163,6 +1167,19 @@ function renderFilterDialog() {
     const section = createElement("fieldset", "filter-group");
     section.append(createElement("legend", "", definition.title));
     const selected = new Set(normalizeFilterArray(appDocument.settings.filters[definition.key]));
+    const rows = new Map();
+    let searchInput = null;
+    let emptyNote = null;
+    if (definition.searchLabel && definition.options.length) {
+      searchInput = document.createElement("input");
+      searchInput.type = "search";
+      searchInput.className = "filter-option-search";
+      searchInput.autocomplete = "off";
+      searchInput.id = `filterSearch-${definition.key}`;
+      searchInput.placeholder = definition.searchPlaceholder;
+      searchInput.setAttribute("aria-label", definition.searchLabel);
+      section.append(searchInput);
+    }
     for (const item of definition.options) {
       const candidateFilters = clone(appDocument.settings.filters);
       candidateFilters[definition.key] = [item.value];
@@ -1177,9 +1194,23 @@ function renderFilterDialog() {
       input.checked = selected.has(item.value);
       input.disabled = matches === 0 && !input.checked;
       label.append(input, createElement("span", "", `${item.label} (${matches})`));
+      rows.set(item.value, label);
       section.append(label);
     }
-    if (!definition.options.length) section.append(createElement("p", "field-note", "Sin opciones disponibles."));
+    if (!definition.options.length) {
+      section.append(createElement("p", "field-note", "Sin opciones disponibles."));
+    } else if (searchInput) {
+      emptyNote = createElement("p", "field-note filter-empty-note", "Sin coincidencias");
+      emptyNote.hidden = true;
+      section.append(emptyNote);
+      searchInput.addEventListener("input", () => {
+        const visibleValues = new Set(
+          filterOptionsBySearch(definition.options, searchInput.value).map((item) => item.value)
+        );
+        for (const [value, row] of rows) row.hidden = !visibleValues.has(value);
+        emptyNote.hidden = visibleValues.size !== 0;
+      });
+    }
     fragment.append(section);
   }
   dom.filterGrid.replaceChildren(fragment);

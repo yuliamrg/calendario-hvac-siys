@@ -1,5 +1,26 @@
 # Historial de cambios
 
+## [0.19.0-beta.1] - 2026-10-05
+
+### Búsqueda temporal dentro de los filtros
+
+- El diálogo de filtros incorpora un buscador propio para Cliente, Sede y
+  Responsable; escribir filtra en vivo las opciones visibles de esa categoría.
+- La búsqueda es temporal: no se persiste, no viaja a Supabase, no modifica
+  actividades ni `appDocument`, y no reemplaza ni reutiliza la búsqueda global
+  (`settings.filters.query`).
+- Marcar una opción y luego ocultarla con la búsqueda la conserva seleccionada y
+  formando parte del filtro; al limpiar el texto reaparece marcada. Escribir en
+  el buscador nunca desmarca opciones.
+- Si no hay coincidencias, la categoría muestra "Sin coincidencias". Los conteos
+  de cada opción conservan su significado y no se recalculan por la búsqueda.
+- Se conservan `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`, el formato de
+  respaldo `formatVersion = 1`, los filtros y el backend Supabase; no hay
+  migraciones.
+- Calendary CLI permanece independiente en `0.18.0-beta.1` y Platform en
+  `0.0.0`. Web estable continúa en `0.18.1`; esta beta queda preparada en la
+  feature, pendiente de PR, integración y certificación.
+
 ## [0.18.1] - 2026-10-05
 
 ### Publicación estable en GitHub Pages

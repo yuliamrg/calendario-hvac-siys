@@ -639,6 +639,25 @@ body.read-only .activity-card {
   font-weight: 700;
 }
 
+.filter-option-search {
+  width: 100%;
+  min-height: 32px;
+  margin: 0 0 8px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.filter-option-search::placeholder {
+  color: var(--muted);
+}
+
+.filter-empty-note {
+  margin-top: 6px;
+}
+
 .filters select,
 .search-box,
 .catalog-search input {
@@ -84935,7 +84954,7 @@ globalThis.calendaryThreeMotion = calendaryThreeMotion;
 
 
 // SIYS Sync Web executable identity; independent of Calendary CLI and document schema.
-export const WEB_VERSION = "0.18.1";
+export const WEB_VERSION = "0.19.0-beta.1";
 
 
 export function importDiff(existing, incoming, fields) {
@@ -86111,6 +86130,19 @@ export function displayInitialsFor(name) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
+}
+
+
+export function filterOptionMatches(label, query) {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return true;
+  return normalizeText(label).includes(normalizedQuery);
+}
+
+export function filterOptionsBySearch(options, query) {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return [...options];
+  return options.filter((option) => filterOptionMatches(option.label, normalizedQuery));
 }
 
 
@@ -91739,14 +91771,17 @@ function filterDefinitions() {
     { key: "cities", title: "Ciudades", singular: "Ciudad", options: uniqueCities.map((value) => ({ value, label: value })) },
     {
       key: "clients", title: "Clientes", singular: "Cliente",
+      searchLabel: "Buscar cliente", searchPlaceholder: "Buscar cliente...",
       options: appDocument.catalog.clients.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
     },
     {
       key: "sites", title: "Sedes", singular: "Sede",
+      searchLabel: "Buscar sede", searchPlaceholder: "Buscar sede...",
       options: appDocument.catalog.sites.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
     },
     {
       key: "responsibles", title: "Responsables", singular: "Responsable",
+      searchLabel: "Buscar responsable", searchPlaceholder: "Buscar responsable...",
       options: appDocument.catalog.responsibles.filter((item) => item.active !== false).map((item) => ({ value: item.id, label: item.name }))
     },
     {
@@ -91774,6 +91809,19 @@ function renderFilterDialog() {
     const section = createElement("fieldset", "filter-group");
     section.append(createElement("legend", "", definition.title));
     const selected = new Set(normalizeFilterArray(appDocument.settings.filters[definition.key]));
+    const rows = new Map();
+    let searchInput = null;
+    let emptyNote = null;
+    if (definition.searchLabel && definition.options.length) {
+      searchInput = document.createElement("input");
+      searchInput.type = "search";
+      searchInput.className = "filter-option-search";
+      searchInput.autocomplete = "off";
+      searchInput.id = `filterSearch-${definition.key}`;
+      searchInput.placeholder = definition.searchPlaceholder;
+      searchInput.setAttribute("aria-label", definition.searchLabel);
+      section.append(searchInput);
+    }
     for (const item of definition.options) {
       const candidateFilters = clone(appDocument.settings.filters);
       candidateFilters[definition.key] = [item.value];
@@ -91788,9 +91836,23 @@ function renderFilterDialog() {
       input.checked = selected.has(item.value);
       input.disabled = matches === 0 && !input.checked;
       label.append(input, createElement("span", "", `${item.label} (${matches})`));
+      rows.set(item.value, label);
       section.append(label);
     }
-    if (!definition.options.length) section.append(createElement("p", "field-note", "Sin opciones disponibles."));
+    if (!definition.options.length) {
+      section.append(createElement("p", "field-note", "Sin opciones disponibles."));
+    } else if (searchInput) {
+      emptyNote = createElement("p", "field-note filter-empty-note", "Sin coincidencias");
+      emptyNote.hidden = true;
+      section.append(emptyNote);
+      searchInput.addEventListener("input", () => {
+        const visibleValues = new Set(
+          filterOptionsBySearch(definition.options, searchInput.value).map((item) => item.value)
+        );
+        for (const [value, row] of rows) row.hidden = !visibleValues.has(value);
+        emptyNote.hidden = visibleValues.size !== 0;
+      });
+    }
     fragment.append(section);
   }
   dom.filterGrid.replaceChildren(fragment);

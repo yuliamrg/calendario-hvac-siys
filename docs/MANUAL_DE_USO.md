@@ -139,6 +139,10 @@ La búsqueda libre revisa cliente, sede, ciudad, servicio, estado, bandeja,
 observaciones y responsables. **Filtros** permite seleccionar varias ciudades,
 clientes, sedes, responsables, servicios, estados y bandejas. Dentro de una categoría se
 acepta cualquiera de los valores; entre categorías deben cumplirse todos.
+Las categorías Cliente, Sede y Responsable incluyen un buscador propio dentro del
+diálogo que filtra en vivo las opciones visibles. Es temporal: se vacía al cerrar
+el diálogo y no altera los filtros ya seleccionados, que permanecen marcados aunque
+la búsqueda los oculte.
 
 Los chips muestran los filtros activos y permiten retirarlos individualmente.
 El bloque **Rango de fechas** permite elegir un día exacto usando la misma fecha
@@ -269,8 +273,8 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages sirve Web estable `0.18.1` y `/beta/` publica Web
-`0.18.1`; ambos usan Supabase Auth y la base cloud compartida,
+La raíz de GitHub Pages sirve Web estable `0.18.1` y `/beta/` publica la beta Web
+`0.19.0-beta.1`; ambos usan Supabase Auth y la base cloud compartida,
 con calendarios lógicos independientes.
 La versión visible y el `channel` del respaldo deben comprobarse antes de
 trasladar datos. Los datos

@@ -38,6 +38,7 @@ export const applicationModulePaths = Object.freeze([
   "apps/web/src/application/import-commands.js",
   "apps/web/src/ui/calendar-constants.js",
   "apps/web/src/ui/presentation.js",
+  "apps/web/src/ui/filter-options.js",
   "apps/web/src/ui/activity-presentation.js",
   "apps/web/src/ui/export-layout.js",
   "apps/web/src/ui/mutation-controller.js",

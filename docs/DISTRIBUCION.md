@@ -30,7 +30,7 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 | Producto/canal | Fuente | Distribución |
 | --- | --- | --- |
 | Web stable publicada | `stable-version.txt = web-v0.18.1`, versión `0.18.1` | Raíz GitHub Pages |
-| Web beta | main, `0.18.1` | `/beta/` GitHub Pages |
+| Web beta | main, `0.19.0-beta.1` | `/beta/` GitHub Pages |
 | Web local | Build HTML | Archivo autocontenido |
 | Calendary CLI | `cli-v<version>`, publicada `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
 | Platform | `packages/platform`, `0.0.0` privado | Interno, sin tags/releases propios |

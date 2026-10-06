@@ -2,14 +2,15 @@
 
 Platform Architecture V2 está completa. La raíz privada no tiene versión:
 orquesta scripts, npm workspaces, bin y Node >=20. Las autoridades son
-`apps/web/package.json` + `WEB_VERSION` (Web estable `0.18.1`) y
+`apps/web/package.json` + `WEB_VERSION` (beta en main `0.19.0-beta.1`; Web
+estable `0.18.1`) y
 `apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
 interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
 
 ## Manifiesto de la aplicación
 
 El punto de entrada es `apps/web/src/app.js`. `scripts/build.mjs` mantiene un
-orden dependencia-primero para los 32 módulos del navegador, tomados de
+orden dependencia-primero para los 33 módulos del navegador, tomados de
 `apps/web/src` y `packages/platform/src`. Las entradas usan rutas de repositorio:
 
 - Platform dominio: `packages/platform/src/domain/text.js`,
@@ -170,7 +171,9 @@ también depende de la configuración pública embebida: el artefacto
 `0.18.1-beta.1` fue
 `51770F50DCABFC16517AF12A00B5600498979251992054D5DEDC5C4EA9AA3A8B` y Web
 estable `0.18.1` tiene
-`FA62BC0FE53557223C71345DA559023A6EEB46F1D70FC227D10DF8D1D327B063` bajo la
+`FA62BC0FE53557223C71345DA559023A6EEB46F1D70FC227D10DF8D1D327B063`; la beta
+`0.19.0-beta.1` tiene
+`72DAB0EAD87139E6DB4ECEDCF4A287795337E5C8576053D7456A22BC6211ACB3` bajo la
 misma configuración pública de build. La verificación definitiva del hash
 corresponde a CI con esa configuración.
 Sin configuración Supabase se produce intencionalmente otro HTML local.
