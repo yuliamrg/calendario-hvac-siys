@@ -17,6 +17,7 @@ INIT_SCRIPT = '''(() => {
     hold: false,
     writes: [],
     waiters: [],
+    clearCalls: 0,
     write(snapshot, commit) {
       let resolveWrite;
       let rejectWrite;
@@ -73,6 +74,21 @@ def instrumented_html() -> str:
         raise AssertionError("No se encontró el punto de persistencia del build generado")
     source = source.replace(old_writer, new_writer, 1)
 
+    old_clearer = '''function clearStoredDocuments() {
+  if (CLOUD_MODE) return Promise.resolve();
+  if (!database) return Promise.resolve();
+  return localDocumentStore.clearDocuments(database);
+}'''
+    new_clearer = '''function clearStoredDocuments() {
+  if (globalThis.__D_SAVE_HARNESS__) globalThis.__D_SAVE_HARNESS__.clearCalls += 1;
+  if (CLOUD_MODE) return Promise.resolve();
+  if (!database) return Promise.resolve();
+  return localDocumentStore.clearDocuments(database);
+}'''
+    if source.count(old_clearer) != 1:
+        raise AssertionError("No se encontró el punto de limpieza de datos para el test de reset")
+    source = source.replace(old_clearer, new_clearer, 1)
+
     marker = "function appendAudit(action, detail) {"
     api = '''if (globalThis.__D_SAVE_HARNESS__) {
   const harness = globalThis.__D_SAVE_HARNESS__;
@@ -98,12 +114,22 @@ def instrumented_html() -> str:
         ...saveQueue.getState(),
         waiters: harness.waiters.map(({name, resolved, rejected}) => ({name, resolved, rejected})),
         writes: harness.writes.map(({name, done, failed}) => ({name, done, failed})),
+        clearCalls: harness.clearCalls,
         current: appDocument.calendarMeta.name,
         indicator: document.querySelector("#saveIndicatorText")?.textContent ?? "",
+        lastBackupAt: appDocument.settings.lastBackupAt,
         storageAvailable,
         editControl: hasEditControl,
         exitGuard: saveExitGuard.isActive()
       };
+    },
+    async reset() {
+      dom.resetConfirmation.value = "REINICIAR";
+      await handleResetDataSubmit({preventDefault() {}});
+      return dom.resetDataErrors.textContent.trim();
+    },
+    contractVersion(documentSnapshot) {
+      return executeCalendarOperation(documentSnapshot, {operation: "calendar.inspect"}).contractVersion;
     },
     storedName(key = "current") {
       return new Promise((resolve, reject) => {
@@ -282,12 +308,18 @@ def run() -> dict:
                 "before_persist": page.evaluate("window.__D_SAVE_HARNESS__.api.metrics()"),
                 "downloads_before_persist": list(downloads),
             }
+            page.evaluate('window.__D_SAVE_HARNESS__.api.edit("Later edit during backup persistence")')
+            page.wait_for_timeout(350)
+            report["backup"]["later_edit_pending"] = page.evaluate("window.__D_SAVE_HARNESS__.api.metrics()")
             with page.expect_download(timeout=5000) as download_info:
                 page.evaluate("window.__D_SAVE_HARNESS__.writes[0].release()")
+                wait_for_writer(page, 1)
             downloaded_path = download_info.value.path()
             report["backup"]["filename"] = download_info.value.suggested_filename
             report["backup"]["envelope"] = json.loads(Path(downloaded_path).read_text(encoding="utf-8"))
             download_info.value.cancel()
+            page.evaluate("window.__D_SAVE_HARNESS__.writes[1].release()")
+            page.wait_for_function('window.__D_SAVE_HARNESS__.api.metrics().pending === false')
             context.close()
 
             context, page = open_context(browser, html_path, external_requests, page_errors)
@@ -308,9 +340,37 @@ def run() -> dict:
             error_downloads: list[str] = []
             page.on("download", lambda download: error_downloads.append(download.suggested_filename))
             page.locator(".action-menu:has(#backupButton) summary").click()
-            page.locator("#backupButton").click()
+            with page.expect_download(timeout=5000) as error_download_info:
+                page.locator("#backupButton").click()
+            error_backup_path = error_download_info.value.path()
+            error_backup = json.loads(Path(error_backup_path).read_text(encoding="utf-8"))
             page.wait_for_timeout(300)
-            report["error"]["backup_downloads"] = error_downloads
+            report["error"]["rescue_backup"] = {
+                "downloads": list(error_downloads),
+                "filename": error_download_info.value.suggested_filename,
+                "envelope": error_backup,
+                "contractVersion": page.evaluate(
+                    "documentSnapshot => window.__D_SAVE_HARNESS__.api.contractVersion(documentSnapshot)",
+                    error_backup["document"],
+                ),
+                "state": page.evaluate("window.__D_SAVE_HARNESS__.api.metrics()"),
+            }
+            error_download_info.value.cancel()
+
+            reset_download_start = len(error_downloads)
+            with page.expect_download(timeout=5000) as reset_download_info:
+                reset_error = page.evaluate("window.__D_SAVE_HARNESS__.api.reset()")
+            reset_backup_path = reset_download_info.value.path()
+            reset_backup = json.loads(Path(reset_backup_path).read_text(encoding="utf-8"))
+            page.wait_for_timeout(100)
+            report["error"]["reset_after_failure"] = {
+                "error": reset_error,
+                "downloads": error_downloads[reset_download_start:],
+                "envelope": reset_backup,
+                "state": page.evaluate("window.__D_SAVE_HARNESS__.api.metrics()"),
+                "stored": page.evaluate("window.__D_SAVE_HARNESS__.api.storedName()"),
+            }
+            reset_download_info.value.cancel()
             context.close()
             browser.close()
 
@@ -347,8 +407,13 @@ def run() -> dict:
 
     assert report["backup"]["before_persist"]["waiters"][-1]["resolved"] is False
     assert report["backup"]["downloads_before_persist"] == []
+    assert report["backup"]["later_edit_pending"]["waiters"][-1]["resolved"] is False
+    assert report["backup"]["later_edit_pending"]["writes"] == [
+        {"name": "Baseline backup", "done": False, "failed": False}
+    ]
     assert report["backup"]["envelope"]["document"]["calendarMeta"]["name"] == "Baseline backup"
     assert report["backup"]["envelope"]["document"]["settings"]["lastBackupAt"]
+    assert report["backup"]["envelope"]["document"]["audit"][-1]["action"] == "backup_created"
 
     error_state = report["error"]["after_failure"]
     assert error_state["storageAvailable"] is False
@@ -358,7 +423,40 @@ def run() -> dict:
     assert "beforeunload" in error_cancel["dialogs"]
     assert error_cancel["document_ready"] == "true"
     assert error_cancel["writes"] == [{"name": "Error snapshot", "done": False, "failed": True}]
-    assert report["error"]["backup_downloads"] == []
+    rescue = report["error"]["rescue_backup"]
+    assert len(rescue["downloads"]) == 1
+    assert rescue["envelope"]["format"] == "calendario-hvac-siys-backup"
+    assert rescue["envelope"]["formatVersion"] == 1
+    assert rescue["envelope"]["document"]["schemaVersion"] == 4
+    assert rescue["contractVersion"] == 1
+    assert rescue["envelope"]["document"]["calendarMeta"]["name"] == "Error snapshot"
+    assert rescue["envelope"]["document"]["settings"]["lastBackupAt"]
+    assert rescue["envelope"]["exportedAt"] == rescue["envelope"]["document"]["settings"]["lastBackupAt"]
+    assert rescue["envelope"]["document"]["audit"][-1]["action"] == "backup_created"
+    rescue_state = rescue["state"]
+    assert rescue_state["storageAvailable"] is False
+    assert rescue_state["pending"] is True
+    assert rescue_state["exitGuard"] is True
+    assert rescue_state["indicator"] == "Sin guardado local"
+    assert rescue_state["writes"] == [{"name": "Error snapshot", "done": False, "failed": True}]
+    assert all(not waiter["resolved"] for waiter in rescue_state["waiters"])
+    assert rescue_state["waiters"][-1]["rejected"] == "local quota exceeded"
+    assert rescue_state["requestedGeneration"] == error_state["requestedGeneration"]
+    assert rescue_state["persistedGeneration"] == error_state["persistedGeneration"]
+
+    reset = report["error"]["reset_after_failure"]
+    assert "No se pudo reiniciar" in reset["error"]
+    assert len(reset["downloads"]) == 1
+    assert reset["envelope"]["document"]["calendarMeta"]["name"] == "Error snapshot"
+    assert reset["envelope"]["document"]["settings"]["lastBackupAt"]
+    assert reset["state"]["current"] == "Error snapshot"
+    assert reset["state"]["clearCalls"] == error_state["clearCalls"]
+    assert reset["stored"] == "Baseline error"
+    assert reset["state"]["writes"] == [{"name": "Error snapshot", "done": False, "failed": True}]
+    assert reset["state"]["storageAvailable"] is False
+    assert reset["state"]["pending"] is True
+    assert reset["state"]["exitGuard"] is True
+    assert reset["state"]["indicator"] == "Sin guardado local"
 
     return report
 

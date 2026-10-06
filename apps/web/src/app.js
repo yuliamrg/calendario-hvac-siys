@@ -3588,10 +3588,17 @@ async function createBackup() {
   appDocument.settings.lastBackupAt = new Date().toISOString();
   appendAudit("backup_created", "Respaldo JSON descargado");
   renderBackupReminder();
-  await scheduleSave({ immediate: true });
-  const fileIdentity = normalizeKey(appDocument.calendarMeta.coordinator || appDocument.calendarMeta.name) || "cronograma";
-  const envelope = createBackupEnvelope(appDocument, {
-    exportedAt: appDocument.settings.lastBackupAt,
+  const backupSnapshot = clone(appDocument);
+  let persistenceFailed = false;
+  try {
+    await scheduleSave({ immediate: true });
+  } catch {
+    // The manual backup remains a recovery path; the save queue keeps its failure state.
+    persistenceFailed = true;
+  }
+  const fileIdentity = normalizeKey(backupSnapshot.calendarMeta.coordinator || backupSnapshot.calendarMeta.name) || "cronograma";
+  const envelope = createBackupEnvelope(backupSnapshot, {
+    exportedAt: backupSnapshot.settings.lastBackupAt,
     origin: `${runtimeMode()} · ${location.origin}`,
     channel: RUNTIME_CHANNEL,
     exporterVersion: WEB_VERSION
@@ -3601,7 +3608,12 @@ async function createBackup() {
     "application/json;charset=utf-8",
     `${timestampForFile()}_respaldo-cronograma_${fileIdentity}.json`
   );
-  showToast("Copia del cronograma descargada.");
+  showToast(
+    persistenceFailed
+      ? "No se pudo confirmar el guardado; se descargó una copia de recuperación."
+      : "Copia del cronograma descargada.",
+    persistenceFailed ? { type: "error", duration: 9000 } : {}
+  );
 }
 
 function openResetDataDialog() {
