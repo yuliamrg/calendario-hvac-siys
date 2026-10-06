@@ -630,6 +630,25 @@ body.read-only .activity-card {
   font-weight: 700;
 }
 
+.filter-option-search {
+  width: 100%;
+  min-height: 32px;
+  margin: 0 0 8px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.filter-option-search::placeholder {
+  color: var(--muted);
+}
+
+.filter-empty-note {
+  margin-top: 6px;
+}
+
 .filters select,
 .search-box,
 .catalog-search input {

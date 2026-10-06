@@ -4,6 +4,8 @@ Platform Architecture V2 está completa: identidades, estructura física y
 releases independientes. SIYS Sync Web `0.18.1` está publicado como estable,
 promovido desde la beta validada `0.18.1-beta.1`, un parche de rendimiento que
 reutiliza el índice de cobertura de responsables sin cambiar el orden visible.
+La línea de `main` avanza a la beta `0.19.0-beta.1`, que agrega búsqueda temporal
+de opciones en los filtros de Cliente, Sede y Responsable.
 Calendary CLI permanece independiente en `0.18.0-beta.1`.
 
 | Producto | Autoridad | Tag | Distribución |
@@ -19,8 +21,8 @@ Supabase permanece como backend compartido, sin cambios.
 Los tags históricos `v...` son inmutables. `web-v0.17.0`,
 `web-v0.18.0-beta.2` y `web-v0.18.0` conservan sus commits históricos; el tag
 certificado `web-v0.18.1` identifica la release Web estable actual.
-`stable-version.txt` apunta a `web-v0.18.1`; la raíz estable y `/beta/` sirven
-Web `0.18.1` desde `main`. No se crea una GitHub
+`stable-version.txt` apunta a `web-v0.18.1`; la raíz estable sirve Web `0.18.1` y
+`/beta/` publica la beta Web `0.19.0-beta.1` desde `main`. No se crea una GitHub
 Release para Web.
 
 Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su
@@ -149,7 +151,8 @@ personalizados y no importa cédulas, NIT, correos ni contactos.
 - **Compartir > Descargar imagen del día** pide una fecha y genera sólo las
   actividades visibles de ese día, respetando la búsqueda y los filtros activos.
 - **Filtros** combina varias ciudades, clientes, sedes, responsables, servicios
-  y estados; **PNG** descarga exactamente esa vista.
+  y estados; Cliente, Sede y Responsable cuentan con un buscador temporal de
+  opciones dentro del diálogo. **PNG** descarga exactamente esa vista.
 - **Plantilla** e **Importar programación** permiten una carga masiva Excel con
   validación previa, columna opcional `Bandeja`, detección de duplicados y una
   sola operación deshacible.
