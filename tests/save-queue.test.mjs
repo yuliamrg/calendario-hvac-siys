@@ -100,6 +100,11 @@ function createHarness({ onFailure, markOfflineOnFailure = true } = {}) {
 
 function dispatchBeforeUnload(target) {
   const event = new Event("beforeunload", { cancelable: true });
+  Object.defineProperty(event, "returnValue", {
+    configurable: true,
+    writable: true,
+    value: false
+  });
   target.dispatchEvent(event);
   return event;
 }
@@ -269,6 +274,7 @@ test("beforeunload protection is installed only while a save is unconfirmed", ()
   guard.update(true);
   event = dispatchBeforeUnload(target);
   assert.equal(event.defaultPrevented, true);
+  assert.equal(event.returnValue, true);
   assert.equal(guard.isActive(), true);
 
   guard.update(false);
