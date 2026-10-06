@@ -2,11 +2,11 @@
 
 `WEB_VERSION` (`apps/web/src/ui/web-version.js`) y `CLI_VERSION`
 (`apps/cli/src/version.js`) son independientes y actualmente valen
-`0.18.1` (estable publicada) y `0.18.0-beta.1`. El repositorio usa npm
+`0.19.0` (estable publicada) y `0.18.0-beta.1`. El repositorio usa npm
 workspaces privados `apps/web`, `apps/cli` y `packages/platform`, con Platform
 Architecture V2 completa. La raíz es orquestación privada sin versión. Cada
 producto se identifica con sus tags `web-v...` o `cli-v...`; la raíz estable
-usa `web-v0.18.1`.
+usa `web-v0.19.0`.
 
 `document.appVersion` es metadato legado opaco: no determina compatibilidad,
 backend, productor o último escritor. Se conserva saneado; ausente/inválido
@@ -90,16 +90,16 @@ calendario lógico distinto. El archivo sólo debe volver al
 mismo canal y perfil del que salió, salvo que se haya autorizado un traslado
 explícito.
 
-El puntero estable `stable-version.txt` contiene `web-v0.18.1`; Web estable es
-`0.18.1` y CLI sigue en
+El puntero estable `stable-version.txt` contiene `web-v0.19.0`; Web estable es
+`0.19.0` y CLI sigue en
 `0.18.0-beta.1`. `schemaVersion`
 vigente es 4 y `formatVersion` de la envoltura de respaldo es 1. Estos datos
 locales no prueban qué versión o contenido están sirviendo las URLs públicas.
 
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
-| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `stable-version.txt` → `web-v0.18.1` | Supabase/Auth si el despliegue recibe configuración |
-| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → `0.18.1`; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
+| Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `stable-version.txt` → `web-v0.19.0` | Supabase/Auth si el despliegue recibe configuración |
+| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → `0.19.0`; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
 | Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | IndexedDB y sin autenticación |
 
 Las URLs de la tabla son referencias configuradas, no evidencia de un

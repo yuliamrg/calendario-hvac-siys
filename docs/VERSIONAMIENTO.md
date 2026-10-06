@@ -16,15 +16,15 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 ## 1. Fuentes de versión y artefactos
 
 - Web: `apps/web/package.json.version` = `WEB_VERSION` en
-  `apps/web/src/ui/web-version.js`, hoy `0.19.0-beta.2` (beta en preparación
-  sobre main; estable publicada `0.18.1`).
+  `apps/web/src/ui/web-version.js`, hoy `0.19.0` (estable publicada y servida
+  también desde `/beta/` hasta la siguiente capacidad beta).
 - CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
   `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
 - Platform: `packages/platform/package.json.version = 0.0.0`, privado e interno,
   sin tags ni releases propios.
 - Raíz: `package.json` privado, sin versión; sólo orquestación. `package-lock.json`
   refleja versiones de workspaces, no contiene versión raíz.
-- `stable-version.txt = web-v0.18.1`: puntero Web estable, no versión de main.
+- `stable-version.txt = web-v0.19.0`: puntero Web estable, no versión de main.
 - dist: salida generada del build, nunca autoridad ni edición manual.
 
 `npm run version:check` valida cada producto independientemente y el formato
@@ -240,22 +240,20 @@ CI completa permanece sin optimización por paths porque Platform afecta ambos.
 
 Workstream 3 completó Architecture V2 e integró versionado, tags y releases
 independientes sin cambiar el comportamiento de producto. Estado actual: Web
-estable `0.18.1` (promovida desde la línea validada `0.18.1-beta.1`, un parche
-de rendimiento que reutiliza el índice de cobertura de responsables sin alterar
-el orden visible). La línea de main avanza a la beta `0.19.0-beta.2`, que corrige
-la confirmación de persistencia por generación, protege la salida interactiva
-mientras haya cambios sin confirmar y espera la persistencia antes de descargar
-respaldos. La beta `0.19.0-beta.1` agregó búsqueda temporal en los filtros. CLI
-`0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1, backup
-formatVersion 1. No se cambia Supabase.
+estable `0.19.0`, promovida desde la beta certificada `0.19.0-beta.2`. La
+versión incluye confirmación por generación, protección de salida interactiva y
+respaldo manual recuperable ante fallos de persistencia; el reset no limpia los
+datos cuando `flushSave()` falla. La beta `0.19.0-beta.1` agregó búsqueda
+temporal en los filtros. CLI `0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION
+4, CONTRACT_VERSION 1 y backup formatVersion 1. No se cambia Supabase.
 
 `web-v0.17.0`, `web-v0.18.0-beta.2` y `web-v0.18.0` conservan sus commits
-históricos. El tag certificado `web-v0.18.1` identifica la release Web estable
+históricos. El tag certificado `web-v0.19.0` identifica la release Web estable
 actual, y `stable-version.txt` apunta a ese tag. Todos se resuelven con
 `git rev-parse <tag>^{commit}`. Web se distribuye por GitHub Pages, sin GitHub
 Release; el cambio del puntero se integra mediante un PR normal.
 
 La release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva intacta.
-Los ejemplos anteriores y CHANGELOG conservan historia; el apartado actual del
-CHANGELOG registra la beta Web `0.19.0-beta.2` (durabilidad de guardado) y
-mantiene la entrada `0.19.0-beta.1` como versión anterior.
+Los ejemplos anteriores y CHANGELOG conservan historia; CHANGELOG registra la
+promoción estable `0.19.0`, su beta certificada `0.19.0-beta.2` y mantiene la
+entrada `0.19.0-beta.1` como versión anterior.
