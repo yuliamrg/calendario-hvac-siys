@@ -1,13 +1,12 @@
 # SIYS Sync
 
 Platform Architecture V2 está completa: identidades, estructura física y
-releases independientes. SIYS Sync Web `0.19.0` está publicado como estable,
-promovido desde la beta certificada `0.19.0-beta.2`. Incluye confirmación por
-generación, protección de salida interactiva y un respaldo manual recuperable
-cuando falla la persistencia; el reset destructivo permanece bloqueado si
+releases independientes. SIYS Sync Web `0.19.1` promueve la beta certificada
+`0.19.1-beta.1`, con correcciones compatibles para acceso a Configuración/Ayuda
+en móvil horizontal y rendimiento de catálogos de filtros grandes. Conserva la
+confirmación por generación, protección de salida interactiva y respaldo manual
+recuperable de `0.19.0`; el reset destructivo permanece bloqueado si
 `flushSave()` falla.
-La beta actual en `/beta/` es `0.19.1-beta.1`, con ajustes compatibles para
-acceso a diálogos en móvil horizontal y apertura de catálogos de filtros grandes.
 La beta anterior `0.19.0-beta.1` agregó búsqueda temporal en los filtros.
 Calendary CLI permanece independiente en `0.18.0-beta.1`.
 
@@ -21,10 +20,10 @@ La raíz privada no tiene versión: orquesta npm workspaces, scripts, bin y
 Node >=20. `npm run cli` y los comandos habituales siguen funcionando.
 Supabase permanece como backend compartido, sin cambios.
 
-Los tags históricos son inmutables. El tag certificado `web-v0.19.0` identifica
-la release Web estable y `stable-version.txt` lo señala. La raíz estable sirve
-Web `0.19.0`; `/beta/` sirve main `0.19.1-beta.1` mientras se certifica la
-corrección. No se crea una GitHub Release para Web.
+Los tags históricos son inmutables. La promoción usa el tag Web `web-v0.19.1`;
+hasta integrar el PR separado de `stable-version.txt`, la raíz
+estable conserva `web-v0.19.0` y `/beta/` sirve main `0.19.1`. No se crea una
+GitHub Release para Web.
 
 Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su
 [GitHub Release](https://github.com/yuliamrg/calendario-hvac-siys/releases),

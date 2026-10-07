@@ -16,16 +16,17 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 ## 1. Fuentes de versión y artefactos
 
 - Web: `apps/web/package.json.version` = `WEB_VERSION` en
-  `apps/web/src/ui/web-version.js`, hoy `0.19.1-beta.1` en `main`; la estable
-  publicada sigue en `0.19.0` y `stable-version.txt` conserva su tag mientras
-  se certifica la corrección.
+  `apps/web/src/ui/web-version.js`, hoy `0.19.1` en `main`; el tag de promoción
+  `web-v0.19.1` está preparado y `stable-version.txt` conserva `web-v0.19.0`
+  hasta integrar el PR separado del puntero.
 - CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
   `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
 - Platform: `packages/platform/package.json.version = 0.0.0`, privado e interno,
   sin tags ni releases propios.
 - Raíz: `package.json` privado, sin versión; sólo orquestación. `package-lock.json`
   refleja versiones de workspaces, no contiene versión raíz.
-- `stable-version.txt = web-v0.19.0`: puntero Web estable, no versión de main.
+- `stable-version.txt = web-v0.19.0` durante la promoción; el PR del puntero lo
+  actualizará a `web-v0.19.1`.
 - dist: salida generada del build, nunca autoridad ni edición manual.
 
 `npm run version:check` valida cada producto independientemente y el formato
@@ -240,13 +241,13 @@ CI completa permanece sin optimización por paths porque Platform afecta ambos.
 ## 9. Corte actual y migración
 
 Workstream 3 completó Architecture V2 e integró versionado, tags y releases
-independientes sin cambiar el comportamiento de producto. Estado de canales:
-Web estable `0.19.0`, promovida desde la beta certificada `0.19.0-beta.2`, y
-beta Web `0.19.1-beta.1` en `main` para certificar una corrección compatible. La
-estable `0.19.0` incluye confirmación por generación, protección de salida
-interactiva y respaldo manual recuperable ante fallos de persistencia; el reset
-no limpia los datos cuando `flushSave()` falla. La beta `0.19.1-beta.1` corrige
-el alcance del menú móvil y el costo de conteo de opciones de filtro. La beta
+independientes sin cambiar el comportamiento de producto. Web `0.19.1` está
+integrada en `main` y promovida desde la beta certificada `0.19.1-beta.1`; la
+raíz continúa en `0.19.0` hasta que el PR separado mueva `stable-version.txt`.
+La versión `0.19.1` conserva confirmación por generación, protección de salida
+interactiva y respaldo manual recuperable ante fallos de persistencia; corrige
+el alcance del menú móvil y el costo de conteo de opciones de filtro. El reset
+no limpia los datos cuando `flushSave()` falla. La beta
 `0.19.0-beta.1` agregó búsqueda temporal en los filtros. CLI `0.18.0-beta.1`,
 Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1 y backup formatVersion
 1. No se cambia Supabase.

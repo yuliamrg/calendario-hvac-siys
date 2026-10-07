@@ -276,9 +276,10 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages sirve Web estable `0.19.0` y `/beta/` sirve main
-`0.19.1-beta.1` mientras se certifica esta corrección. Ambos usan Supabase
-Auth y la base cloud compartida, con calendarios lógicos independientes.
+La raíz de GitHub Pages conserva Web `0.19.0` hasta integrar el PR del puntero;
+`/beta/` sirve main `0.19.1`, que corresponde a la promoción estable en curso.
+Ambos usan Supabase Auth y la base cloud compartida, con calendarios lógicos
+independientes.
 La versión visible y el `channel` del respaldo deben comprobarse antes de
 trasladar datos. Los datos
 locales no se copian a un calendario cloud que ya tenga datos: deben exportarse
