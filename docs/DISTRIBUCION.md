@@ -157,11 +157,38 @@ versión beta.
 
 ## Smoke reproducible
 
-El smoke está en `tests/pages_smoke.py` y recibe `--url`, `--beta-url`,
-`--local-html` y una carpeta opcional `--artifacts`. Para la promoción también
-se deben cubrir Chrome y Edge, los seis viewports responsive y las
-comprobaciones de accesibilidad indicadas en `CRITERIOS_DE_DISENO.md`. No se
-ejecutó un smoke remoto en esta actualización documental.
+El smoke público de `tests/pages_smoke.py` es de sólo lectura. Comprueba la
+carga HTTP, versión y canal, configuración cloud y el endpoint GET de salud de
+Auth. Usa un contexto nuevo sin sesión, no abre ni descarga calendarios y
+reporta `PUBLIC_APP_HEALTHY` con readiness `AUTHENTICATION_REQUIRED` cuando la
+interfaz espera inicio de sesión. Sólo permite el origen de Pages y el origen
+Supabase anunciado por la configuración; bloquea destinos inesperados y todo
+método HTTP distinto de GET, HEAD u OPTIONS.
+
+```powershell
+$playwrightPython = if ($env:PLAYWRIGHT_PYTHON) { $env:PLAYWRIGHT_PYTHON } else { Join-Path $env:USERPROFILE 'conda-envs\skill-playwright-cli-py312\python.exe' }
+& $playwrightPython tests/pages_smoke.py `
+  --url 'https://yuliamrg.github.io/calendario-hvac-siys/' `
+  --beta-url 'https://yuliamrg.github.io/calendario-hvac-siys/beta/' `
+  --stable-version 0.19.0 --beta-version 0.19.0
+```
+
+Las pruebas que crean o editan actividades se ejecutan únicamente sobre una
+copia temporal del HTML local con Supabase desactivado. La guarda compartida
+de navegador bloquea solicitudes HTTP(S) inesperadas y cualquier mutación; la
+suite Node también bloquea `fetch` externo. Las regresiones no deben usar IDs
+de calendarios operativos ni leer o escribir calendarios compartidos.
+
+```powershell
+& $playwrightPython tests/filter_option_search_browser.py --html dist/index.html
+& $playwrightPython tests/responsive_smoke.py --html dist/index.html
+& $playwrightPython tests/quarantine_browser_smoke.py --html dist/index.html
+& $playwrightPython tests/browser_save_durability.py
+```
+
+`tests/browser_smoke.py` requiere además `--base` con un libro sintético local.
+Para una promoción también se cubren Chrome y Edge, los viewports responsive y
+las comprobaciones de accesibilidad de `CRITERIOS_DE_DISENO.md`.
 
 ## Workflow CLI independiente
 

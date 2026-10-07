@@ -11,6 +11,12 @@ from pathlib import Path
 from openpyxl import load_workbook
 from playwright.sync_api import Page, expect, sync_playwright
 
+from browser_safety import (
+    assert_browser_network_guard_clean,
+    install_browser_network_guard,
+    write_offline_html,
+)
+
 
 def file_hash(path: Path) -> str:
     digest = hashlib.sha256()
@@ -89,7 +95,7 @@ def launch_and_check(
     page = context.new_page()
     page_errors: list[str] = []
     console_errors: list[str] = []
-    network_requests: list[str] = []
+    blocked_requests = install_browser_network_guard(context)
     page.on("pageerror", lambda error: page_errors.append(str(error)))
     page.on(
         "console",
@@ -97,13 +103,6 @@ def launch_and_check(
         if message.type == "error"
         else None,
     )
-    page.on(
-        "request",
-        lambda request: network_requests.append(request.url)
-        if request.url.startswith(("http://", "https://"))
-        else None,
-    )
-
     page.goto(html_path.as_uri(), wait_until="load")
     page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
     expect(page).to_have_title("SIYS Sync")
@@ -158,7 +157,7 @@ def launch_and_check(
         page.screenshot(path=str(artifact_dir / f"{channel}-smoke.png"), full_page=True)
         assert not page_errors, page_errors
         assert not console_errors, console_errors
-        assert not network_requests, network_requests
+        assert_browser_network_guard_clean(blocked_requests)
         context.close()
         browser.close()
         return {"channel": channel, "status": "ok", "mode": "smoke"}
@@ -253,6 +252,7 @@ def launch_and_check(
     page.keyboard.press("Escape")
 
     system_context = browser.new_context(locale="es-CO", color_scheme="dark")
+    system_blocked_requests = install_browser_network_guard(system_context)
     system_context.add_init_script(
         """
         localStorage.setItem(
@@ -265,6 +265,7 @@ def launch_and_check(
     system_page.goto(html_path.as_uri(), wait_until="load")
     system_page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
     expect(system_page.locator("html")).to_have_attribute("data-theme", "dark")
+    assert_browser_network_guard_clean(system_blocked_requests)
     system_context.close()
 
     before_hash = file_hash(base_path)
@@ -689,7 +690,7 @@ def launch_and_check(
     page.screenshot(path=str(artifact_dir / f"{channel}-full.png"), full_page=True)
     assert not page_errors, page_errors
     assert not console_errors, console_errors
-    assert not network_requests, network_requests
+    assert_browser_network_guard_clean(blocked_requests)
 
     context.close()
     browser.close()
@@ -704,7 +705,7 @@ def launch_and_check(
         },
         "activities": len(backup_document["activities"]),
         "baseSha256": before_hash,
-        "networkRequests": 0,
+        "networkRequestsBlocked": len(blocked_requests) + len(system_blocked_requests),
     }
 
 
@@ -715,7 +716,7 @@ def main() -> None:
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
 
-    html_path = args.html.resolve()
+    source_html_path = args.html.resolve()
     base_path = args.base.resolve()
     artifact_dir = (
         args.artifacts.resolve()
@@ -724,25 +725,29 @@ def main() -> None:
     )
     artifact_dir.mkdir(parents=True, exist_ok=True)
 
-    with sync_playwright() as playwright:
-        results = [
-            launch_and_check(
-                playwright,
-                "chrome",
-                html_path,
-                base_path,
-                artifact_dir,
-                run_full=True,
-            ),
-            launch_and_check(
-                playwright,
-                "msedge",
-                html_path,
-                base_path,
-                artifact_dir,
-                run_full=False,
-            ),
-        ]
+    with tempfile.TemporaryDirectory(prefix="calendario-hvac-offline-") as isolated_dir:
+        html_path = write_offline_html(
+            source_html_path, Path(isolated_dir) / "index.html"
+        )
+        with sync_playwright() as playwright:
+            results = [
+                launch_and_check(
+                    playwright,
+                    "chrome",
+                    html_path,
+                    base_path,
+                    artifact_dir,
+                    run_full=True,
+                ),
+                launch_and_check(
+                    playwright,
+                    "msedge",
+                    html_path,
+                    base_path,
+                    artifact_dir,
+                    run_full=False,
+                ),
+            ]
 
     print(
         json.dumps(
