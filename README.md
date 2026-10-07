@@ -20,9 +20,9 @@ La raíz privada no tiene versión: orquesta npm workspaces, scripts, bin y
 Node >=20. `npm run cli` y los comandos habituales siguen funcionando.
 Supabase permanece como backend compartido, sin cambios.
 
-Los tags históricos son inmutables. La promoción usa el tag Web `web-v0.19.1`;
-hasta integrar el PR separado de `stable-version.txt`, la raíz
-estable conserva `web-v0.19.0` y `/beta/` sirve main `0.19.1`. No se crea una
+Los tags históricos son inmutables. El tag certificado `web-v0.19.1` identifica
+la release Web estable y `stable-version.txt` lo señala. La raíz estable y
+`/beta/` sirven `0.19.1` hasta que empiece otra línea beta. No se crea una
 GitHub Release para Web.
 
 Para instalar CLI, descargue `calendary-cli-0.18.0-beta.1.zip` de su
