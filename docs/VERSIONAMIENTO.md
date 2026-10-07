@@ -16,8 +16,9 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 ## 1. Fuentes de versión y artefactos
 
 - Web: `apps/web/package.json.version` = `WEB_VERSION` en
-  `apps/web/src/ui/web-version.js`, hoy `0.19.0` (estable publicada y servida
-  también desde `/beta/` hasta la siguiente capacidad beta).
+  `apps/web/src/ui/web-version.js`, hoy `0.19.1-beta.1` en `main`; la estable
+  publicada sigue en `0.19.0` y `stable-version.txt` conserva su tag mientras
+  se certifica la corrección.
 - CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
   `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
 - Platform: `packages/platform/package.json.version = 0.0.0`, privado e interno,
@@ -239,13 +240,16 @@ CI completa permanece sin optimización por paths porque Platform afecta ambos.
 ## 9. Corte actual y migración
 
 Workstream 3 completó Architecture V2 e integró versionado, tags y releases
-independientes sin cambiar el comportamiento de producto. Estado actual: Web
-estable `0.19.0`, promovida desde la beta certificada `0.19.0-beta.2`. La
-versión incluye confirmación por generación, protección de salida interactiva y
-respaldo manual recuperable ante fallos de persistencia; el reset no limpia los
-datos cuando `flushSave()` falla. La beta `0.19.0-beta.1` agregó búsqueda
-temporal en los filtros. CLI `0.18.0-beta.1`, Platform `0.0.0`, SCHEMA_VERSION
-4, CONTRACT_VERSION 1 y backup formatVersion 1. No se cambia Supabase.
+independientes sin cambiar el comportamiento de producto. Estado de canales:
+Web estable `0.19.0`, promovida desde la beta certificada `0.19.0-beta.2`, y
+beta Web `0.19.1-beta.1` en `main` para certificar una corrección compatible. La
+estable `0.19.0` incluye confirmación por generación, protección de salida
+interactiva y respaldo manual recuperable ante fallos de persistencia; el reset
+no limpia los datos cuando `flushSave()` falla. La beta `0.19.1-beta.1` corrige
+el alcance del menú móvil y el costo de conteo de opciones de filtro. La beta
+`0.19.0-beta.1` agregó búsqueda temporal en los filtros. CLI `0.18.0-beta.1`,
+Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1 y backup formatVersion
+1. No se cambia Supabase.
 
 `web-v0.17.0`, `web-v0.18.0-beta.2` y `web-v0.18.0` conservan sus commits
 históricos. El tag certificado `web-v0.19.0` identifica la release Web estable

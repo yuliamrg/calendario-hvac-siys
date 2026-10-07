@@ -84,10 +84,11 @@ clientes; Web stable y beta conservan calendarios lógicos separados.
 
 ## Identidades independientes
 
-- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.19.0"` (estable y en
-  main hasta que exista otra capacidad beta).
+- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.19.1-beta.1"` en
+  main; la estable publicada sigue en `0.19.0` mientras se certifica esta
+  corrección.
 - CLI: `apps/cli/src/version.js > CLI_VERSION = "0.18.0-beta.1"`.
-- Manifiestos: `apps/web/package.json` = `0.19.0` y
+- Manifiestos: `apps/web/package.json` = `0.19.1-beta.1` y
   `apps/cli/package.json` = `0.18.0-beta.1`, ambos `private: true`.
 - La raíz privada no posee versión; `package-lock.json` sólo refleja versiones
   de workspaces, sin identidad de producto raíz.
@@ -125,7 +126,7 @@ Un envelope Web actual puede contener un documento con `appVersion` antiguo.
    independientes. No se introduce otro workstream ni framework de releases.
 
 Web usa `web-v<version>` y GitHub Pages. Beta se construye desde `main`
-(Web `0.19.0`); stable desde `stable-version.txt = web-v0.19.0`. Los
+(Web `0.19.1-beta.1`); stable desde `stable-version.txt = web-v0.19.0`. Los
 tags históricos `web-v0.17.0`, `web-v0.18.0-beta.2` y `web-v0.18.0` conservan
 exactamente los commits de `v0.17.0`, `v0.18.0-beta.2` y `v0.18.0`; los tags
 históricos `v...` no se reescriben. El tag certificado `web-v0.19.0` identifica

@@ -66,7 +66,28 @@ def wait_activity_count(page, count: int) -> None:
     )
 
 
-def click_menu_action(page, button_id: str) -> None:
+def menu_action_metrics(page, button_id: str) -> dict:
+    return page.evaluate(
+        """buttonId => {
+          const button = document.getElementById(buttonId);
+          const panel = button.closest('details.action-menu').querySelector('.action-menu-panel');
+          const buttonRect = button.getBoundingClientRect();
+          const panelRect = panel.getBoundingClientRect();
+          return {
+            viewport: { width: innerWidth, height: innerHeight },
+            panel: { x: panelRect.x, y: panelRect.y, right: panelRect.right, bottom: panelRect.bottom },
+            button: { x: buttonRect.x, y: buttonRect.y, right: buttonRect.right, bottom: buttonRect.bottom },
+            scrollHeight: panel.scrollHeight,
+            clientHeight: panel.clientHeight,
+            scrollTop: panel.scrollTop,
+            overflowY: getComputedStyle(panel).overflowY
+          };
+        }""",
+        button_id,
+    )
+
+
+def click_menu_action(page, button_id: str, *, verify_reachability: bool = False) -> None:
     if page.locator("#mobileMoreButton").is_visible() and not page.locator("body").evaluate(
         "element => element.classList.contains('mobile-more-open')"
     ):
@@ -74,7 +95,185 @@ def click_menu_action(page, button_id: str) -> None:
     menu = page.locator(f".action-menu:has(#{button_id})")
     if menu.get_attribute("open") is None:
         menu.locator("summary").click()
-    page.locator(f"#{button_id}").click()
+    button = page.locator(f"#{button_id}")
+    if verify_reachability:
+        before = menu_action_metrics(page, button_id)
+        panel = before["panel"]
+        viewport = before["viewport"]
+        assert panel["x"] >= 0 and panel["y"] >= 0, before
+        assert panel["right"] <= viewport["width"] + 1, before
+        assert panel["bottom"] <= viewport["height"] + 1, before
+        assert before["overflowY"] in {"auto", "scroll"}, before
+        initially_reachable = (
+            before["button"]["x"] >= panel["x"] - 1
+            and before["button"]["right"] <= panel["right"] + 1
+            and before["button"]["y"] >= panel["y"] - 1
+            and before["button"]["bottom"] <= panel["bottom"] + 1
+        )
+        if before["scrollHeight"] > before["clientHeight"] and not initially_reachable:
+            button.scroll_into_view_if_needed()
+            after = menu_action_metrics(page, button_id)
+            assert after["scrollTop"] > before["scrollTop"], {"before": before, "after": after}
+        else:
+            after = before
+        panel = after["panel"]
+        action = after["button"]
+        assert action["x"] >= panel["x"] - 1, after
+        assert action["right"] <= panel["right"] + 1, after
+        assert action["y"] >= panel["y"] - 1, after
+        assert action["bottom"] <= panel["bottom"] + 1, after
+        if button_id == "helpButton" and viewport["height"] <= 400:
+            assert after["scrollHeight"] > after["clientHeight"], after
+            assert after["scrollTop"] > 0, after
+    button.click()
+
+
+def dialog_metrics(page, dialog_id: str) -> dict:
+    return page.evaluate(
+        """dialogId => {
+          const dialog = document.getElementById(dialogId);
+          const rect = dialog.getBoundingClientRect();
+          const elements = [dialog, ...dialog.querySelectorAll('*')];
+          const scrollables = elements
+            .filter(element => {
+              const overflowY = getComputedStyle(element).overflowY;
+              return ['auto', 'scroll'].includes(overflowY)
+                && element.scrollHeight > element.clientHeight + 1;
+            })
+            .map(element => ({
+              id: element.id,
+              tag: element.tagName,
+              clientHeight: element.clientHeight,
+              scrollHeight: element.scrollHeight,
+              scrollTop: element.scrollTop
+            }));
+          return {
+            open: dialog.open,
+            rect: { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom },
+            viewport: { width: innerWidth, height: innerHeight },
+            overflowing: scrollables.length > 0,
+            scrollables
+          };
+        }""",
+        dialog_id,
+    )
+
+
+def assert_dialog_fits_viewport(metrics: dict) -> None:
+    assert metrics["open"], metrics
+    rect = metrics["rect"]
+    viewport = metrics["viewport"]
+    assert rect["x"] >= 0 and rect["y"] >= 0, metrics
+    assert rect["right"] <= viewport["width"] + 1, metrics
+    assert rect["bottom"] <= viewport["height"] + 1, metrics
+    if metrics["overflowing"]:
+        assert metrics["scrollables"], metrics
+
+
+def assert_control_inside_dialog(page, dialog_id: str, selector: str) -> None:
+    result = page.evaluate(
+        """({ dialogId, selector }) => {
+          const dialog = document.getElementById(dialogId);
+          const control = dialog.querySelector(selector);
+          const rect = control.getBoundingClientRect();
+          const dialogRect = dialog.getBoundingClientRect();
+          return {
+            visible: rect.width > 0 && rect.height > 0,
+            rect: { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom },
+            dialog: { x: dialogRect.x, y: dialogRect.y, right: dialogRect.right, bottom: dialogRect.bottom },
+            viewport: { width: innerWidth, height: innerHeight }
+          };
+        }""",
+        {"dialogId": dialog_id, "selector": selector},
+    )
+    assert result["visible"], result
+    assert result["rect"]["x"] >= result["dialog"]["x"] - 1, result
+    assert result["rect"]["right"] <= result["dialog"]["right"] + 1, result
+    assert result["rect"]["y"] >= result["dialog"]["y"] - 1, result
+    assert result["rect"]["y"] >= 0, result
+    assert result["rect"]["bottom"] <= result["dialog"]["bottom"] + 1, result
+    assert result["rect"]["bottom"] <= result["viewport"]["height"] + 1, result
+
+
+def open_dialog_from_menu(page, button_id: str, dialog_id: str) -> None:
+    click_menu_action(page, button_id, verify_reachability=True)
+    dialog = page.locator(f"#{dialog_id}")
+    expect(dialog).to_be_visible()
+    assert_dialog_fits_viewport(dialog_metrics(page, dialog_id))
+    assert_no_document_overflow(page)
+
+
+def run_dialog_height_flow(browser, uri: str, width: int, height: int) -> dict:
+    context = browser.new_context(
+        viewport={"width": width, "height": height},
+        locale="es-CO",
+        has_touch=width < 900,
+    )
+    blocked_requests = install_browser_network_guard(context)
+    page = context.new_page()
+    page_errors: list[str] = []
+    page.on("pageerror", lambda error: page_errors.append(str(error)))
+    page.goto(uri, wait_until="load")
+    wait_ready(page)
+
+    open_dialog_from_menu(page, "calendarSettingsButton", "calendarSettingsDialog")
+    settings_close = page.locator(
+        '#calendarSettingsDialog button[aria-label="Cerrar"]'
+    )
+    expect(settings_close).to_be_visible()
+    assert_control_inside_dialog(page, "calendarSettingsDialog", 'button[aria-label="Cerrar"]')
+    settings_close.focus()
+    assert page.evaluate("element => document.activeElement === element", settings_close.element_handle())
+    settings_close.press("Enter")
+    expect(page.locator("#calendarSettingsDialog")).not_to_be_visible()
+
+    open_dialog_from_menu(page, "calendarSettingsButton", "calendarSettingsDialog")
+    page.locator("#calendarName").fill(f"Prueba responsive {width}x{height}")
+    save_button = page.locator('#calendarSettingsForm button[type="submit"]')
+    save_button.scroll_into_view_if_needed()
+    expect(save_button).to_be_visible()
+    assert_control_inside_dialog(page, "calendarSettingsDialog", 'button[type="submit"]')
+    settings_after_scroll = dialog_metrics(page, "calendarSettingsDialog")
+    if settings_after_scroll["overflowing"]:
+        assert any(item["scrollTop"] > 0 for item in settings_after_scroll["scrollables"]), settings_after_scroll
+    save_button.click()
+    expect(page.locator("#calendarSettingsDialog")).not_to_be_visible()
+    expect(page.locator("#calendarIdentity")).to_contain_text(
+        f"Prueba responsive {width}x{height}"
+    )
+    assert_no_document_overflow(page)
+
+    open_dialog_from_menu(page, "helpButton", "helpDialog")
+    help_close = page.locator('#helpDialog button[aria-label="Cerrar"]')
+    expect(help_close).to_be_visible()
+    assert_control_inside_dialog(page, "helpDialog", 'button[aria-label="Cerrar"]')
+    help_close.focus()
+    assert page.evaluate("element => document.activeElement === element", help_close.element_handle())
+    help_close.press("Enter")
+    expect(page.locator("#helpDialog")).not_to_be_visible()
+
+    open_dialog_from_menu(page, "helpButton", "helpDialog")
+    page.locator("#helpDialog .legend").scroll_into_view_if_needed()
+    help_after_content_scroll = dialog_metrics(page, "helpDialog")
+    if help_after_content_scroll["overflowing"]:
+        assert any(item["scrollTop"] > 0 for item in help_after_content_scroll["scrollables"]), help_after_content_scroll
+    help_footer_close = page.locator("#helpDialog footer button")
+    help_footer_close.scroll_into_view_if_needed()
+    expect(help_footer_close).to_be_visible()
+    assert_control_inside_dialog(page, "helpDialog", "footer button")
+    help_footer_close.click()
+    expect(page.locator("#helpDialog")).not_to_be_visible()
+    assert_no_document_overflow(page)
+
+    assert not page_errors, page_errors
+    assert_browser_network_guard_clean(blocked_requests)
+    context.close()
+    return {
+        "viewport": f"{width}x{height}",
+        "calendarSettings": {"closeKeyboard": True, "saveReachable": True},
+        "help": {"closeKeyboard": True, "footerReachable": True},
+        "documentOverflow": False,
+    }
 
 
 def assert_no_document_overflow(page) -> None:
@@ -272,6 +471,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--html", required=True, type=Path)
     parser.add_argument("--artifacts", type=Path)
+    parser.add_argument("--dialogs-only", action="store_true")
     args = parser.parse_args()
     artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="siys-responsive-"))
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -284,15 +484,25 @@ def main() -> None:
         uri = html_path.as_uri()
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(channel="chrome", headless=True)
-            results = [run_phone_flow(browser, uri, artifacts)]
-            for width, height, compact in [
-                (320, 640, True),
-                (844, 390, True),
-                (768, 1024, True),
-                (1024, 768, False),
-                (1440, 900, False),
-            ]:
-                results.append(check_viewport(browser, uri, width, height, compact, artifacts))
+            if args.dialogs_only:
+                results = [
+                    run_dialog_height_flow(browser, uri, width, height)
+                    for width, height in [(844, 390), (667, 375), (568, 320), (390, 844)]
+                ]
+            else:
+                results = [run_phone_flow(browser, uri, artifacts)]
+                for width, height, compact in [
+                    (320, 640, True),
+                    (844, 390, True),
+                    (768, 1024, True),
+                    (1024, 768, False),
+                    (1440, 900, False),
+                ]:
+                    results.append(check_viewport(browser, uri, width, height, compact, artifacts))
+                results.extend(
+                    run_dialog_height_flow(browser, uri, width, height)
+                    for width, height in [(844, 390), (667, 375), (568, 320), (390, 844)]
+                )
             browser.close()
 
     print(json.dumps({

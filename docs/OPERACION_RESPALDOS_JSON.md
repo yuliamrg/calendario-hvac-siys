@@ -2,11 +2,11 @@
 
 `WEB_VERSION` (`apps/web/src/ui/web-version.js`) y `CLI_VERSION`
 (`apps/cli/src/version.js`) son independientes y actualmente valen
-`0.19.0` (estable publicada) y `0.18.0-beta.1`. El repositorio usa npm
-workspaces privados `apps/web`, `apps/cli` y `packages/platform`, con Platform
-Architecture V2 completa. La raíz es orquestación privada sin versión. Cada
-producto se identifica con sus tags `web-v...` o `cli-v...`; la raíz estable
-usa `web-v0.19.0`.
+`0.19.1-beta.1` en `main` (estable publicada `0.19.0`) y `0.18.0-beta.1`.
+El repositorio usa npm workspaces privados `apps/web`, `apps/cli` y
+`packages/platform`, con Platform Architecture V2 completa. La raíz es
+orquestación privada sin versión. Cada producto se identifica con sus tags
+`web-v...` o `cli-v...`; la raíz estable usa `web-v0.19.0`.
 
 `document.appVersion` es metadato legado opaco: no determina compatibilidad,
 backend, productor o último escritor. Se conserva saneado; ausente/inválido
@@ -99,7 +99,7 @@ locales no prueban qué versión o contenido están sirviendo las URLs públicas
 | Canal | URL | Referencia de versión | Regla |
 |---|---|---|---|
 | Estable | `https://yuliamrg.github.io/calendario-hvac-siys/` | `stable-version.txt` → `web-v0.19.0` | Supabase/Auth si el despliegue recibe configuración |
-| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → `0.19.0`; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
+| Beta | `https://yuliamrg.github.io/calendario-hvac-siys/beta/` | `main` → `0.19.1-beta.1`; leer encabezado y JSON | Supabase/Auth si el despliegue recibe configuración; calendario beta separado |
 | Local | `dist/calendario-hvac-siys.html` | Leer la etiqueta de la interfaz | IndexedDB y sin autenticación |
 
 Las URLs de la tabla son referencias configuradas, no evidencia de un
