@@ -84,9 +84,8 @@ clientes; Web stable y beta conservan calendarios lógicos separados.
 
 ## Identidades independientes
 
-- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.19.1"` en main;
-  `web-v0.19.1` fija la promoción y la raíz continúa en `0.19.0` hasta que se
-  integre el PR separado del puntero.
+- Web: `apps/web/src/ui/web-version.js > WEB_VERSION = "0.19.1"` en main y
+  estable; `web-v0.19.1` es el tag certificado de la raíz.
 - CLI: `apps/cli/src/version.js > CLI_VERSION = "0.18.0-beta.1"`.
 - Manifiestos: `apps/web/package.json` = `0.19.1` y
   `apps/cli/package.json` = `0.18.0-beta.1`, ambos `private: true`.
@@ -98,7 +97,7 @@ Web y CLI tienen versiones independientes. El checker valida cada pareja de
 manifiesto/constante sin exigir igualdad entre productos.
 El núcleo compartido no exporta `APP_VERSION` ni posee una release de producto.
 Se mantienen `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1`, backup
-`formatVersion = 1` y `stable-version.txt = web-v0.19.0`.
+`formatVersion = 1` y `stable-version.txt = web-v0.19.1`.
 
 ## Semántica del documento y del respaldo
 
@@ -126,11 +125,11 @@ Un envelope Web actual puede contener un documento con `appVersion` antiguo.
    independientes. No se introduce otro workstream ni framework de releases.
 
 Web usa `web-v<version>` y GitHub Pages. Beta se construye desde `main`
-(Web `0.19.1`); stable sigue desde `stable-version.txt = web-v0.19.0` hasta el
-PR del puntero. Los
-tags históricos `web-v0.17.0`, `web-v0.18.0-beta.2` y `web-v0.18.0` conservan
+(Web `0.19.1`); stable sigue desde `stable-version.txt = web-v0.19.1`. Los
+tags históricos `web-v0.17.0`, `web-v0.18.0-beta.2`, `web-v0.18.0` y
+`web-v0.19.0` conservan
 exactamente los commits de `v0.17.0`, `v0.18.0-beta.2` y `v0.18.0`; los tags
-históricos `v...` no se reescriben. El tag certificado `web-v0.19.0` identifica
+históricos `v...` no se reescriben. El tag certificado `web-v0.19.1` identifica
 la release Web estable actual.
 
 CLI usa `cli-v<version>` y GitHub Release. `scripts/build-cli-release.mjs`

@@ -29,16 +29,17 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 
 | Producto/canal | Fuente | Distribución |
 | --- | --- | --- |
-| Web stable publicada | `stable-version.txt = web-v0.19.0`, versión `0.19.0` | Raíz GitHub Pages |
-| Web beta | main, `0.19.1-beta.1` durante su certificación | `/beta/` GitHub Pages |
+| Web stable publicada | `stable-version.txt = web-v0.19.1`, versión `0.19.1` | Raíz GitHub Pages |
+| Web beta | main, `0.19.1` hasta que empiece otra línea beta | `/beta/` GitHub Pages |
 | Web local | Build HTML | Archivo autocontenido |
 | Calendary CLI | `cli-v<version>`, publicada `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
 | Platform | `packages/platform`, `0.0.0` privado | Interno, sin tags/releases propios |
 
 Web usa tags `web-v...`; CLI usa `cli-v...`. Los tags `v...` son historial
 inmutable. `web-v0.17.0`, `web-v0.18.0-beta.2` y `web-v0.18.0` conservan
-exactamente sus commits históricos. El tag certificado `web-v0.19.0` identifica
-la release Web estable actual; `stable-version.txt` selecciona el tag que Pages publica en la raíz.
+exactamente sus commits históricos. `web-v0.19.0` conserva su commit histórico;
+el tag certificado `web-v0.19.1` identifica la release Web estable actual y
+`stable-version.txt` selecciona el tag que Pages publica en la raíz.
 El puntero no altera el contenido del tag. Los tags por sí solos no disparan
 Pages ni GitHub Releases; el merge del cambio de puntero a `main` dispara Pages.
 
@@ -170,7 +171,7 @@ $playwrightPython = if ($env:PLAYWRIGHT_PYTHON) { $env:PLAYWRIGHT_PYTHON } else 
 & $playwrightPython tests/pages_smoke.py `
   --url 'https://yuliamrg.github.io/calendario-hvac-siys/' `
   --beta-url 'https://yuliamrg.github.io/calendario-hvac-siys/beta/' `
-  --stable-version 0.19.0 --beta-version 0.19.1-beta.1
+  --stable-version 0.19.1 --beta-version 0.19.1
 ```
 
 Las pruebas que crean o editan actividades se ejecutan únicamente sobre una

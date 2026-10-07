@@ -85,9 +85,8 @@ build: módulos anteriores + plantilla + CSS + SheetJS -> HTML autocontenido
   puede depender de UI, persistencia, cloud, CLI ni composición. La UI puede
   usar sus comandos sin conocer cómo se persiste el documento.
 - `WEB_VERSION` vive en `apps/web/src/ui/web-version.js` y `CLI_VERSION` en
-  `apps/cli/src/version.js`; actualmente valen `0.19.1` (promoción estable en
-  main; la raíz sigue en `0.19.0` hasta mover el puntero) y `0.18.0-beta.1`,
-  independientes
+  `apps/cli/src/version.js`; actualmente valen `0.19.1` (estable en la raíz y
+  main) y `0.18.0-beta.1`, independientes
   de `SCHEMA_VERSION = 4`, `CONTRACT_VERSION = 1` y backup `formatVersion = 1`.
 - `scripts/architecture-check.mjs` prohíbe Platform → Web/CLI, Web → CLI,
   CLI → Web, imports `node:` en dominio/núcleo/contrato y constantes de release

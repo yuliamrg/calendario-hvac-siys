@@ -16,17 +16,15 @@ está en [MODELO_ESTADOS.md](MODELO_ESTADOS.md) y el empaquetado se explica en
 ## 1. Fuentes de versión y artefactos
 
 - Web: `apps/web/package.json.version` = `WEB_VERSION` en
-  `apps/web/src/ui/web-version.js`, hoy `0.19.1` en `main`; el tag de promoción
-  `web-v0.19.1` está preparado y `stable-version.txt` conserva `web-v0.19.0`
-  hasta integrar el PR separado del puntero.
+  `apps/web/src/ui/web-version.js`, hoy `0.19.1` en `main` y estable; el tag
+  certificado `web-v0.19.1` está señalado por `stable-version.txt`.
 - CLI: `apps/cli/package.json.version` = `CLI_VERSION` en
   `apps/cli/src/version.js`, hoy `0.18.0-beta.1`.
 - Platform: `packages/platform/package.json.version = 0.0.0`, privado e interno,
   sin tags ni releases propios.
 - Raíz: `package.json` privado, sin versión; sólo orquestación. `package-lock.json`
   refleja versiones de workspaces, no contiene versión raíz.
-- `stable-version.txt = web-v0.19.0` durante la promoción; el PR del puntero lo
-  actualizará a `web-v0.19.1`.
+- `stable-version.txt = web-v0.19.1`: puntero Web estable, no versión de main.
 - dist: salida generada del build, nunca autoridad ni edición manual.
 
 `npm run version:check` valida cada producto independientemente y el formato
@@ -241,9 +239,9 @@ CI completa permanece sin optimización por paths porque Platform afecta ambos.
 ## 9. Corte actual y migración
 
 Workstream 3 completó Architecture V2 e integró versionado, tags y releases
-independientes sin cambiar el comportamiento de producto. Web `0.19.1` está
-integrada en `main` y promovida desde la beta certificada `0.19.1-beta.1`; la
-raíz continúa en `0.19.0` hasta que el PR separado mueva `stable-version.txt`.
+independientes sin cambiar el comportamiento de producto. Web estable `0.19.1`
+está integrada en `main` y promovida desde la beta certificada `0.19.1-beta.1`;
+la raíz y `/beta/` sirven `0.19.1` hasta que empiece otra línea beta.
 La versión `0.19.1` conserva confirmación por generación, protección de salida
 interactiva y respaldo manual recuperable ante fallos de persistencia; corrige
 el alcance del menú móvil y el costo de conteo de opciones de filtro. El reset
@@ -252,13 +250,13 @@ no limpia los datos cuando `flushSave()` falla. La beta
 Platform `0.0.0`, SCHEMA_VERSION 4, CONTRACT_VERSION 1 y backup formatVersion
 1. No se cambia Supabase.
 
-`web-v0.17.0`, `web-v0.18.0-beta.2` y `web-v0.18.0` conservan sus commits
-históricos. El tag certificado `web-v0.19.0` identifica la release Web estable
-actual, y `stable-version.txt` apunta a ese tag. Todos se resuelven con
-`git rev-parse <tag>^{commit}`. Web se distribuye por GitHub Pages, sin GitHub
+`web-v0.17.0`, `web-v0.18.0-beta.2`, `web-v0.18.0` y `web-v0.19.0` conservan
+sus commits históricos. El tag certificado `web-v0.19.1` identifica la release
+Web estable actual, y `stable-version.txt` apunta a ese tag. Todos se resuelven
+con `git rev-parse <tag>^{commit}`. Web se distribuye por GitHub Pages, sin GitHub
 Release; el cambio del puntero se integra mediante un PR normal.
 
 La release CLI `cli-v0.18.0-beta.1` ya está publicada y se conserva intacta.
 Los ejemplos anteriores y CHANGELOG conservan historia; CHANGELOG registra la
-promoción estable `0.19.0`, su beta certificada `0.19.0-beta.2` y mantiene la
-entrada `0.19.0-beta.1` como versión anterior.
+promoción estable `0.19.1`, su beta certificada `0.19.1-beta.1` y mantiene las
+entradas `0.19.0` y `0.19.0-beta.1` como versiones anteriores.

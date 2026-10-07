@@ -11,8 +11,8 @@
   su contrato queda protegido por pruebas y descrito en el manual.
 - CLI `0.18.0-beta.1`, Platform `0.0.0`, Schema 4, Contract 1 y backup format 1
   no cambian. No hay cambios de Supabase.
-- `stable-version.txt` se actualizará mediante el PR separado del puntero; hasta
-  su integración, la raíz de Pages conserva `web-v0.19.0`.
+- El PR separado del puntero actualiza `stable-version.txt` a `web-v0.19.1` y
+  selecciona esta versión en la raíz de Pages.
 
 ## [0.19.1-beta.1] - 2026-10-06
 
