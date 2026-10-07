@@ -16,6 +16,8 @@ def origin_for(url: str) -> str:
     parsed = urlsplit(url)
     if parsed.scheme.lower() != "https" or not parsed.hostname:
         raise ValueError("El smoke público sólo acepta una URL HTTPS con host explícito.")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("La URL pública no debe incluir credenciales, query ni fragmento.")
     return f"https://{parsed.netloc.lower()}"
 
 
@@ -122,7 +124,6 @@ def inspect_public_channel(playwright, *, url: str, expected_channel: str, expec
         raise AssertionError(f"La consola produjo errores: {console_errors}.")
 
     result = {
-        "url": url,
         "channel": app["channel"],
         "version": expected_version,
         "status": "PUBLIC_APP_HEALTHY",
