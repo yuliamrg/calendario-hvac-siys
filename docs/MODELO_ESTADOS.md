@@ -1,8 +1,9 @@
 # Modelo de datos y estados — esquema 4
 
 Web y CLI tienen identidades independientes, `WEB_VERSION` y `CLI_VERSION`,
-actualmente `0.19.0` (estable publicada) y
-`0.18.0-beta.1`.
+actualmente `0.19.1-beta.1` en `main` y `0.18.0-beta.1`. La estable publicada
+continúa en `0.19.0`; `stable-version.txt` conserva `web-v0.19.0` durante la
+certificación de la corrección.
 La raíz es
 orquestación privada sin versión y cada producto usa sus tags
 `web-v...`/`cli-v...`; la distribución CLI independiente ya está publicada y
@@ -86,8 +87,8 @@ calendarMeta contiene únicamente:
 El valor inicial de revision es 0. `document.appVersion` es metadato legado
 opaco, no compatibilidad de documento/backend, productor ni último escritor.
 `createDefaultDocument(today, now, { appVersion })` acepta un valor explícito;
-Web aporta `WEB_VERSION = "0.19.0"` para documentos nuevos. Sin valor,
-o con metadato histórico ausente/inválido al sanear, se conserva la forma con
+Web aporta `WEB_VERSION = "0.19.1-beta.1"` para documentos nuevos en `main`.
+Sin valor, o con metadato histórico ausente/inválido al sanear, se conserva la forma con
 `appVersion: ""`, sin inventar una release. Valores históricos válidos se sanean
 y conservan. La compatibilidad depende de `schemaVersion = 4`.
 El valor de

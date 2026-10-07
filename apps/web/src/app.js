@@ -1152,10 +1152,42 @@ function filterDefinitions() {
   }));
 }
 
+function filterOptionMatchCounts(definition, maps) {
+  const counts = new Map(definition.options.map((item) => [item.value, 0]));
+  const filters = {
+    ...clone(appDocument.settings.filters),
+    [definition.key]: []
+  };
+  const scalarFields = {
+    cities: "city",
+    clients: "clientId",
+    sites: "siteId",
+    serviceTypes: "serviceType",
+    statuses: "status"
+  };
+
+  for (const activity of appDocument.activities) {
+    if (!matchesActivityFilters(activity, maps, filters)) continue;
+    let values;
+    if (definition.key === "responsibles") {
+      values = new Set(activity.responsibleIds ?? []);
+    } else if (definition.key === "planningBuckets") {
+      values = [activity.planningBucket ?? "calendar"];
+    } else {
+      values = [activity[scalarFields[definition.key]] ?? ""];
+    }
+    for (const value of values) {
+      if (counts.has(value)) counts.set(value, counts.get(value) + 1);
+    }
+  }
+  return counts;
+}
+
 function renderFilterDialog() {
   const maps = lookupMaps();
   const fragment = document.createDocumentFragment();
   for (const definition of filterDefinitions()) {
+    const matchCounts = filterOptionMatchCounts(definition, maps);
     const section = createElement("fieldset", "filter-group");
     section.append(createElement("legend", "", definition.title));
     const selected = new Set(normalizeFilterArray(appDocument.settings.filters[definition.key]));
@@ -1173,11 +1205,7 @@ function renderFilterDialog() {
       section.append(searchInput);
     }
     for (const item of definition.options) {
-      const candidateFilters = clone(appDocument.settings.filters);
-      candidateFilters[definition.key] = [item.value];
-      const matches = appDocument.activities.filter((activity) =>
-        matchesActivityFilters(activity, maps, candidateFilters)
-      ).length;
+      const matches = matchCounts.get(item.value) ?? 0;
       const label = createElement("label", "check-row");
       const input = document.createElement("input");
       input.type = "checkbox";

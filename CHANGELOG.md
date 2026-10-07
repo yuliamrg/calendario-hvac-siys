@@ -1,5 +1,17 @@
 # Historial de cambios
 
+## [0.19.1-beta.1] - 2026-10-06
+
+- Corrige el acceso al final del menú de acciones en pantallas móviles bajas y
+  mantiene alcanzables Configuración y Ayuda en horizontal.
+- Reduce el cálculo de resultados de opciones de filtro a un recorrido por
+  categoría, conservando los conteos visibles y los filtros activos.
+- El CSV mensual conserva su alcance de mes completo e independencia de los
+  filtros visibles; el contrato queda cubierto por pruebas y el manual.
+- La estable continúa en `0.19.0` mientras se certifica esta corrección.
+  CLI `0.18.0-beta.1`, Platform `0.0.0`, Schema 4, Contract 1 y backup format
+  1 no cambian.
+
 ## [0.19.0] - 2026-10-06
 
 ### Publicación estable en GitHub Pages

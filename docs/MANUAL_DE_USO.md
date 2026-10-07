@@ -149,7 +149,10 @@ El bloque **Rango de fechas** permite elegir un día exacto usando la misma fech
 en ambos campos o un intervalo inclusivo.
 Las opciones sin resultados bajo los demás filtros quedan deshabilitadas.
 
-- **CSV:** exporta las actividades del mes y separa nómina de contratistas.
+- **CSV:** descarga todas las actividades fechadas de la bandeja Calendario del
+  mes seleccionado, sin aplicar la búsqueda ni los filtros visibles. Incluye
+  todos los estados; las actividades Pendiente se descargan por separado. Si
+  el mes no tiene filas, el archivo conserva los encabezados.
 - **CSV de pendientes:** descarga por separado las actividades sin fecha para
   revisarlas en Excel; el listado mensual nunca incluye estas tarjetas.
 - **Imagen de pendientes:** crea un resumen visual de las tarjetas pendientes
@@ -273,8 +276,8 @@ canal, SIYS Sync muestra una advertencia, pero el archivo sigue siendo portable.
 
 ### Estable y beta
 
-La raíz de GitHub Pages sirve Web estable `0.19.0` y `/beta/` sirve main con la
-misma versión hasta que exista una capacidad beta nueva. Ambos usan Supabase
+La raíz de GitHub Pages sirve Web estable `0.19.0` y `/beta/` sirve main
+`0.19.1-beta.1` mientras se certifica esta corrección. Ambos usan Supabase
 Auth y la base cloud compartida, con calendarios lógicos independientes.
 La versión visible y el `channel` del respaldo deben comprobarse antes de
 trasladar datos. Los datos

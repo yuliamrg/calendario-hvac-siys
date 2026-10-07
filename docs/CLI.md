@@ -1,8 +1,8 @@
 # CLI `calendary`
 
 `calendary --version` usa `apps/cli/src/version.js > CLI_VERSION`, hoy
-`0.18.0-beta.1`, independiente de `WEB_VERSION` (`0.19.0`, publicada como
-estable y servida también desde `/beta/` hasta la próxima capacidad beta).
+`0.18.0-beta.1`, independiente de Web: la estable publicada es `0.19.0` y
+`WEB_VERSION` de `main` es `0.19.1-beta.1` durante su certificación.
 El chequeo Web no requiere que CLI coincida.
 La CLI no importa versión Web ni pasa `document.appVersion` al contrato para
 sellar mutaciones. Ese campo es metadato legado opaco, no compatibilidad ni

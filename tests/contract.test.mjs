@@ -341,3 +341,72 @@ test("eliminar, restaurar, combinar y exportar preservan sus políticas", () => 
   assert.equal(csv.changed, false);
   assert.match(csv.result.content, /Cliente Uno/);
 });
+
+test("CSV calendar.export-csv exporta el mes completo sin aplicar filtros de pantalla", () => {
+  let document = documentFixture();
+  document.catalog.clients.push({
+    id: "client-2", name: "Cliente Dos", active: true, source: "manual",
+    sourceKey: "manual:client-2", updatedAt: NOW
+  });
+  document.catalog.sites.push({
+    id: "site-2", clientId: "client-2", name: "Sede Dos", city: "Cali",
+    active: true, source: "manual", sourceKey: "manual:site-2", updatedAt: NOW
+  });
+
+  const nextId = idFactory();
+  document = createOne(document, {
+    date: "2026-08-01",
+    observations: "Agosto inicio"
+  }, { idFactory: nextId }).document;
+  document = createOne(document, {
+    date: "2026-08-31",
+    clientId: "client-2",
+    siteId: "site-2",
+    city: "Cali",
+    observations: "Agosto cierre"
+  }, { idFactory: nextId }).document;
+  document.activities.push(
+    { ...document.activities[0], id: "fuera-julio", date: "2026-07-31", observations: "Fuera julio" },
+    { ...document.activities[0], id: "fuera-septiembre", date: "2026-09-01", observations: "Fuera septiembre" },
+    {
+      ...document.activities[0],
+      id: "pendiente-agosto",
+      date: null,
+      status: "to_schedule",
+      planningBucket: "quarantine",
+      observations: "Pendiente separado"
+    }
+  );
+  document.settings.currentDate = "2026-08-31";
+  document.settings.filters = {
+    ...document.settings.filters,
+    query: "sin coincidencias",
+    clients: ["client-2"],
+    dateFrom: "2026-08-31",
+    dateTo: "2026-08-31"
+  };
+
+  const exported = executeCalendarOperation(document, {
+    operation: "calendar.export-csv",
+    payload: { year: 2026, month: 8 }
+  });
+  assert.equal(exported.changed, false);
+  assert.equal(exported.result.fileName, "2026-08_programacion.csv");
+  assert.equal(exported.result.mimeType, "text/csv;charset=utf-8");
+  const rows = exported.result.content.replace(/^\uFEFF/, "").split("\r\n");
+  assert.deepEqual(rows[0].split(",").map((cell) => cell.slice(1, -1)), [
+    "Fecha", "Cliente", "Sede", "Ciudad", "Responsables nómina", "Responsables contratistas",
+    "Tipo de servicio", "Estado", "Observaciones", "ID actividad", "ID serie"
+  ]);
+  assert.equal(rows.length, 3);
+  assert.match(rows[1], /Agosto inicio/);
+  assert.match(rows[2], /Agosto cierre/);
+  assert.doesNotMatch(exported.result.content, /Fuera julio|Fuera septiembre|Pendiente separado/);
+
+  const emptyMonth = executeCalendarOperation(document, {
+    operation: "calendar.export-csv",
+    payload: { year: 2025, month: 1 }
+  });
+  assert.equal(emptyMonth.result.fileName, "2025-01_programacion.csv");
+  assert.equal(emptyMonth.result.content.replace(/^\uFEFF/, "").split("\r\n").length, 1);
+});

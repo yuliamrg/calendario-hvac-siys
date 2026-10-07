@@ -30,7 +30,7 @@ el frontend; la service_role y la contraseña de Postgres nunca deben hacerlo.
 | Producto/canal | Fuente | Distribución |
 | --- | --- | --- |
 | Web stable publicada | `stable-version.txt = web-v0.19.0`, versión `0.19.0` | Raíz GitHub Pages |
-| Web beta | main, `0.19.0` hasta la siguiente capacidad beta | `/beta/` GitHub Pages |
+| Web beta | main, `0.19.1-beta.1` durante su certificación | `/beta/` GitHub Pages |
 | Web local | Build HTML | Archivo autocontenido |
 | Calendary CLI | `cli-v<version>`, publicada `0.18.0-beta.1` | GitHub Release ZIP + SHA-256 |
 | Platform | `packages/platform`, `0.0.0` privado | Interno, sin tags/releases propios |
@@ -170,7 +170,7 @@ $playwrightPython = if ($env:PLAYWRIGHT_PYTHON) { $env:PLAYWRIGHT_PYTHON } else 
 & $playwrightPython tests/pages_smoke.py `
   --url 'https://yuliamrg.github.io/calendario-hvac-siys/' `
   --beta-url 'https://yuliamrg.github.io/calendario-hvac-siys/beta/' `
-  --stable-version 0.19.0 --beta-version 0.19.0
+  --stable-version 0.19.0 --beta-version 0.19.1-beta.1
 ```
 
 Las pruebas que crean o editan actividades se ejecutan únicamente sobre una

@@ -2,8 +2,8 @@
 
 Platform Architecture V2 está completa. La raíz privada no tiene versión:
 orquesta scripts, npm workspaces, bin y Node >=20. Las autoridades son
-`apps/web/package.json` + `WEB_VERSION` (`0.19.0`, estable y en main hasta que
-exista otra capacidad beta) y
+`apps/web/package.json` + `WEB_VERSION` (`0.19.1-beta.1` en main; estable
+`0.19.0` mientras se certifica esta corrección) y
 `apps/cli/package.json` + `CLI_VERSION` (`0.18.0-beta.1`). Platform es `0.0.0`
 interno. Schema 4, Contract 1, backup formatVersion 1 y Supabase no cambian.
 
@@ -92,7 +92,8 @@ indicar explícitamente el tag y `--require-stable-tag` comprueba el puntero.
 Los aliases históricos anteriores a workspaces se leen en sus rutas originales.
 
 Pages se ejecuta con push a `main`: la raíz se construye desde el tag
-`web-v0.19.0` señalado por `stable-version.txt` y `/beta/` desde `main`. Las
+`web-v0.19.0` señalado por `stable-version.txt` y `/beta/` desde main
+`0.19.1-beta.1`. Las
 copias del HTML estable a Pages se comparan byte a byte. Los tags no disparan
 builds ni GitHub Releases; no hay Web GitHub Release.
 
