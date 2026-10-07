@@ -148,7 +148,7 @@ def main() -> None:
     parser.add_argument("--url", required=True, help="URL pública de la Web estable")
     parser.add_argument("--beta-url", help="URL pública opcional de /beta/")
     parser.add_argument("--stable-version", default="0.19.0")
-    parser.add_argument("--beta-version", default="0.19.1-beta.1")
+    parser.add_argument("--beta-version", default="0.19.1")
     args = parser.parse_args()
 
     targets = [(args.url, "stable", args.stable_version)]

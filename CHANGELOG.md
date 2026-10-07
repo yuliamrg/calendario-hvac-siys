@@ -1,5 +1,19 @@
 # Historial de cambios
 
+## [0.19.1] - 2026-10-06
+
+### Promoción de Web a estable
+
+- Promueve la beta certificada `0.19.1-beta.1` con el ajuste de acceso a
+  Configuración/Ayuda en pantallas bajas y el cálculo de filtros para catálogos
+  grandes.
+- El CSV conserva el alcance del mes completo y no aplica los filtros visibles;
+  su contrato queda protegido por pruebas y descrito en el manual.
+- CLI `0.18.0-beta.1`, Platform `0.0.0`, Schema 4, Contract 1 y backup format 1
+  no cambian. No hay cambios de Supabase.
+- `stable-version.txt` se actualizará mediante el PR separado del puntero; hasta
+  su integración, la raíz de Pages conserva `web-v0.19.0`.
+
 ## [0.19.1-beta.1] - 2026-10-06
 
 - Corrige el acceso al final del menú de acciones en pantallas móviles bajas y

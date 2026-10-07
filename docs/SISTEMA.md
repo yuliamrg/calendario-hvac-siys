@@ -1,11 +1,10 @@
 # Sistema actual: Calendary / SIYS Sync
 
 Estado de esta página: Platform Architecture V2 completa. SIYS Sync Web
-`0.19.0` está publicado como estable, identificado por el tag certificado
-`web-v0.19.0`; fue promovido desde la beta certificada `0.19.0-beta.2`. La beta
-en `main` es `0.19.1-beta.1`. Calendary CLI conserva `0.18.0-beta.1` con
-identidad independiente. El cambio de puntero stable se integra mediante un PR
-que no modifica el producto.
+`0.19.1` está integrado en `main` y su tag de promoción será `web-v0.19.1`,
+desde la beta certificada `0.19.1-beta.1`. La raíz aún sirve `0.19.0` hasta
+integrar el PR del puntero stable. Calendary CLI conserva `0.18.0-beta.1` con
+identidad independiente.
 Describe el sistema que está en el código y la configuración actuales; no
 certifica que `dist/` sea publicable ni que el Supabase remoto tenga exactamente
 las migraciones del repositorio.
@@ -406,7 +405,7 @@ Estas reglas describen las fronteras existentes; no proponen componentes nuevos.
 | --- | --- | --- |
 | **Antecedente histórico** | S-03 y los commits posteriores añadieron `application/calendar-commands.js`, `application/import-commands.js`, `ui/view-state.js`, `activity-presentation.js`, `export-layout.js`, `importer.js` y validación automática del manifiesto. | El manifiesto fuente contiene 30 módulos y el `HEAD` local incluye `d27383a`, que regeneró `dist/`. La integración debe repetir el gate antes de publicar. |
 | **Antecedente histórico** | El worktree inicial tenía cambios en README, dist/, docs, src/, estilos y tests, además de nuevos módulos y planes. | La evidencia de esta página es local y mezclada; no debe presentarse como una release limpia. El maestro debe clasificar antes de integrar. |
-| **Estado actual** | WEB_VERSION y dist declaran Web `0.19.1-beta.1` en main; el tag estable `web-v0.19.0` y `stable-version.txt` mantienen la raíz en `0.19.0`; CLI_VERSION conserva `0.18.0-beta.1`; Schema 4, Contract 1, backup format 1 y Supabase no cambian. | Platform Architecture V2 está completa. La raíz sirve Web `0.19.0` y `/beta/` sirve `0.19.1-beta.1` durante la certificación. |
+| **Estado actual** | WEB_VERSION y dist declaran Web `0.19.1` en main; `stable-version.txt` conserva `web-v0.19.0` hasta el PR del puntero; CLI_VERSION conserva `0.18.0-beta.1`; Schema 4, Contract 1, backup format 1 y Supabase no cambian. | Platform Architecture V2 está completa. La raíz sirve Web `0.19.0` y `/beta/` sirve `0.19.1` hasta integrar el puntero. |
 | **Hecho verificado** | [docs/DISTRIBUCION.md](DISTRIBUCION.md), [docs/OPERACION_RESPALDOS_JSON.md](OPERACION_RESPALDOS_JSON.md) y [docs/VERSIONAMIENTO.md](VERSIONAMIENTO.md) fueron sincronizados: las versiones antiguas quedaron marcadas como historia y el estado actual remite a las fuentes autoritativas. | GitHub Pages se verifica con su ejecución de despliegue y los hashes de release. Supabase es independiente: el workflow de Pages no aplica migraciones ni modifica datos. |
 | **Antecedente histórico** | [docs/ARQUITECTURA.md](ARQUITECTURA.md) registra el corte local actual: `app.js` 4.823 líneas, `core.js` 1.315, `importer.js` 11 y 190 pruebas. | Las métricas son descriptivas del corte, no límites de diseño; deben actualizarse sólo cuando cambie el corte verificable. |
 | **Hecho verificado** | `cloud.js` persiste mediante `persist_calendar_document`: CAS por revisión de fila, documento y metadata en una transacción. | La migración fue aplicada y certificada en desarrollo en el workstream previo; esta fase no modifica el backend. |
