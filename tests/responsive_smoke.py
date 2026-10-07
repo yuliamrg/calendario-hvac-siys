@@ -7,6 +7,12 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
+from browser_safety import (
+    assert_browser_network_guard_clean,
+    install_browser_network_guard,
+    write_offline_html,
+)
+
 
 def wait_ready(page) -> None:
     page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
@@ -87,6 +93,20 @@ def run_phone_flow(browser, uri: str, artifacts: Path) -> dict:
         locale="es-CO",
         accept_downloads=True,
         has_touch=True,
+    )
+    blocked_requests = install_browser_network_guard(context)
+    context.add_init_script(
+        """(() => {
+          const NativeDate = Date;
+          const fixedNow = NativeDate.parse('2026-07-01T12:00:00Z');
+          class FixedDate extends NativeDate {
+            constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+            static now() { return fixedNow; }
+          }
+          FixedDate.parse = NativeDate.parse;
+          FixedDate.UTC = NativeDate.UTC;
+          window.Date = FixedDate;
+        })();"""
     )
     page = context.new_page()
     page_errors: list[str] = []
@@ -208,6 +228,7 @@ def run_phone_flow(browser, uri: str, artifacts: Path) -> dict:
     page.screenshot(path=str(artifacts / "phone-390x844.png"), full_page=True)
     assert not page_errors, page_errors
     assert not console_errors, console_errors
+    assert_browser_network_guard_clean(blocked_requests)
     context.close()
     return {
         "viewport": "390x844",
@@ -223,6 +244,7 @@ def check_viewport(browser, uri: str, width: int, height: int, compact: bool, ar
         locale="es-CO",
         has_touch=compact,
     )
+    blocked_requests = install_browser_network_guard(context)
     page = context.new_page()
     errors: list[str] = []
     page.on("pageerror", lambda error: errors.append(str(error)))
@@ -241,33 +263,37 @@ def check_viewport(browser, uri: str, width: int, height: int, compact: bool, ar
     assert_no_document_overflow(page)
     page.screenshot(path=str(artifacts / f"viewport-{width}x{height}.png"), full_page=True)
     assert not errors, errors
+    assert_browser_network_guard_clean(blocked_requests)
     context.close()
     return {"viewport": f"{width}x{height}", "compactAgenda": compact, "documentOverflow": False}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--html", type=Path)
-    source.add_argument("--url")
+    parser.add_argument("--html", required=True, type=Path)
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
     artifacts = args.artifacts or Path(tempfile.mkdtemp(prefix="siys-responsive-"))
     artifacts.mkdir(parents=True, exist_ok=True)
-    uri = args.url or args.html.resolve().as_uri()
+    source_html_path = args.html.resolve()
 
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel="chrome", headless=True)
-        results = [run_phone_flow(browser, uri, artifacts)]
-        for width, height, compact in [
-            (320, 640, True),
-            (844, 390, True),
-            (768, 1024, True),
-            (1024, 768, False),
-            (1440, 900, False),
-        ]:
-            results.append(check_viewport(browser, uri, width, height, compact, artifacts))
-        browser.close()
+    with tempfile.TemporaryDirectory(prefix="siys-responsive-offline-") as isolated_dir:
+        html_path = write_offline_html(
+            source_html_path, Path(isolated_dir) / "index.html"
+        )
+        uri = html_path.as_uri()
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(channel="chrome", headless=True)
+            results = [run_phone_flow(browser, uri, artifacts)]
+            for width, height, compact in [
+                (320, 640, True),
+                (844, 390, True),
+                (768, 1024, True),
+                (1024, 768, False),
+                (1440, 900, False),
+            ]:
+                results.append(check_viewport(browser, uri, width, height, compact, artifacts))
+            browser.close()
 
     print(json.dumps({
         "status": "ok",

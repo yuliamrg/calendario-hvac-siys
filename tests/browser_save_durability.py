@@ -8,6 +8,11 @@ from pathlib import Path
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import expect, sync_playwright
 
+from browser_safety import (
+    assert_browser_network_guard_clean,
+    install_browser_network_guard,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_HTML = ROOT / "dist" / "index.html"
@@ -190,22 +195,14 @@ def dismiss_reload_dialog(page, dialogs: list[str]) -> None:
         page.remove_listener("dialog", handle)
 
 
-def open_context(browser, html_path: Path, external_requests: list[str], page_errors: list[str]):
+def open_context(browser, html_path: Path, blocked_requests: list[str], page_errors: list[str]):
     context = browser.new_context(
         locale="es-CO",
         timezone_id="America/Bogota",
         viewport={"width": 1440, "height": 900},
     )
 
-    def guard(route) -> None:
-        url = route.request.url
-        if url.startswith(("https://", "http://")):
-            external_requests.append(url.split("/")[2])
-            route.abort()
-        else:
-            route.continue_()
-
-    context.route("**/*", guard)
+    install_browser_network_guard(context, blocked_requests=blocked_requests)
     context.add_init_script(INIT_SCRIPT)
     page = context.new_page()
     page.on("pageerror", lambda error: page_errors.append(str(error)))
@@ -217,7 +214,7 @@ def open_context(browser, html_path: Path, external_requests: list[str], page_er
 
 def run() -> dict:
     report = {"browser": None, "viewport": "1440x900", "d1": {}, "d2": {}, "error": {}}
-    external_requests: list[str] = []
+    blocked_requests: list[str] = []
     page_errors: list[str] = []
 
     with tempfile.TemporaryDirectory(prefix="siys-save-d-browser-") as temp_dir:
@@ -228,7 +225,7 @@ def run() -> dict:
             browser = playwright.chromium.launch(channel="chrome", headless=True)
             report["browser"] = browser.version
 
-            context, page = open_context(browser, html_path, external_requests, page_errors)
+            context, page = open_context(browser, html_path, blocked_requests, page_errors)
             save_baseline(page, "Baseline D1")
             report["d1"]["baseline"] = page.evaluate("window.__D_SAVE_HARNESS__.api.storedName()")
             page.evaluate('() => { const h=window.__D_SAVE_HARNESS__; h.hold=true; h.writes=[]; h.waiters=[]; }')
@@ -255,7 +252,7 @@ def run() -> dict:
             })''')
             context.close()
 
-            context, page = open_context(browser, html_path, external_requests, page_errors)
+            context, page = open_context(browser, html_path, blocked_requests, page_errors)
             save_baseline(page, "Baseline D2")
             page.evaluate('() => { const h=window.__D_SAVE_HARNESS__; h.hold=true; h.writes=[]; h.waiters=[]; }')
             page.evaluate('window.__D_SAVE_HARNESS__.api.edit("D2-A")')
@@ -295,7 +292,7 @@ def run() -> dict:
             }
             context.close()
 
-            context, page = open_context(browser, html_path, external_requests, page_errors)
+            context, page = open_context(browser, html_path, blocked_requests, page_errors)
             save_baseline(page, "Baseline backup")
             page.evaluate('() => { const h=window.__D_SAVE_HARNESS__; h.hold=true; h.writes=[]; h.waiters=[]; }')
             downloads: list[str] = []
@@ -322,7 +319,7 @@ def run() -> dict:
             page.wait_for_function('window.__D_SAVE_HARNESS__.api.metrics().pending === false')
             context.close()
 
-            context, page = open_context(browser, html_path, external_requests, page_errors)
+            context, page = open_context(browser, html_path, blocked_requests, page_errors)
             save_baseline(page, "Baseline error")
             page.evaluate('() => { const h=window.__D_SAVE_HARNESS__; h.hold=true; h.writes=[]; h.waiters=[]; }')
             page.evaluate('window.__D_SAVE_HARNESS__.api.edit("Error snapshot")')
@@ -374,10 +371,9 @@ def run() -> dict:
             context.close()
             browser.close()
 
-    report["external_requests"] = external_requests
+    report["blocked_requests"] = blocked_requests
     report["page_errors"] = page_errors
-    if external_requests:
-        raise AssertionError("La prueba intentó una solicitud HTTP(S) externa")
+    assert_browser_network_guard_clean(blocked_requests)
     if page_errors:
         raise AssertionError("Errores de página: " + json.dumps(page_errors, ensure_ascii=False))
 
