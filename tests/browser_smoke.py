@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 from openpyxl import load_workbook
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page, expect, sync_playwright
 
 from browser_safety import (
@@ -49,6 +50,26 @@ def get_state(page: Page) -> dict:
 
 def wait_saved(page: Page) -> None:
     expect(page.locator("#saveIndicatorText")).to_have_text("Guardado", timeout=15_000)
+
+
+def _accept_dialog(dialog) -> None:
+    try:
+        dialog.accept()
+    except PlaywrightError:
+        pass
+
+
+def ensure_local_edit_control(page: Page) -> None:
+    if page.locator("#newActivityButton").is_enabled():
+        expect(page.locator("#accessBanner")).not_to_be_visible()
+        return
+    expect(page.locator("#accessBanner")).to_be_visible()
+    expect(page.locator("#newActivityButton")).to_be_disabled()
+    expect(page.locator("#takeControlButton")).to_be_visible()
+    page.once("dialog", _accept_dialog)
+    page.locator("#takeControlButton").click()
+    expect(page.locator("#accessBanner")).not_to_be_visible(timeout=15_000)
+    expect(page.locator("#newActivityButton")).to_be_enabled()
 
 
 def click_menu_action(page: Page, button_id: str) -> None:
@@ -544,6 +565,7 @@ def launch_and_check(
     state_before_reload = get_state(page)
     page.reload(wait_until="load")
     page.wait_for_selector('body[data-ready="true"]', timeout=20_000)
+    ensure_local_edit_control(page)
     state_after_reload = get_state(page)
     assert len(state_after_reload["activities"]) == len(
         state_before_reload["activities"]
