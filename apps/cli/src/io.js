@@ -1,5 +1,6 @@
-import { writeFile } from "node:fs/promises";
+import { access, rename, rm, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
+import { resolve } from "node:path";
 import { CALENDAR_OPERATIONS } from "@siys-sync/platform/calendar-contract.js";
 
 export async function confirmDestructive(operation, values, stdin, stdout) {
@@ -52,4 +53,23 @@ export async function writeNewTextFile(path, content) {
     }
     throw error;
   }
+}
+
+// Escribe JSON de forma verificable: nunca sobreescribe un destino existente y
+// nunca deja un archivo parcial en el destino si la escritura se interrumpe.
+export async function writeVerifiedJsonFile(path, content) {
+  const absolute = resolve(path);
+  const exists = await access(absolute).then(() => true, () => false);
+  if (exists) {
+    throw Object.assign(new Error(`El destino ya existe: ${absolute}`), { code: "OUTPUT_EXISTS" });
+  }
+  const temporary = `${absolute}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    await writeFile(temporary, content, { encoding: "utf8", flag: "wx" });
+    await rename(temporary, absolute);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw error;
+  }
+  return absolute;
 }

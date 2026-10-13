@@ -148,6 +148,25 @@ Get-FileHash -Algorithm SHA256 -LiteralPath $source
 
 El respaldo nuevo es la única entrada autorizada para la modificación.
 
+### 2b. Alternativa de solo lectura por CLI
+
+Cuando el objetivo es conservar una copia consultable del cronograma cloud sin
+modificarlo, la CLI exporta el documento actual con GET:
+
+```powershell
+node apps/cli/bin/calendary.js cloud export-backup `
+  --channel beta --calendar-id <uuid> `
+  --output-file "$backupRoot\YYYY-MM-DD_HH-mm-ss_respaldo-cloud_beta.json" `
+  --output json
+```
+
+La operación exige canal explícito y una identidad de calendario inequívoca, no
+emite el RPC de escritura y no modifica `lastBackupAt`, auditoría ni revisión. El
+destino nunca se sobrescribe: un archivo existente falla con `OUTPUT_EXISTS`. El
+JSON resultante conserva la envoltura de respaldo y agrega un objeto `capture`
+con canal, calendario, revisiones, hash del documento, momento observado,
+versión del extractor y advertencias; no contiene tokens ni sesiones.
+
 ### 3. Validar e inspeccionar el JSON
 
 La validación mínima, incluso cuando no esté disponible la CLI, es:

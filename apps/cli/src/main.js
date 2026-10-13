@@ -1,13 +1,16 @@
 import { stdin as defaultStdin, stdout as defaultStdout, stderr as defaultStderr } from "node:process";
+import { resolve } from "node:path";
 import { CALENDAR_OPERATIONS, CalendarContractError, executeCalendarOperation } from "@siys-sync/platform/calendar-contract.js";
+import { createBackupEnvelope } from "@siys-sync/platform/core.js";
 import { CLI_VERSION } from "./version.js";
 import { CLOUD_COMMANDS, HELP, buildPayload, parseCli } from "./arguments.js";
 import { createSupabaseAuthClient, supabaseConfigFromEnv } from "./cloud-auth.js";
 import { CloudCliError } from "./cloud-errors.js";
 import { CloudCalendarSource } from "./cloud-read.js";
+import { documentHash } from "./source-metadata.js";
 import { createCloudCalendarWriter } from "./cloud-write.js";
 import { readPassword, readPasswordFromStdin } from "./auth-prompt.js";
-import { confirmDestructive, exitCodeFor, formatHumanResult, writeNewTextFile } from "./io.js";
+import { confirmDestructive, exitCodeFor, formatHumanResult, writeNewTextFile, writeVerifiedJsonFile } from "./io.js";
 
 const BACKUP_OPERATIONS = new Set(["backup.restore", "backup.merge"]);
 const SOURCE_AUTHORITY_MESSAGE = "La CLI usa Supabase como única autoridad; indica --source cloud.";
@@ -96,6 +99,54 @@ async function runCloudCommand(operation, values, io, stdout, stderr) {
     const result = { source: { kind: "cloud", channel: values.channel, observedAt: new Date().toISOString() }, calendars };
     if (output === "json") printJson(stdout, result);
     else printCloudHuman(stdout, result);
+    return 0;
+  }
+  if (operation === "cloud.export-backup") {
+    if (!values.channel || !["stable", "beta"].includes(values.channel)) throw new CloudCliError("CHANNEL_INVALID", "cloud export-backup requiere --channel stable|beta.");
+    if (values.mine && values["calendar-id"] !== undefined) throw new CloudCliError("INVALID_REQUEST", "Usa --mine o --calendar-id, no ambos.");
+    if (!values["output-file"]) throw new CloudCliError("INVALID_REQUEST", "cloud export-backup requiere --output-file con el destino del respaldo JSON.");
+    const source = new CloudCalendarSource(config, { auth, fetchImpl: io.fetch, timeoutMs: io.timeoutMs });
+    const input = await source.load({
+      channel: values.channel,
+      calendarId: values["calendar-id"],
+      mine: Boolean(values.mine)
+    });
+    const envelope = createBackupEnvelope(input.document, {
+      exportedAt: input.source.observedAt,
+      origin: `Supabase · ${values.channel.toUpperCase()} · calendary-cli`,
+      channel: values.channel,
+      exporterVersion: CLI_VERSION
+    });
+    // Los metadatos de captura se separan del documento y nunca incluyen tokens.
+    const capture = {
+      extractor: "calendary-cli",
+      extractorVersion: CLI_VERSION,
+      channel: values.channel,
+      calendarId: input.source.calendarId,
+      legacyId: input.source.legacyId,
+      calendarName: input.source.calendarName,
+      createdBy: input.source.createdBy,
+      ownerName: input.source.ownerName ?? null,
+      cloudRevision: input.source.cloudRevision,
+      documentRevision: input.source.documentRevision,
+      documentHash: documentHash(envelope.document),
+      cloudDocumentHash: input.source.documentHash,
+      documentUpdatedAt: input.source.documentUpdatedAt,
+      observedAt: input.source.observedAt,
+      warnings: input.source.warnings ?? []
+    };
+    const serialized = `${JSON.stringify({ ...envelope, capture }, null, 2)}\n`;
+    const absolute = await writeVerifiedJsonFile(values["output-file"], serialized);
+    const result = {
+      exported: true,
+      file: { path: absolute, bytes: Buffer.byteLength(serialized, "utf8") },
+      format: envelope.format,
+      formatVersion: envelope.formatVersion,
+      source: input.source,
+      capture
+    };
+    if (output === "json") printJson(stdout, result);
+    else stdout.write(`Respaldo cloud exportado en ${absolute} (canal ${capture.channel}, calendario ${capture.calendarId}, revisión documento=${capture.documentRevision ?? "?"}, cloud=${capture.cloudRevision ?? "?"}).\n`);
     return 0;
   }
   throw new CloudCliError("INVALID_REQUEST", `Comando cloud desconocido: ${operation}.`);

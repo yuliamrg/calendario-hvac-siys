@@ -46,7 +46,8 @@ Los únicos archivos que la CLI acepta son operandos o salidas explícitas:
 
 - `--backup-file`: respaldo JSON para `backup restore|merge`;
 - `--payload-file`: objeto exacto de una operación;
-- `--csv-output`: destino de `calendar export-csv|export-quarantine-csv`.
+- `--csv-output`: destino de `calendar export-csv|export-quarantine-csv`;
+- `--output-file`: destino del respaldo JSON de `cloud export-backup`.
 
 El flujo operativo completo —incluida la carpeta canónica de respaldos, la
 separación estable/beta y la restauración verificada— está en
@@ -160,6 +161,29 @@ requieren `--yes`. Las fechas dominicales o festivas requieren
 `--allow-non-working` cuando la operación tiene ese control. Para normalizar
 texto visible o ampliar rangos se recomienda usar `--payload` con el objeto
 exacto del contrato.
+
+## Exportar un respaldo cloud (`cloud export-backup`)
+
+`cloud export-backup` lee el documento actual con GET y escribe un respaldo JSON
+compatible con el importador de Base Operativa. No ejecuta el contrato, no emite
+RPC y no modifica el calendario, su revisión, `lastBackupAt` ni la auditoría. La
+renovación de la sesión de autenticación no es una escritura del calendario.
+Requiere canal explícito y una selección inequívoca del calendario; si hay varios
+candidatos devuelve `CALENDAR_AMBIGUOUS` y no elige el primero. El destino se
+indica con `--output-file` y nunca se sobreescribe un archivo existente
+(`OUTPUT_EXISTS`).
+
+```powershell
+node apps/cli/bin/calendary.js cloud export-backup `
+  --channel beta --calendar-id 00000000-0000-0000-0000-000000000000 `
+  --output-file .\2026-10-13_respaldo-cloud_beta.json --output json
+```
+
+El archivo resultante conserva la envoltura `calendario-hvac-siys-backup`
+(`format`, `formatVersion`, `document`, `channel`, `revision`, ...) y añade un
+objeto `capture` separado del documento con canal, `calendarId`, revisión cloud,
+revisión y hash del documento, momento de observación, versión del extractor y
+advertencias. No incluye tokens, credenciales ni sesiones.
 
 ## Respaldos (`backup restore` / `backup merge`)
 

@@ -14,7 +14,7 @@ Grupos y acciones:
   holiday   list | add | delete
   backup    restore | merge
   document  normalize-text
-  cloud     login | whoami | logout | calendars
+  cloud     login | whoami | logout | calendars | export-backup
 
 Selección del calendario cloud (obligatoria):
   --source cloud           Supabase es la única autoridad del calendario. No existe modo file.
@@ -33,6 +33,7 @@ Contrato de entrada:
 Archivos y seguridad:
   --backup-file archivo    Respaldo JSON para backup restore|merge (sólo operando; no es autoridad)
   --csv-output archivo     Destino de calendar export-csv|export-quarantine-csv (sólo salida)
+  --output-file archivo    Destino del respaldo JSON de cloud export-backup (sólo salida)
   --dry-run                Autentica, lee el documento real y ejecuta el contrato sin persistir
   --yes                    Confirma delete y restore sin preguntar
   --allow-non-working      Autoriza domingos o festivos
@@ -61,12 +62,12 @@ const VALUE_OPTIONS = [
   "field", "value", "mode", "values", "client-id", "site-id", "city", "responsible-ids",
   "service-type", "planning-bucket", "observations", "query", "active", "name", "reason",
   "client-name", "site-name", "responsible-names", "new-responsible-type",
-  "channel", "calendar-id", "as-of", "email"
+  "channel", "calendar-id", "as-of", "email", "output-file"
 ];
 const BOOLEAN_OPTIONS = ["dry-run", "yes", "allow-non-working", "quiet", "debug", "help", "version", "include-non-working", "include-activities", "include-catalog", "include-meta", "mine", "password-stdin"];
 
 export const CLOUD_COMMANDS = Object.freeze(new Set([
-  "cloud.login", "cloud.whoami", "cloud.logout", "cloud.calendars"
+  "cloud.login", "cloud.whoami", "cloud.logout", "cloud.calendars", "cloud.export-backup"
 ]));
 
 export function parseCli(argv) {
@@ -104,7 +105,7 @@ export async function buildPayload(operation, values) {
     "planning-bucket": "planningBucket"
   };
   for (const key of VALUE_OPTIONS) {
-    if (values[key] === undefined || ["source", "backup-file", "payload", "payload-file", "output", "csv-output", "channel", "calendar-id", "as-of", "email"].includes(key)) continue;
+    if (values[key] === undefined || ["source", "backup-file", "payload", "payload-file", "output", "csv-output", "output-file", "channel", "calendar-id", "as-of", "email"].includes(key)) continue;
     let value = values[key];
     if (["activity-ids", "responsible-ids", "responsible-names"].includes(key)) value = split(value);
     if (["year", "month"].includes(key)) value = Number(value);
